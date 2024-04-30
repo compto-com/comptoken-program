@@ -1,0 +1,17 @@
+[package]
+name = "compto-token"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bs58 = "0.5.1"
+solana-program = "1.18.12"
+spl-token = { version="4.0.1", features = [ "no-entrypoint" ] }
+
+
+[lib]
+path = "src/compto_token.rs"
+name = "compto_token"
+crate-type = ["cdylib", "lib"]

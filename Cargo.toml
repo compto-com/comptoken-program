@@ -7,11 +7,12 @@ edition = "2021"
 
 [dependencies]
 bs58 = "0.5.1"
+hex = "0.4.3"
 solana-program = "1.18.12"
 spl-token = { version="4.0.1", features = [ "no-entrypoint" ] }
 
 
 [lib]
-path = "src/compto_token.rs"
-name = "compto_token"
+path = "src/comptoken.rs"
+name = "comptoken"
 crate-type = ["cdylib", "lib"]

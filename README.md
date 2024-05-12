@@ -1,3 +1,7 @@
+# Environment
+
+Ubuntu 22.04
+
 # Build
 
 `cargo build-sbf`
@@ -12,7 +16,7 @@ Install rust and the solana CLI (see docs: https://solana.com/tr/developers/guid
 # Testing
 
 Start the test server: `solana-test-validator`  
-`python3 test/full_deploy_test.py`
+then, run the test deployment script: `python3 test/full_deploy_test.py`
 
 
 # Debugging

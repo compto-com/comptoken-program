@@ -16,52 +16,49 @@ const fs = require('fs');
 const { 
   setAuthority,
   AuthorityType,
-  TOKEN_PROGRAM_ID
+  TOKEN_PROGRAM_ID,
+  unpackMint,
 } = require('@solana/spl-token');
 const bs58 = require('bs58');
 
-// let splTokenId = TOKEN_PROGRAM_ID;
-let compto_token_id_str = require("../../compto_token_id.json")["commandOutput"]["address"]
-let compto_program_id_str = require("../.cache/compto_program_id.json")['programId'];
-let test_account = require("../.cache/compto_test_account.json");
-// let compto_mint_authority = require("../.cache/compto_mint_authority.json")['mintAuthority'];
-let destination_keypair = Keypair.fromSecretKey(new Uint8Array(test_account));
+const Instruction = {
+    TEST: 0,
+    COMPTOKEN_MINT: 1,
+    INITIALIZE_STATIC_ACCOUNT: 2
+};
 let connection = new Connection('http://localhost:8899', 'recent');
 
-const keypairFilePath = '/home/david/.config/solana/id.json';
-const keypairJson = JSON.parse(fs.readFileSync(keypairFilePath, 'utf8'));
-const me_keypair = Keypair.fromSecretKey(Uint8Array.from(keypairJson));
-
-
-// Pubkey bytes
-const me = bs58.decode("zrnQQbTKqNVzTQBxNkQR1nkFaVQEJEkghAkcW2LfcVY");
-const compto_token_bytes = bs58.decode(compto_token_id_str);
-const destination_keypair_bytes = Buffer.from(destination_keypair.publicKey.toBytes());
-const compto_program_id_bytes = bs58.decode(compto_program_id_str);
-
+// Read Cache Files
+let static_pda_str = require("../.cache/compto_static_pda.json")["address"];
+let static_pda_seed = require("../.cache/compto_static_pda.json")["bumpSeed"];
+let compto_token_id_str = require("../.cache/comptoken_id.json")["commandOutput"]["address"]
+let compto_program_id_str = require("../.cache/compto_program_id.json")['programId'];
+let test_account = require("../.cache/compto_test_account.json");
 
 // Pubkeys
-const me_pubkey = new PublicKey(me);
-const compto_token_pubkey = new PublicKey(compto_token_bytes);
-const compto_program_id_pubkey = new PublicKey(compto_program_id_bytes);
+const destination_pubkey = Keypair.fromSecretKey(new Uint8Array(test_account)).publicKey;
+const static_pda_pubkey = new PublicKey(bs58.decode(static_pda_str));
+const me_pubkey = new PublicKey(bs58.decode("zrnQQbTKqNVzTQBxNkQR1nkFaVQEJEkghAkcW2LfcVY"));
+const comptoken_pubkey = new PublicKey(bs58.decode(compto_token_id_str));
+const compto_program_id_pubkey = new PublicKey(bs58.decode(compto_program_id_str));
 const temp_keypair = Keypair.generate();
 
 console.log("me: " + me_pubkey);
-console.log("destination: " + destination_keypair.publicKey);
+console.log("destination: " + destination_pubkey);
 console.log("tempkeypair: " + temp_keypair.publicKey);
-console.log("compto_token: " + compto_token_pubkey);
+console.log("compto_token: " + comptoken_pubkey);
 console.log("compto_program_id: " + compto_program_id_pubkey);
+console.log("static_pda: " + static_pda_pubkey);
 
-const TESTMINT = 0;
+
 
 (async () => {
-    // how to create a program address based using bumpseed
-    // const d2 = PublicKey.createProgramAddressSync(["compto", Buffer.alloc(1, bumpseed)], compto_program_id_pubkey);
-    const [derived_address, bumpseed] = PublicKey.findProgramAddressSync(["compto"], compto_program_id_pubkey);
     await airdrop(temp_keypair.publicKey);
-    await setMintAuthority(derived_address);
-    await mintComptokens(derived_address, bumpseed);
-    // await testMint(derived_address, bumpseed);
+    await setMintAuthorityIfNeeded();
+    await testMint();
+    await initializeStaticAccount();
+    await mintComptokens();
+    
 })();
 
 
@@ -71,26 +68,61 @@ async function airdrop(pubkey) {
     console.log("Airdrop confirmed");
 }
 
-async function setMintAuthority(derived_address) {
-    me_signer = {publicKey: me_pubkey, secretKey: Uint8Array.from(keypairJson)}
+async function setMintAuthorityIfNeeded() {
+    const info = await connection.getAccountInfo(comptoken_pubkey, "confirmed");
+    const unpackedMint = unpackMint(comptoken_pubkey, info, TOKEN_PROGRAM_ID);
+    if (unpackedMint.mintAuthority.toString() == static_pda_pubkey.toString()) {
+        console.log("Mint Authority already set, skipping setAuthority Transaction");
+    } else {
+        console.log("Mint Authority not set, setting Authority");
+        await setMintAuthority(unpackedMint.mintAuthority);
+    }
+}
+
+async function setMintAuthority(mint_authority_pubkey) {
+    // My Keypair: TODO: Replace with an ephemeral keypair
+    me_secret_key = Uint8Array.from(JSON.parse(fs.readFileSync('/home/david/.config/solana/id.json', 'utf8')));
+    me_signer = {publicKey: me_pubkey, secretKey: me_secret_key}
     const res = await setAuthority(
         connection,
         me_signer,
-        compto_token_pubkey,
-        me_signer,
+        comptoken_pubkey,
+        mint_authority_pubkey,
         AuthorityType.MintTokens,
-        derived_address
+        static_pda_pubkey
     );
 }
 
-async function mintComptokens(derived_address, bumpseed) {
-    let data = Buffer.from([1, bumpseed]);
+async function testMint() {
+    let data = Buffer.from([Instruction.TEST]);
+    let keys = [
+        // the address to receive the test tokens
+        { pubkey: destination_pubkey, isSigner: false, isWritable: true },
+        // the mint authority that will sign to mint the tokens
+        { pubkey: static_pda_pubkey, isSigner: false, isWritable: false},
+        // ...
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        // ...
+        { pubkey: compto_program_id_pubkey, isSigner: false, isWritable: false },
+        // ....
+        { pubkey: comptoken_pubkey, isSigner: false, isWritable: true },
+    ];
+    let testMintTransaction = new Transaction();
+    testMintTransaction.add(
+        new TransactionInstruction({
+            keys: keys,
+            programId: compto_program_id_pubkey,
+            data: data,
+        }),
+    );
+    let testMintResult = await sendAndConfirmTransaction(connection, testMintTransaction, [temp_keypair, temp_keypair]);
+    console.log("testMint transaction confirmed", testMintResult);
+}
+// under construction
+async function mintComptokens() {
+    let data = Buffer.from([Instruction.COMPTOKEN_MINT]);
     let keys = [{ pubkey: SYSVAR_SLOT_HASHES_PUBKEY, isSigner: false, isWritable: false },
-                { pubkey: destination_keypair.publicKey, isSigner: false, isWritable: true },];
-                // { pubkey: derived_address, isSigner: false, isWritable: false},
-                // { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-                // { pubkey: compto_program_id_pubkey, isSigner: false, isWritable: false },
-                // { pubkey: compto_token_pubkey, isSigner: false, isWritable: true },];
+                { pubkey: destination_pubkey, isSigner: false, isWritable: true },];
     let mintComptokensTransaction = new Transaction();
     mintComptokensTransaction.add(
         new TransactionInstruction({
@@ -103,21 +135,62 @@ async function mintComptokens(derived_address, bumpseed) {
     console.log("mintComptokens transaction confirmed", mintComptokensResult);
 }
 
-async function testMint(derived_address, bumpseed) {
-    let data = Buffer.from([1, bumpseed]);
-    let keys = [{ pubkey: destination_keypair.publicKey, isSigner: false, isWritable: true },
-                { pubkey: derived_address, isSigner: false, isWritable: false},
-                { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-                { pubkey: compto_program_id_pubkey, isSigner: false, isWritable: false },
-                { pubkey: compto_token_pubkey, isSigner: false, isWritable: true },];
-    let testMintTransaction = new Transaction();
-    testMintTransaction.add(
+async function initializeStaticAccount() {
+    // createAccountTransaction = new Transaction();
+    // createAccountTransaction.add(SystemProgram.createAccount({
+    //     fromPubkey: temp_keypair.publicKey,
+    //     newAccountPubkey: static_pda_pubkey,
+    //     lamports: 1000, // Example lamports amount
+    //     space: 256, // Example space allocation in bytes
+    //     programId: compto_program_id_pubkey,
+    // }));
+    // let staticAccountResult = await sendAndConfirmTransaction(connection, createAccountTransaction, [temp_keypair, temp_keypair]);
+    // console.log("Static Account created");
+
+
+   
+    // MAGIC NUMBER: CHANGE NEEDS TO BE REFLECTED IN comptoken.rs
+    const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(4096);
+    console.log("Rent exempt amount: ", rentExemptAmount);
+    let data = Buffer.alloc(9);
+    data.writeUInt8(Instruction.INITIALIZE_STATIC_ACCOUNT, 0);
+    data.writeBigInt64LE(BigInt(rentExemptAmount), 1);
+    console.log("data: ", data);
+    let keys = [
+        { pubkey: static_pda_pubkey, isSigner: false, isWritable: true},
+        { pubkey: temp_keypair.publicKey, isSigner: true, isWritable: true },
+        // needed because compto program interacts with the system program to create the account
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
+        // { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        //{ pubkey: destination_pubkey, isSigner: false, isWritable: true },
+        //{ pubkey: compto_program_id_pubkey, isSigner: false, isWritable: false },
+    ];
+    let initializeStaticAccountTransaction = new Transaction();
+    initializeStaticAccountTransaction.add(
         new TransactionInstruction({
             keys: keys,
             programId: compto_program_id_pubkey,
             data: data,
         }),
     );
-    let testMintResult = await sendAndConfirmTransaction(connection, testMintTransaction, [temp_keypair, temp_keypair]);
-    console.log("testMint transaction confirmed", testMintResult);
+    let initializeStaticAccountResult = await sendAndConfirmTransaction(connection, initializeStaticAccountTransaction, [temp_keypair, temp_keypair]);
+    console.log("initializeStaticAccount transaction confirmed", initializeStaticAccountResult);
+    
+}
+// how to create a program address based using bumpseed
+// const d2 = PublicKey.createProgramAddressSync(["compto", Buffer.alloc(1, bumpseed)], compto_program_id_pubkey);
+// const [derived_address, bumpseed] = PublicKey.findProgramAddressSync([STATIC_ACCOUNT_SEED], compto_program_id_pubkey);
+
+async function getRentExemptAmount(accountSizeInBytes) {
+    try {
+        // Get rent exempt amount for the specified account size
+        
+        
+        console.log(`Rent exempt amount for ${accountSizeInBytes} bytes: ${rentExemptAmount} lamports`);
+        
+        return rentExemptAmount;
+    } catch (error) {
+        console.error('Error getting rent exempt amount:', error);
+        throw error;
+    }
 }

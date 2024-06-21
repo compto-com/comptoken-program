@@ -1,23 +1,21 @@
 // const  = require("@solana/web3.js");
 
 const {
-  Keypair,
-  Transaction,
-  SystemProgram,
-  LAMPORTS_PER_SOL,
-  TransactionInstruction,
-  sendAndConfirmTransaction,
-  clusterApiUrl,
-  Connection,
-  PublicKey,
-  SYSVAR_SLOT_HASHES_PUBKEY
+    Keypair,
+    Transaction,
+    SystemProgram,
+    LAMPORTS_PER_SOL,
+    TransactionInstruction,
+    sendAndConfirmTransaction,
+    Connection,
+    PublicKey,
+    SYSVAR_SLOT_HASHES_PUBKEY
 } = require("@solana/web3.js");
-const fs = require('fs');
 const { 
-  setAuthority,
-  AuthorityType,
-  TOKEN_PROGRAM_ID,
-  unpackMint,
+    setAuthority,
+    AuthorityType,
+    TOKEN_PROGRAM_ID,
+    unpackMint,
 } = require('@solana/spl-token');
 const bs58 = require('bs58');
 
@@ -30,7 +28,6 @@ let connection = new Connection('http://localhost:8899', 'recent');
 
 // Read Cache Files
 let static_pda_str = require("../.cache/compto_static_pda.json")["address"];
-let static_pda_seed = require("../.cache/compto_static_pda.json")["bumpSeed"];
 let compto_token_id_str = require("../.cache/comptoken_id.json")["commandOutput"]["address"]
 let compto_program_id_str = require("../.cache/compto_program_id.json")['programId'];
 let test_account = require("../.cache/compto_test_account.json");
@@ -38,12 +35,14 @@ let test_account = require("../.cache/compto_test_account.json");
 // Pubkeys
 const destination_pubkey = Keypair.fromSecretKey(new Uint8Array(test_account)).publicKey;
 const static_pda_pubkey = new PublicKey(bs58.decode(static_pda_str));
-const me_pubkey = new PublicKey(bs58.decode("zrnQQbTKqNVzTQBxNkQR1nkFaVQEJEkghAkcW2LfcVY"));
 const comptoken_pubkey = new PublicKey(bs58.decode(compto_token_id_str));
 const compto_program_id_pubkey = new PublicKey(bs58.decode(compto_program_id_str));
-const temp_keypair = Keypair.generate();
 
-console.log("me: " + me_pubkey);
+// KeyPairs
+const temp_keypair = Keypair.generate();
+const me_keypair = Keypair.fromSecretKey(new Uint8Array(require(require('os').homedir() + '/.config/solana/id.json')));
+
+console.log("me: " + me_keypair.publicKey);
 console.log("destination: " + destination_pubkey);
 console.log("tempkeypair: " + temp_keypair.publicKey);
 console.log("compto_token: " + comptoken_pubkey);
@@ -80,9 +79,7 @@ async function setMintAuthorityIfNeeded() {
 }
 
 async function setMintAuthority(mint_authority_pubkey) {
-    // My Keypair: TODO: Replace with an ephemeral keypair
-    me_secret_key = Uint8Array.from(JSON.parse(fs.readFileSync('/home/david/.config/solana/id.json', 'utf8')));
-    me_signer = {publicKey: me_pubkey, secretKey: me_secret_key}
+    me_signer = { publicKey: me_keypair.publicKey, secretKey: me_keypair.secretKey }
     const res = await setAuthority(
         connection,
         me_signer,

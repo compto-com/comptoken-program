@@ -20,7 +20,7 @@ use hex::encode;
 entrypoint!(process_instruction);
 
 // vvv This line is automatically updated by full_deploy_test.py.
-static COMPTOKEN_ADDRESS: Pubkey = pubkey!("oNe7WCf3bD1J5t84YBCQFbo1Q5c24iMYgbx5vqHbeLw");
+static COMPTOKEN_ADDRESS: Pubkey = pubkey!("9cc6aPPuknsG83y8KUM2uVwZ7XHoagYwxNsNEzxomypi");
 // ^^^ DO NOT TOUCH. ^^^
 
 // A given seed and program id have a 50% chance of creating a valid PDA.

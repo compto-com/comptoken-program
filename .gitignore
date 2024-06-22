@@ -1,3 +1,4 @@
 /target
 /node_modules
 /test/.cache
+src/comptoken_generated.rs

@@ -25,6 +25,14 @@ class SubprocessFailedException(Exception):
 
 
 # ==== SOLANA COMMANDS ====
+
+def checkIfProgamIdExists():
+    try:
+        getProgramId()
+        return True
+    except SubprocessFailedException:
+        return False
+
 def getProgramId():
     return run(f"solana address -k target/deploy/comptoken-keypair.json")
 
@@ -94,7 +102,7 @@ def getStaticPda():
 
 # ==== SHELL COMMANDS ====
 def build():
-    run("cargo build-sbf", PROJECT_PATH)
+    run("cargo build-sbf --features \"testmode\"", PROJECT_PATH)
 
 
 def getComptoMd5():
@@ -248,6 +256,13 @@ def waitTillValidatorReady(validator: BackgroundProcess):
 if __name__ == "__main__":
     # create cache if it doesn't exist
     run(f"[ -d {CACHE_PATH} ] || mkdir {CACHE_PATH} ")
+    # If ProgramId doesn't exist, we need to build WITHOUT the testmode feature.
+    # This is because the static seed in testmode depends on ProgramId and ProgramId
+    # is generated on the first build.
+    print("Checking if Comptoken ProgramId exists...")
+    if not checkIfProgamIdExists():
+        print("Creating Comptoken ProgramId...")
+        run("cargo build-sbf", PROJECT_PATH)
     print("Creating Validator...")
     with BackgroundProcess(
         "solana-test-validator --reset",

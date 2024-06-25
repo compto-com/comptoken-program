@@ -16,3 +16,6 @@ spl-token = { version="4.0.1", features = [ "no-entrypoint" ] }
 path = "src/comptoken.rs"
 name = "comptoken"
 crate-type = ["cdylib", "lib"]
+
+[features]
+testmode = []

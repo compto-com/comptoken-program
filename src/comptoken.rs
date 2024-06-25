@@ -17,8 +17,21 @@ use spl_token::instruction::mint_to;
 // declare and export the program's entrypoint
 entrypoint!(process_instruction);
 
+// full_deploy_test.py generates a comptoken_generated.rs
+// The first build must not have the testmode feature enabled so that a ProgramId is created.
+// full_deploy_test.py handles this case gracefully by building twice on the first usage.
+#[cfg(feature = "testmode")]
 mod comptoken_generated;
+#[cfg(not(feature = "testmode"))]
+mod comptoken_generated {
+    use solana_program::{{pubkey, pubkey::Pubkey}};
+    pub static COMPTOKEN_ADDRESS: Pubkey = pubkey!("11111111111111111111111111111111");
+    pub static COMPTO_STATIC_ADDRESS_SEED: u8 = 255;
+}
 use comptoken_generated::{COMPTOKEN_ADDRESS, COMPTO_STATIC_ADDRESS_SEED};
+
+// comptoken_address = COMPTOKEN_ADDRESS;
+// comptoken_static_address_seed = COMPTO_STATIC_ADDRESS_SEED;
 
 
 // #[derive(Debug, Default, BorshDeserialize, BorshSerialize)]

@@ -1,17 +1,20 @@
+mod mintblock;
 
 extern crate bs58;
 
+use mintblock::ComptokenProof;
 use solana_program::{
-    account_info::AccountInfo,
+    account_info::{next_account_info, AccountInfo},
     entrypoint,
     entrypoint::ProgramResult,
-    pubkey::Pubkey,
+    hash::Hash,
     msg,
     program::invoke_signed,
-    sysvar,
-    hash::Hash,
+    pubkey::Pubkey,
     system_instruction::create_account,
     // sysvar::{slot_hashes::SlotHashes, Sysvar},
+    sysvar,
+    sysvar::slot_history::ProgramError,
 };
 use spl_token::instruction::mint_to;
 // declare and export the program's entrypoint
@@ -24,15 +27,11 @@ entrypoint!(process_instruction);
 mod comptoken_generated;
 #[cfg(not(feature = "testmode"))]
 mod comptoken_generated {
-    use solana_program::{{pubkey, pubkey::Pubkey}};
+    use solana_program::{pubkey, pubkey::Pubkey};
     pub static COMPTOKEN_ADDRESS: Pubkey = pubkey!("11111111111111111111111111111111");
     pub static COMPTO_STATIC_ADDRESS_SEED: u8 = 255;
 }
 use comptoken_generated::{COMPTOKEN_ADDRESS, COMPTO_STATIC_ADDRESS_SEED};
-
-// comptoken_address = COMPTOKEN_ADDRESS;
-// comptoken_static_address_seed = COMPTO_STATIC_ADDRESS_SEED;
-
 
 // #[derive(Debug, Default, BorshDeserialize, BorshSerialize)]
 // pub struct DataAccount {
@@ -43,36 +42,40 @@ use comptoken_generated::{COMPTOKEN_ADDRESS, COMPTO_STATIC_ADDRESS_SEED};
 pub fn process_instruction(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    instruction_data: &[u8]
+    instruction_data: &[u8],
 ) -> ProgramResult {
     msg!("instruction_data: {:?}", instruction_data);
-    if instruction_data[0] == 0 {
-        msg!("Test Mint");
-        return test_mint(program_id, accounts, &instruction_data[1..]);
-    } else if instruction_data[0] == 1 {
-        msg!("Mint New Comptokens");
-        return mint_comptokens(program_id, accounts, &instruction_data[1..]);
-    } else if instruction_data[0] == 2 {
-        msg!("Initialize Static Data Account");
-        return initialize_static_data_account(program_id, accounts, &instruction_data[1..]);
-    } else {
-        msg!("Invalid Instruction");
-        return Ok(());
+    match instruction_data[0] {
+        0 => {
+            msg!("Test Mint");
+            test_mint(program_id, accounts, &instruction_data[1..])
+        }
+        1 => {
+            msg!("Mint New Comptokens");
+            mint_comptokens(program_id, accounts, &instruction_data[1..])
+        }
+        2 => {
+            msg!("Initialize Static Data Account");
+            initialize_static_data_account(program_id, accounts, &instruction_data[1..])
+        }
+        _ => {
+            msg!("Invalid Instruction");
+            Err(ProgramError::InvalidInstructionData)
+        }
     }
-} 
-
+}
 
 pub fn initialize_static_data_account(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    instruction_data: &[u8]
+    instruction_data: &[u8],
 ) -> ProgramResult {
     let mint_pda = Pubkey::create_program_address(&[&[COMPTO_STATIC_ADDRESS_SEED]], &program_id)?;
     assert_eq!(accounts[0].key, &mint_pda, "Invalid Mint PDA account.");
 
     msg!("instruction_data: {:?}", instruction_data);
 
-    // let initialize_account_instruction = 
+    // let initialize_account_instruction =
     let first_8_bytes: [u8; 8] = instruction_data[0..8].try_into().unwrap();
     let lamports = u64::from_le_bytes(first_8_bytes);
     msg!("Lamports: {:?}", lamports);
@@ -82,13 +85,13 @@ pub fn initialize_static_data_account(
         lamports,
         // MAGIC NUMBER: CHANGE NEEDS TO BE REFLECTED IN test_client.js
         4096,
-        program_id
+        program_id,
     );
     // let createacct = SystemInstruction::CreateAccount { lamports: (1000), space: (256), owner: *program_id };
     let result = invoke_signed(
-        &create_acct_instr, 
+        &create_acct_instr,
         accounts,
-        &[&[&[COMPTO_STATIC_ADDRESS_SEED]]]
+        &[&[&[COMPTO_STATIC_ADDRESS_SEED]]],
     )?;
     // let data = accounts[0].try_borrow_mut_data()?;
     // data[0] = 1;
@@ -99,11 +102,10 @@ pub fn initialize_static_data_account(
 //     sh
 // }
 
-
 pub fn test_mint(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    instruction_data: &[u8]
+    instruction_data: &[u8],
 ) -> ProgramResult {
     msg!("instruction_data: {:?}", instruction_data);
     let amount = 2;
@@ -126,9 +128,9 @@ pub fn test_mint(
     // accounts.push(AccountInfo::new(&mint_pda, true, true));
     // Invoke the token program
     let result = invoke_signed(
-        &mint_to_instruction, 
+        &mint_to_instruction,
         accounts,
-        &[&[&[COMPTO_STATIC_ADDRESS_SEED]]]
+        &[&[&[COMPTO_STATIC_ADDRESS_SEED]]],
     )?;
     // msg!("Result: {:?}", result);
     // gracefully exit the program
@@ -138,17 +140,34 @@ pub fn test_mint(
 pub fn mint_comptokens(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    instruction_data: &[u8]
+    instruction_data: &[u8],
 ) -> ProgramResult {
-    // this nonce is what the miner increments to find a valid proof
-    // let nonce = instruction_data[..32].try_into().unwrap();
-    // verify_proof(accounts[1].key, nonce);
-    
-    
-    
-    // get_pseudo_random();
+    if instruction_data.len() != mintblock::VERIFY_DATA_SIZE {
+        msg!("invalid instruction data");
+        return Err(ProgramError::InvalidInstructionData);
+    }
 
-    assert_eq!(accounts[0].key, &sysvar::slot_hashes::id(), "Invalid SlotHashes account.");
+    let account_info_iter = &mut accounts.iter();
+    let first_acc_info = next_account_info(account_info_iter)?; // 0
+    if !first_acc_info.is_signer && first_acc_info.is_writable {
+        // TODO: Verify this works and explain why
+        msg!("Missing required signature");
+        return Err(ProgramError::MissingRequiredSignature); // TODO: fix error type
+    }
+
+    if !mintblock::verify_proof(ComptokenProof::from_bytes(
+        &first_acc_info.key,
+        instruction_data.try_into().expect("correct size"),
+    )) {
+        msg!("invalid proof");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    assert_eq!(
+        accounts[0].key,
+        &sysvar::slot_hashes::id(),
+        "Invalid SlotHashes account."
+    );
     let data = accounts[0].try_borrow_data()?;
     let hash = Hash::new(&data[16..48]);
     msg!("Hash: {:?}", hash);

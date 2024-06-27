@@ -2,7 +2,7 @@ use std::mem;
 
 use solana_program::{
     hash::{Hash, Hasher, HASH_BYTES},
-    pubkey::{Pubkey, PUBKEY_BYTES},
+    pubkey::Pubkey,
 };
 
 const MIN_NUM_ZEROED_BITS: u32 = 1; // TODO: replace with permanent value
@@ -10,12 +10,12 @@ const MIN_NUM_ZEROED_BITS: u32 = 1; // TODO: replace with permanent value
 // will need to be converted to a data account
 static RECENT_BLOCKHASHES: [Hash; 4] = [unsafe { std::mem::transmute([0u8; 32]) }; 4];
 
-fn check_if_recent_blockhashes(hash: &Hash) -> bool {
+fn check_if_recent_blockhashes(blockhash: &Hash) -> bool {
     // TODO: get it to actually work
-    RECENT_BLOCKHASHES.contains(&hash)
+    RECENT_BLOCKHASHES.contains(&blockhash)
 }
 
-fn check_if_is_new_hash(hash: Hash) -> bool {
+fn check_if_is_new_hash(_hash: Hash) -> bool {
     // TODO: implement
     true
 }
@@ -26,6 +26,9 @@ pub fn verify_proof(block: ComptokenProof) -> bool {
         && check_if_is_new_hash(block.hash)
         && block.generate_hash() == block.hash
 }
+
+pub const VERIFY_DATA_SIZE: usize = HASH_BYTES + mem::size_of::<u64>() + HASH_BYTES;
+
 pub struct ComptokenProof<'a> {
     pubkey: &'a Pubkey,
     recent_block_hash: Hash,
@@ -33,16 +36,11 @@ pub struct ComptokenProof<'a> {
     hash: Hash,
 }
 
-pub const VERIFY_DATA_SIZE: usize =
-    mem::size_of::<Hash>() + mem::size_of::<u64>() + mem::size_of::<Hash>();
-
 impl<'a> ComptokenProof<'a> {
-    pub const PUBLIC_KEY_SIZE: usize = PUBKEY_BYTES;
-
     pub fn from_bytes(key: &'a Pubkey, bytes: &[u8; VERIFY_DATA_SIZE]) -> Self {
-        let range_1 = 0..mem::size_of::<Hash>();
+        let range_1 = 0..HASH_BYTES;
         let range_2 = range_1.end..range_1.end + mem::size_of::<u64>();
-        let range_3 = range_2.end..range_2.end + mem::size_of::<Hash>();
+        let range_3 = range_2.end..range_2.end + HASH_BYTES;
 
         let recent_block_hash = Hash::new_from_array(bytes[range_1].try_into().unwrap());
         // this nonce is what the miner incremented to find a valid proof
@@ -85,8 +83,9 @@ impl<'a> ComptokenProof<'a> {
 mod test {
 
     use super::*;
+    use solana_program::pubkey::PUBKEY_BYTES;
 
-    const ZERO_PUBKEY: Pubkey = Pubkey::new_from_array([0; ComptokenProof::PUBLIC_KEY_SIZE]);
+    const ZERO_PUBKEY: Pubkey = Pubkey::new_from_array([0; PUBKEY_BYTES]);
 
     fn create_arbitrary_block(
         pubkey: &Pubkey,
@@ -95,27 +94,11 @@ mod test {
         hash: Hash,
     ) -> ComptokenProof {
         ComptokenProof {
-            recent_block_hash,
             pubkey,
+            recent_block_hash,
             nonce,
             hash,
         }
-    }
-
-    fn mine(block: &mut ComptokenProof) {
-        while ComptokenProof::leading_zeroes(&block.hash) < MIN_NUM_ZEROED_BITS {
-            block.nonce += 1;
-            block.hash = block.generate_hash();
-        }
-    }
-
-    fn create_zero_block() -> ComptokenProof<'static> {
-        create_arbitrary_block(
-            &ZERO_PUBKEY,
-            Hash::new_from_array([0; 32]),
-            0,
-            Hash::new_from_array([0; 32]),
-        )
     }
 
     #[test]
@@ -141,7 +124,7 @@ mod test {
         );
 
         let recent_hash = Hash::new_from_array([1; 32]);
-        let pubkey = Pubkey::new_from_array([2; ComptokenProof::PUBLIC_KEY_SIZE]);
+        let pubkey = Pubkey::new_from_array([2; PUBKEY_BYTES]);
         let nonce: u64 = 0x03030303_03030303;
         let mut v = Vec::<u8>::with_capacity(VERIFY_DATA_SIZE);
         let mut hasher = Hasher::default();

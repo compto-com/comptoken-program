@@ -5,14 +5,12 @@ use solana_program::{
     pubkey::Pubkey,
 };
 
+// ensure this remains consistent with comptoken_proof.js
 const MIN_NUM_ZEROED_BITS: u32 = 1; // TODO: replace with permanent value
 
-// will need to be converted to a data account
-static RECENT_BLOCKHASHES: [Hash; 4] = [unsafe { std::mem::transmute([0u8; 32]) }; 4];
-
-fn check_if_recent_blockhashes(blockhash: &Hash) -> bool {
+fn check_if_recent_blockhashes(_blockhash: &Hash) -> bool {
     // TODO: get it to actually work
-    RECENT_BLOCKHASHES.contains(&blockhash)
+    true
 }
 
 fn check_if_is_new_hash(_hash: Hash) -> bool {
@@ -29,6 +27,7 @@ pub fn verify_proof(block: ComptokenProof) -> bool {
 
 pub const VERIFY_DATA_SIZE: usize = HASH_BYTES + mem::size_of::<u64>() + HASH_BYTES;
 
+// Ensure changes to this struct remain consistent with comptoken_proof.js
 pub struct ComptokenProof<'a> {
     pubkey: &'a Pubkey,
     recent_block_hash: Hash,
@@ -38,6 +37,7 @@ pub struct ComptokenProof<'a> {
 
 impl<'a> ComptokenProof<'a> {
     pub fn from_bytes(key: &'a Pubkey, bytes: &[u8; VERIFY_DATA_SIZE]) -> Self {
+        // ensure this remains consistent with comptoken_proof.js
         let range_1 = 0..HASH_BYTES;
         let range_2 = range_1.end..range_1.end + mem::size_of::<u64>();
         let range_3 = range_2.end..range_2.end + HASH_BYTES;
@@ -71,6 +71,7 @@ impl<'a> ComptokenProof<'a> {
     }
 
     pub fn generate_hash(&self) -> Hash {
+        // ensure this remains consistent with comptoken_proof.js
         let mut hasher = Hasher::default();
         hasher.hash(&self.pubkey.to_bytes());
         hasher.hash(&self.recent_block_hash.to_bytes());

@@ -2,3 +2,5 @@
 /node_modules
 /test/.cache
 src/comptoken_generated.rs
+
+test/compto-test-client/tsconfig.json

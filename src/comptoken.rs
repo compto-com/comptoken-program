@@ -164,11 +164,11 @@ pub fn mint_comptokens(
     }
 
     assert_eq!(
-        accounts[0].key,
+        accounts[1].key,
         &sysvar::slot_hashes::id(),
         "Invalid SlotHashes account."
     );
-    let data = accounts[0].try_borrow_data()?;
+    let data = accounts[1].try_borrow_data()?;
     let hash = Hash::new(&data[16..48]);
     msg!("Hash: {:?}", hash);
     // now save the hash to the account
@@ -177,5 +177,6 @@ pub fn mint_comptokens(
     // let mut pda_data = mint_pda.try_borrow_mut_data()?;
     // pda_data[0].copy_from_slice(instruction_data[0]);
     // msg!("data: {:?}", encode(&data[..64]));
+    todo!("implement minting and storing of hashing");
     Ok(())
 }

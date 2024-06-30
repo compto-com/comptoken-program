@@ -42,7 +42,7 @@ let connection = new Connection('http://localhost:8899', 'recent');
     await setMintAuthorityIfNeeded();
     await testMint();
     await initializeStaticAccount();
-    await mintComptokens(connection, temp_keypair.publicKey, compto_program_id_pubkey, temp_keypair);
+    // await mintComptokens(connection, destination_pubkey, temp_keypair);
     
 })();
 
@@ -83,11 +83,10 @@ async function testMint() {
         { pubkey: destination_pubkey, isSigner: false, isWritable: true },
         // the mint authority that will sign to mint the tokens
         { pubkey: static_pda_pubkey, isSigner: false, isWritable: false},
-        // ...
+        // the token program that will mint the tokens when instructed by the mint authority
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-        // ...
-        { pubkey: compto_program_id_pubkey, isSigner: false, isWritable: false },
-        // ....
+        // communicates to the token program which mint (and therefore which mint authority)
+        // to mint the tokens from
         { pubkey: comptoken_pubkey, isSigner: false, isWritable: true },
     ];
     let testMintTransaction = new Transaction();
@@ -121,16 +120,15 @@ async function initializeStaticAccount() {
     console.log("Rent exempt amount: ", rentExemptAmount);
     let data = Buffer.alloc(9);
     data.writeUInt8(Instruction.INITIALIZE_STATIC_ACCOUNT, 0);
-    data.writeBigInt64LE(BigInt(rentExemptAmount), 1);
+    data.writeBigInt64BE(BigInt(rentExemptAmount), 1);
     console.log("data: ", data);
     let keys = [
-        { pubkey: static_pda_pubkey, isSigner: false, isWritable: true},
+        // the payer of the rent for the account
         { pubkey: temp_keypair.publicKey, isSigner: true, isWritable: true },
+        // the address of the account to be created
+        { pubkey: static_pda_pubkey, isSigner: false, isWritable: true},
         // needed because compto program interacts with the system program to create the account
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
-        // { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-        //{ pubkey: destination_pubkey, isSigner: false, isWritable: true },
-        //{ pubkey: compto_program_id_pubkey, isSigner: false, isWritable: false },
     ];
     let initializeStaticAccountTransaction = new Transaction();
     initializeStaticAccountTransaction.add(

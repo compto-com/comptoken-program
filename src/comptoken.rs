@@ -189,23 +189,24 @@ fn verify_comptoken_proof_userdata<'a>(destination: &'a Pubkey, data: &[u8]) -> 
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum ValidHashes {
-    One(Hash),
-    Two(Hash, Hash),
+pub enum ValidHashes<'a> {
+    One(&'a Hash),
+    Two(&'a Hash, &'a Hash),
 }
 
-impl ValidHashes {
+impl<'a> ValidHashes<'a> {
     pub fn contains(&self, hash: &Hash) -> bool {
         match self {
-            Self::One(h) => h == hash,
-            Self::Two(h1, h2) => h1 == hash || h2 == hash,
+            Self::One(h) => *h == hash,
+            Self::Two(h1, h2) => *h1 == hash || *h2 == hash,
         }
     }
 }
 
-fn get_valid_hashes() -> ValidHashes {
+fn get_valid_hashes() -> ValidHashes<'static> {
     // TODO: implement
-    ValidHashes::One(Hash::new_from_array([0; 32]))
+    static VALID_HASH: Hash = Hash::new_from_array([0; 32]);
+    ValidHashes::One(&VALID_HASH)
 }
 
 fn store_hash(proof: ComptokenProof, data_account: &AccountInfo) -> ProgramResult {

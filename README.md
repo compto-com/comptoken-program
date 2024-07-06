@@ -20,8 +20,13 @@ navigate to `test/compt-test-client` and run `npm install`
 
 # Testing
 
-then, run the test deployment script: `python3 test/full_deploy_test.py`  
+## integration tests
 
+run the test deployment script: `python3 test/full_deploy_test.py`  
+
+## unit tests
+
+run `cargo test-sbf`
 
 # Debugging
 

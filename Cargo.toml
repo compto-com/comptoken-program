@@ -11,6 +11,8 @@ hex = "0.4.3"
 solana-program = "1.18.12"
 spl-token = { version="4.0.1", features = [ "no-entrypoint" ] }
 
+[dev-dependencies]
+hex-literal = "0.4.1"
 
 [lib]
 path = "src/comptoken.rs"

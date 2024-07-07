@@ -262,7 +262,7 @@ mod test {
         // similar to AccountInfoPubkey, this is a hack to make the tests work.
         // solana-program realloc (specifically  `original_data_len()`) makes assumptions.
         // This satisfies those assumptions for our simulated AccountData.
-        data_len: u64,
+        data_len: usize,
         data: [u8; N],
     }
 
@@ -329,8 +329,8 @@ mod test {
         fn default() -> Self {
             TestValuesInput {
                 data: &mut [],
-                data_size: 128,
-                capacity: 1,
+                data_size: 256,
+                capacity: 5,
                 size_blockhash_1: 0,
                 size_blockhash_2: 0,
                 recent_blockhashes: HashStorageStates::NoHashes,
@@ -356,7 +356,7 @@ mod test {
     impl<'a> Default for TestValuesOutput<'a> {
         fn default() -> Self {
             TestValuesOutput {
-                capacity: 1,
+                capacity: 5,
                 size_blockhash_1: 1,
                 size_blockhash_2: 0,
                 recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[0]),
@@ -455,10 +455,10 @@ mod test {
             hs.capacity, outputs.capacity,
         );
         assert_eq!(
-            hs.capacity as usize,
+            hs.capacity,
             hs.proofs.len(),
             "capacity: '{}' should equal hashes.len(): '{}'",
-            hs.capacity as usize,
+            hs.capacity,
             hs.proofs.len(),
         );
         assert_eq!(
@@ -488,19 +488,20 @@ mod test {
     #[test]
     fn test_try_from_empty_data_account() {
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 0,
-            data: [0; 128],
+            data_len: 256,
+            data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
+                data_size: aligned_data.data_len,
                 new_proofs: &[],
                 ..Default::default()
             },
             outputs: Some(TestValuesOutput {
                 size_blockhash_1: 0,
-                proofs: &[],
                 recent_blockhashes: HashStorageStates::NoHashes,
+                proofs: &[],
                 ..Default::default()
             }),
         });
@@ -510,13 +511,13 @@ mod test {
     #[should_panic(expected = "data does not match capacity")]
     fn test_try_from_incorrect_capacity() {
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 0,
+            data_len: 160,
             data: [0; 160],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: 160,
+                data_size: aligned_data.data_len,
                 ..Default::default()
             },
             ..Default::default()
@@ -526,13 +527,13 @@ mod test {
     #[test]
     fn test_insert() {
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 0,
+            data_len: 256,
             data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: 128,
+                data_size: aligned_data.data_len,
                 ..Default::default()
             },
             outputs: Some(Default::default()),
@@ -548,7 +549,8 @@ mod test {
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: aligned_data.data_len as usize,
+                data_size: aligned_data.data_len,
+                capacity: 1,
                 size_blockhash_1: 1,
                 recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[0]),
                 proofs: &[POSSIBLE_NEW_PROOFS[0]],
@@ -568,14 +570,13 @@ mod test {
     #[should_panic(expected = "duplicate hash")]
     fn test_insert_duplicate() {
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 128,
+            data_len: 256,
             data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: aligned_data.data_len as usize,
-                capacity: 1,
+                data_size: aligned_data.data_len,
                 size_blockhash_1: 1,
                 recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[0]),
                 proofs: &[POSSIBLE_NEW_PROOFS[0]],
@@ -591,17 +592,25 @@ mod test {
     fn test_event_one() {
         // identical to insert
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 128,
+            data_len: 256,
             data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: aligned_data.data_len as usize,
+                data_size: aligned_data.data_len,
                 valid_blockhashes: ValidHashes::One(&POSSIBLE_RECENT_BLOCKHASHES[0]),
+                recent_blockhashes: HashStorageStates::NoHashes,
+                proofs: &[],
+                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[0], POSSIBLE_NEW_PROOFS[0])],
                 ..Default::default()
             },
-            outputs: Some(Default::default()),
+            outputs: Some(TestValuesOutput {
+                size_blockhash_1: 1,
+                recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[0]),
+                proofs: &[POSSIBLE_NEW_PROOFS[0]],
+                ..Default::default()
+            }),
         });
     }
 
@@ -610,24 +619,23 @@ mod test {
     fn test_event_two() {
         // also covered by realloc
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 160,
+            data_len: 256,
             data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: aligned_data.data_len as usize,
-                capacity: 2,
+                data_size: aligned_data.data_len,
                 size_blockhash_1: 1,
+                valid_blockhashes: ValidHashes::One(&POSSIBLE_RECENT_BLOCKHASHES[0]),
                 recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[0]),
                 proofs: &[POSSIBLE_NEW_PROOFS[0]],
                 new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[0], POSSIBLE_NEW_PROOFS[1])],
-                valid_blockhashes: ValidHashes::One(&POSSIBLE_RECENT_BLOCKHASHES[0]),
                 ..Default::default()
             },
             outputs: Some(TestValuesOutput {
-                capacity: 2,
                 size_blockhash_1: 2,
+                recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[0]),
                 proofs: &[POSSIBLE_NEW_PROOFS[0], POSSIBLE_NEW_PROOFS[1]],
                 ..Default::default()
             }),
@@ -638,26 +646,24 @@ mod test {
     // One recent_hash -> Two recent_hashes
     fn test_event_three() {
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 160,
+            data_len: 256,
             data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: aligned_data.data_len as usize,
-                capacity: 2,
+                data_size: aligned_data.data_len,
                 size_blockhash_1: 1,
-                recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[0]),
-                proofs: &[POSSIBLE_NEW_PROOFS[0]],
-                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[1], POSSIBLE_NEW_PROOFS[1])],
                 valid_blockhashes: ValidHashes::Two(
                     &POSSIBLE_RECENT_BLOCKHASHES[0],
                     &POSSIBLE_RECENT_BLOCKHASHES[1],
                 ),
+                recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[0]),
+                proofs: &[POSSIBLE_NEW_PROOFS[0]],
+                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[1], POSSIBLE_NEW_PROOFS[1])],
                 ..Default::default()
             },
             outputs: Some(TestValuesOutput {
-                capacity: 2,
                 size_blockhash_1: 1,
                 size_blockhash_2: 1,
                 recent_blockhashes: HashStorageStates::TwoHashes(
@@ -665,6 +671,7 @@ mod test {
                     POSSIBLE_RECENT_BLOCKHASHES[1],
                 ),
                 proofs: &[POSSIBLE_NEW_PROOFS[0], POSSIBLE_NEW_PROOFS[1]],
+                ..Default::default()
             }),
         });
     }
@@ -673,20 +680,26 @@ mod test {
     // One recent_hash -> New recent_hash
     fn test_event_four() {
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 128,
+            data_len: 256,
             data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: aligned_data.data_len as usize,
+                data_size: aligned_data.data_len,
                 size_blockhash_1: 1,
-                proofs: &[POSSIBLE_NEW_PROOFS[1]],
-                recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[2]),
-                valid_blockhashes: ValidHashes::One(&POSSIBLE_RECENT_BLOCKHASHES[0]),
+                valid_blockhashes: ValidHashes::One(&POSSIBLE_RECENT_BLOCKHASHES[1]),
+                recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[0]),
+                proofs: &[POSSIBLE_NEW_PROOFS[0]],
+                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[1], POSSIBLE_NEW_PROOFS[1])],
                 ..Default::default()
             },
-            outputs: Some(Default::default()),
+            outputs: Some(TestValuesOutput {
+                size_blockhash_1: 1,
+                recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[1]),
+                proofs: &[POSSIBLE_NEW_PROOFS[1]],
+                ..Default::default()
+            }),
         });
     }
 
@@ -695,29 +708,28 @@ mod test {
     fn test_event_five() {
         // tests the first region
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 192,
+            data_len: 256,
             data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: aligned_data.data_len as usize,
-                capacity: 3,
+                data_size: aligned_data.data_len,
                 size_blockhash_1: 1,
                 size_blockhash_2: 1,
-                proofs: &[POSSIBLE_NEW_PROOFS[2], POSSIBLE_NEW_PROOFS[1]],
-                recent_blockhashes: HashStorageStates::TwoHashes(
-                    POSSIBLE_RECENT_BLOCKHASHES[0],
-                    POSSIBLE_RECENT_BLOCKHASHES[1],
-                ),
                 valid_blockhashes: ValidHashes::Two(
                     &POSSIBLE_RECENT_BLOCKHASHES[0],
                     &POSSIBLE_RECENT_BLOCKHASHES[1],
                 ),
+                recent_blockhashes: HashStorageStates::TwoHashes(
+                    POSSIBLE_RECENT_BLOCKHASHES[0],
+                    POSSIBLE_RECENT_BLOCKHASHES[1],
+                ),
+                proofs: &[POSSIBLE_NEW_PROOFS[0], POSSIBLE_NEW_PROOFS[1]],
+                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[0], POSSIBLE_NEW_PROOFS[2])],
                 ..Default::default()
             },
             outputs: Some(TestValuesOutput {
-                capacity: 3,
                 size_blockhash_1: 2,
                 size_blockhash_2: 1,
                 recent_blockhashes: HashStorageStates::TwoHashes(
@@ -725,10 +737,11 @@ mod test {
                     POSSIBLE_RECENT_BLOCKHASHES[1],
                 ),
                 proofs: &[
-                    POSSIBLE_NEW_PROOFS[2],
                     POSSIBLE_NEW_PROOFS[0],
+                    POSSIBLE_NEW_PROOFS[2],
                     POSSIBLE_NEW_PROOFS[1],
                 ],
+                ..Default::default()
             }),
         });
     }
@@ -737,30 +750,28 @@ mod test {
     fn test_event_five_alt() {
         // tests the second region
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 192,
+            data_len: 256,
             data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: aligned_data.data_len as usize,
-                capacity: 3,
+                data_size: aligned_data.data_len,
                 size_blockhash_1: 1,
                 size_blockhash_2: 1,
-                proofs: &[POSSIBLE_NEW_PROOFS[2], POSSIBLE_NEW_PROOFS[1]],
-                recent_blockhashes: HashStorageStates::TwoHashes(
-                    POSSIBLE_RECENT_BLOCKHASHES[0],
-                    POSSIBLE_RECENT_BLOCKHASHES[1],
-                ),
-                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[1], POSSIBLE_NEW_PROOFS[0])],
                 valid_blockhashes: ValidHashes::Two(
                     &POSSIBLE_RECENT_BLOCKHASHES[0],
                     &POSSIBLE_RECENT_BLOCKHASHES[1],
                 ),
+                recent_blockhashes: HashStorageStates::TwoHashes(
+                    POSSIBLE_RECENT_BLOCKHASHES[0],
+                    POSSIBLE_RECENT_BLOCKHASHES[1],
+                ),
+                proofs: &[POSSIBLE_NEW_PROOFS[0], POSSIBLE_NEW_PROOFS[1]],
+                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[1], POSSIBLE_NEW_PROOFS[2])],
                 ..Default::default()
             },
             outputs: Some(TestValuesOutput {
-                capacity: 3,
                 size_blockhash_1: 1,
                 size_blockhash_2: 2,
                 recent_blockhashes: HashStorageStates::TwoHashes(
@@ -768,10 +779,11 @@ mod test {
                     POSSIBLE_RECENT_BLOCKHASHES[1],
                 ),
                 proofs: &[
-                    POSSIBLE_NEW_PROOFS[2],
-                    POSSIBLE_NEW_PROOFS[1],
                     POSSIBLE_NEW_PROOFS[0],
+                    POSSIBLE_NEW_PROOFS[1],
+                    POSSIBLE_NEW_PROOFS[2],
                 ],
+                ..Default::default()
             }),
         });
     }
@@ -781,30 +793,30 @@ mod test {
     fn test_event_six() {
         // checks region 1
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 192,
+            data_len: 256,
             data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: aligned_data.data_len as usize,
-                capacity: 3,
+                data_size: aligned_data.data_len,
                 size_blockhash_1: 1,
                 size_blockhash_2: 1,
-                proofs: &[POSSIBLE_NEW_PROOFS[2], POSSIBLE_NEW_PROOFS[1]],
+                valid_blockhashes: ValidHashes::One(&POSSIBLE_RECENT_BLOCKHASHES[1]),
                 recent_blockhashes: HashStorageStates::TwoHashes(
-                    POSSIBLE_RECENT_BLOCKHASHES[0],
                     POSSIBLE_RECENT_BLOCKHASHES[1],
+                    POSSIBLE_RECENT_BLOCKHASHES[0],
                 ),
-                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[0], POSSIBLE_NEW_PROOFS[0])],
-                valid_blockhashes: ValidHashes::One(&POSSIBLE_RECENT_BLOCKHASHES[0]),
+                proofs: &[POSSIBLE_NEW_PROOFS[0], POSSIBLE_NEW_PROOFS[1]],
+                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[1], POSSIBLE_NEW_PROOFS[2])],
+                ..Default::default()
             },
             outputs: Some(TestValuesOutput {
-                capacity: 3,
                 size_blockhash_1: 2,
                 size_blockhash_2: 0,
-                recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[0]),
-                proofs: &[POSSIBLE_NEW_PROOFS[2], POSSIBLE_NEW_PROOFS[0]],
+                recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[1]),
+                proofs: &[POSSIBLE_NEW_PROOFS[0], POSSIBLE_NEW_PROOFS[2]],
+                ..Default::default()
             }),
         });
     }
@@ -813,30 +825,30 @@ mod test {
     fn test_event_six_alt() {
         // checks region 2
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 192,
+            data_len: 256,
             data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: aligned_data.data_len as usize,
-                capacity: 3,
+                data_size: aligned_data.data_len,
                 size_blockhash_1: 1,
                 size_blockhash_2: 1,
-                proofs: &[POSSIBLE_NEW_PROOFS[2], POSSIBLE_NEW_PROOFS[1]],
+                valid_blockhashes: ValidHashes::One(&POSSIBLE_RECENT_BLOCKHASHES[1]),
                 recent_blockhashes: HashStorageStates::TwoHashes(
                     POSSIBLE_RECENT_BLOCKHASHES[0],
                     POSSIBLE_RECENT_BLOCKHASHES[1],
                 ),
-                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[1], POSSIBLE_NEW_PROOFS[0])],
-                valid_blockhashes: ValidHashes::One(&POSSIBLE_RECENT_BLOCKHASHES[1]),
+                proofs: &[POSSIBLE_NEW_PROOFS[0], POSSIBLE_NEW_PROOFS[1]],
+                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[1], POSSIBLE_NEW_PROOFS[2])],
+                ..Default::default()
             },
             outputs: Some(TestValuesOutput {
-                capacity: 3,
                 size_blockhash_1: 2,
                 size_blockhash_2: 0,
                 recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[1]),
-                proofs: &[POSSIBLE_NEW_PROOFS[1], POSSIBLE_NEW_PROOFS[0]],
+                proofs: &[POSSIBLE_NEW_PROOFS[1], POSSIBLE_NEW_PROOFS[2]],
+                ..Default::default()
             }),
         });
     }
@@ -846,37 +858,36 @@ mod test {
     fn test_event_seven() {
         // checks region 1
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 192,
+            data_len: 256,
             data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: aligned_data.data_len as usize,
-                capacity: 3,
+                data_size: aligned_data.data_len,
                 size_blockhash_1: 1,
                 size_blockhash_2: 1,
-                proofs: &[POSSIBLE_NEW_PROOFS[2], POSSIBLE_NEW_PROOFS[1]],
-                recent_blockhashes: HashStorageStates::TwoHashes(
-                    POSSIBLE_RECENT_BLOCKHASHES[0],
-                    POSSIBLE_RECENT_BLOCKHASHES[2],
-                ),
-                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[1], POSSIBLE_NEW_PROOFS[0])],
                 valid_blockhashes: ValidHashes::Two(
-                    &POSSIBLE_RECENT_BLOCKHASHES[0],
                     &POSSIBLE_RECENT_BLOCKHASHES[1],
+                    &POSSIBLE_RECENT_BLOCKHASHES[2],
                 ),
-                ..Default::default()
-            },
-            outputs: Some(TestValuesOutput {
-                capacity: 3,
-                size_blockhash_1: 1,
-                size_blockhash_2: 1,
                 recent_blockhashes: HashStorageStates::TwoHashes(
                     POSSIBLE_RECENT_BLOCKHASHES[0],
                     POSSIBLE_RECENT_BLOCKHASHES[1],
                 ),
-                proofs: &[POSSIBLE_NEW_PROOFS[2], POSSIBLE_NEW_PROOFS[0]],
+                proofs: &[POSSIBLE_NEW_PROOFS[0], POSSIBLE_NEW_PROOFS[1]],
+                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[2], POSSIBLE_NEW_PROOFS[2])],
+                ..Default::default()
+            },
+            outputs: Some(TestValuesOutput {
+                size_blockhash_1: 1,
+                size_blockhash_2: 1,
+                recent_blockhashes: HashStorageStates::TwoHashes(
+                    POSSIBLE_RECENT_BLOCKHASHES[1],
+                    POSSIBLE_RECENT_BLOCKHASHES[2],
+                ),
+                proofs: &[POSSIBLE_NEW_PROOFS[1], POSSIBLE_NEW_PROOFS[2]],
+                ..Default::default()
             }),
         });
     }
@@ -885,37 +896,36 @@ mod test {
     fn test_event_seven_alt() {
         // checks region 2
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 192,
+            data_len: 256,
             data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: aligned_data.data_len as usize,
-                capacity: 3,
+                data_size: aligned_data.data_len,
                 size_blockhash_1: 1,
                 size_blockhash_2: 1,
-                proofs: &[POSSIBLE_NEW_PROOFS[2], POSSIBLE_NEW_PROOFS[1]],
-                recent_blockhashes: HashStorageStates::TwoHashes(
-                    POSSIBLE_RECENT_BLOCKHASHES[2],
-                    POSSIBLE_RECENT_BLOCKHASHES[1],
-                ),
-                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[0], POSSIBLE_NEW_PROOFS[0])],
                 valid_blockhashes: ValidHashes::Two(
-                    &POSSIBLE_RECENT_BLOCKHASHES[0],
                     &POSSIBLE_RECENT_BLOCKHASHES[1],
+                    &POSSIBLE_RECENT_BLOCKHASHES[2],
                 ),
-                ..Default::default()
-            },
-            outputs: Some(TestValuesOutput {
-                capacity: 3,
-                size_blockhash_1: 1,
-                size_blockhash_2: 1,
                 recent_blockhashes: HashStorageStates::TwoHashes(
                     POSSIBLE_RECENT_BLOCKHASHES[1],
                     POSSIBLE_RECENT_BLOCKHASHES[0],
                 ),
-                proofs: &[POSSIBLE_NEW_PROOFS[1], POSSIBLE_NEW_PROOFS[0]],
+                proofs: &[POSSIBLE_NEW_PROOFS[0], POSSIBLE_NEW_PROOFS[1]],
+                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[2], POSSIBLE_NEW_PROOFS[2])],
+                ..Default::default()
+            },
+            outputs: Some(TestValuesOutput {
+                size_blockhash_1: 1,
+                size_blockhash_2: 1,
+                recent_blockhashes: HashStorageStates::TwoHashes(
+                    POSSIBLE_RECENT_BLOCKHASHES[1],
+                    POSSIBLE_RECENT_BLOCKHASHES[2],
+                ),
+                proofs: &[POSSIBLE_NEW_PROOFS[0], POSSIBLE_NEW_PROOFS[2]],
+                ..Default::default()
             }),
         });
     }
@@ -924,27 +934,28 @@ mod test {
     // Two recent_hashes -> New recent_hash
     fn test_event_eight() {
         let mut aligned_data = AccountInfoAlignedData {
-            data_len: 192,
+            data_len: 256,
             data: [0; 256],
         };
         run_test(TestValues {
             inputs: TestValuesInput {
                 data: &mut aligned_data.data,
-                data_size: aligned_data.data_len as usize,
-                capacity: 3,
+                data_size: aligned_data.data_len,
                 size_blockhash_1: 1,
                 size_blockhash_2: 1,
-                proofs: &[POSSIBLE_NEW_PROOFS[2], POSSIBLE_NEW_PROOFS[1]],
+                valid_blockhashes: ValidHashes::One(&POSSIBLE_RECENT_BLOCKHASHES[2]),
                 recent_blockhashes: HashStorageStates::TwoHashes(
-                    POSSIBLE_RECENT_BLOCKHASHES[2],
+                    POSSIBLE_RECENT_BLOCKHASHES[0],
                     POSSIBLE_RECENT_BLOCKHASHES[1],
                 ),
-                valid_blockhashes: ValidHashes::One(&POSSIBLE_RECENT_BLOCKHASHES[0]),
+                proofs: &[POSSIBLE_NEW_PROOFS[0], POSSIBLE_NEW_PROOFS[1]],
+                new_proofs: &[(POSSIBLE_RECENT_BLOCKHASHES[2], POSSIBLE_NEW_PROOFS[2])],
                 ..Default::default()
             },
             outputs: Some(TestValuesOutput {
-                capacity: 3,
                 size_blockhash_1: 1,
+                recent_blockhashes: HashStorageStates::OneHash(POSSIBLE_RECENT_BLOCKHASHES[2]),
+                proofs: &[POSSIBLE_NEW_PROOFS[2]],
                 ..Default::default()
             }),
         });

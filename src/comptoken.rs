@@ -16,7 +16,7 @@ use solana_program::{
     sysvar::slot_history::ProgramError,
 };
 use spl_token::instruction::mint_to;
-use user_data_storage::HashStorage;
+use user_data_storage::ProofStorage;
 // declare and export the program's entrypoint
 entrypoint!(process_instruction);
 
@@ -203,20 +203,20 @@ impl<'a> ValidHashes<'a> {
     }
 }
 
-fn get_valid_hashes() -> ValidHashes<'static> {
+fn get_valid_hash<'a>() -> &'a Hash {
     // TODO: implement
     static VALID_HASH: Hash = Hash::new_from_array([0; 32]);
-    ValidHashes::One(&VALID_HASH)
+    &VALID_HASH
 }
 
-fn store_hash(proof: ComptokenProof, data_account: &AccountInfo) -> ProgramResult {
-    let mut hash_storage: &mut HashStorage = data_account.data.borrow_mut().as_mut().try_into()?;
-    hash_storage.insert(
-        &proof.recent_block_hash,
-        proof.hash,
-        get_valid_hashes(),
-        data_account,
-    )
+fn store_hash(proof: ComptokenProof, data_account: &AccountInfo) {
+    let proof_storage: &mut ProofStorage = data_account
+        .data
+        .borrow_mut()
+        .as_mut()
+        .try_into()
+        .expect("error already panicked");
+    proof_storage.insert(&proof.hash, &proof.recent_block_hash)
 }
 
 pub fn mint_comptokens(
@@ -245,7 +245,7 @@ pub fn mint_comptokens(
     msg!("data/accounts verified");
     let amount = 2;
     // now save the hash to the account, returning an error if the hash already exists
-    store_hash(proof, data_account)?;
+    store_hash(proof, data_account);
 
     mint(
         mint_authority_account.key,

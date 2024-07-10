@@ -2,6 +2,7 @@ import {
     Connection,
     Keypair,
     LAMPORTS_PER_SOL,
+    PublicKey,
     SystemProgram,
     Transaction,
     TransactionInstruction,
@@ -10,7 +11,7 @@ import {
 
 import {
     AuthorityType,
-    TOKEN_PROGRAM_ID,
+    TOKEN_2022_PROGRAM_ID,
     setAuthority,
     unpackMint,
 } from '@solana/spl-token';
@@ -24,7 +25,8 @@ import {
     static_pda_pubkey,
 } from './common.js';
 
-import { mintComptokens } from "./comptoken_proof.js";
+import { mintComptokens } from './comptoken_proof.js';
+
 
 const temp_keypair = Keypair.generate();
 
@@ -40,9 +42,10 @@ let connection = new Connection('http://localhost:8899', 'recent');
 (async () => {
     await airdrop(temp_keypair.publicKey);
     await setMintAuthorityIfNeeded();
+    await createUserDataAccount();
     await testMint();
     await initializeStaticAccount();
-    // await mintComptokens(connection, destination_pubkey, temp_keypair);
+    await mintComptokens(connection, destination_pubkey, temp_keypair);
     
 })();
 
@@ -55,7 +58,7 @@ async function airdrop(pubkey) {
 
 async function setMintAuthorityIfNeeded() {
     const info = await connection.getAccountInfo(comptoken_pubkey, "confirmed");
-    const unpackedMint = unpackMint(comptoken_pubkey, info, TOKEN_PROGRAM_ID);
+    const unpackedMint = unpackMint(comptoken_pubkey, info, TOKEN_2022_PROGRAM_ID);
     if (unpackedMint.mintAuthority.toString() == static_pda_pubkey.toString()) {
         console.log("Mint Authority already set, skipping setAuthority Transaction");
     } else {
@@ -72,7 +75,10 @@ async function setMintAuthority(mint_authority_pubkey) {
         comptoken_pubkey,
         mint_authority_pubkey,
         AuthorityType.MintTokens,
-        static_pda_pubkey
+        static_pda_pubkey,
+        undefined,
+        undefined,
+        TOKEN_2022_PROGRAM_ID
     );
 }
 
@@ -84,7 +90,7 @@ async function testMint() {
         // the mint authority that will sign to mint the tokens
         { pubkey: static_pda_pubkey, isSigner: false, isWritable: false},
         // the token program that will mint the tokens when instructed by the mint authority
-        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
         // communicates to the token program which mint (and therefore which mint authority)
         // to mint the tokens from
         { pubkey: comptoken_pubkey, isSigner: false, isWritable: true },
@@ -142,20 +148,40 @@ async function initializeStaticAccount() {
     console.log("initializeStaticAccount transaction confirmed", initializeStaticAccountResult);
     
 }
-// how to create a program address based using bumpseed
-// const d2 = PublicKey.createProgramAddressSync(["compto", Buffer.alloc(1, bumpseed)], compto_program_id_pubkey);
-// const [derived_address, bumpseed] = PublicKey.findProgramAddressSync([STATIC_ACCOUNT_SEED], compto_program_id_pubkey);
 
-async function getRentExemptAmount(accountSizeInBytes) {
-    try {
-        // Get rent exempt amount for the specified account size
-        
-        
-        console.log(`Rent exempt amount for ${accountSizeInBytes} bytes: ${rentExemptAmount} lamports`);
-        
-        return rentExemptAmount;
-    } catch (error) {
-        console.error('Error getting rent exempt amount:', error);
-        throw error;
-    }
+async function createUserDataAccount() {
+    // MAGIC NUMBER: CHANGE NEEDS TO BE REFLECTED IN proof_storage.rs
+    const PROOF_STORAGE_MIN_SIZE = 72;
+    const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(PROOF_STORAGE_MIN_SIZE);
+    console.log("Rent exempt amount: ", rentExemptAmount);
+
+    let user_pda = PublicKey.findProgramAddressSync([destination_pubkey.toBytes()], compto_program_id_pubkey)[0];
+    
+    let createKeys = [
+        // the payer of the rent for the account
+        { pubkey: temp_keypair.publicKey, isSigner: true, isWritable: true },
+        // the payers comptoken wallet (comptoken token acct)
+        { pubkey: destination_pubkey, isSigner: false, isWritable: false },
+        // the data account tied to the comptoken wallet
+        { pubkey: user_pda, isSigner: false, isWritable: true },
+        // system account is used to create the account
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false},
+    ];
+    // 1 byte for the instruction, 8 bytes for the rent exempt amount, 8 bytes for the proof storage min size
+    let createData = Buffer.alloc(17);
+    createData.writeUInt8(Instruction.CREATE_USER_DATA_ACCOUNT, 0);
+    createData.writeBigInt64LE(BigInt(rentExemptAmount), 1);
+    createData.writeBigInt64LE(BigInt(PROOF_STORAGE_MIN_SIZE), 9);
+    console.log("createData: ", createData);
+    let createUserDataAccountTransaction = new Transaction();
+    createUserDataAccountTransaction.add(
+        new TransactionInstruction({
+            keys: createKeys,
+            programId: compto_program_id_pubkey,
+            data: createData,
+        }),
+    );
+    let createUserDataAccountResult = await sendAndConfirmTransaction(connection, createUserDataAccountTransaction, [temp_keypair]);
+    console.log("createUserDataAccount transaction confirmed", createUserDataAccountResult);
+    
 }

@@ -1,35 +1,23 @@
 use std::mem;
 
-use solana_program::{
+use spl_token_2022::solana_program::{
     hash::{Hash, Hasher, HASH_BYTES},
     pubkey::Pubkey,
-    msg
 };
 
 // ensure this remains consistent with comptoken_proof.js
 const MIN_NUM_ZEROED_BITS: u32 = 3; // TODO: replace with permanent value
 
-fn check_if_recent_blockhashes(_blockhash: &Hash) -> bool {
-    // TODO: get it to actually work
-    true
-}
-
-fn check_if_is_new_hash(_hash: &Hash) -> bool {
-    // TODO: implement
-    true
+fn check_if_recent_blockhashes(blockhash: &Hash) -> bool {
+    super::get_valid_hash() == blockhash
 }
 
 pub fn verify_proof(block: &ComptokenProof) -> bool {
     let leading_zeros: bool = ComptokenProof::leading_zeroes(&block.hash) >= MIN_NUM_ZEROED_BITS;
-    msg!("leading_zeros: {:?}", leading_zeros);
     let recent_blockhash: bool = check_if_recent_blockhashes(&block.recent_block_hash);
-    msg!("recent_blockhash: {:?}", recent_blockhash);
-    let new_hash: bool = check_if_is_new_hash(&block.hash);
-    msg!("new_hash: {:?}", new_hash);
     let equal_hash: bool = block.generate_hash() == block.hash;
-    msg!("equal_hash: {:?}", equal_hash);
-    return leading_zeros && recent_blockhash && new_hash && equal_hash;
-    
+    // hash duplicate check is part of inserting
+    return leading_zeros && recent_blockhash && equal_hash;
 }
 
 pub const VERIFY_DATA_SIZE: usize = HASH_BYTES + mem::size_of::<u64>() + HASH_BYTES;
@@ -94,7 +82,7 @@ impl<'a> ComptokenProof<'a> {
 mod test {
 
     use super::*;
-    use solana_program::pubkey::PUBKEY_BYTES;
+    use spl_token_2022::solana_program::pubkey::PUBKEY_BYTES;
 
     const ZERO_PUBKEY: Pubkey = Pubkey::new_from_array([0; PUBKEY_BYTES]);
 
@@ -136,7 +124,7 @@ mod test {
 
         let recent_hash = Hash::new_from_array([1; 32]);
         let pubkey = Pubkey::new_from_array([2; PUBKEY_BYTES]);
-        let nonce: u64 = 0x03030303_03030303; 
+        let nonce: u64 = 0x03030303_03030303;
         let mut v = Vec::<u8>::with_capacity(VERIFY_DATA_SIZE);
         let mut hasher = Hasher::default();
 

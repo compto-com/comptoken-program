@@ -1,3 +1,3 @@
-mod hash_storage;
+mod proof_storage;
 
-pub use hash_storage::ProofStorage;
+pub use proof_storage::{ProofStorage, PROOF_STORAGE_MIN_SIZE};

@@ -12,7 +12,8 @@ let bs58 = bs58_.default;
 export const Instruction = {
     TEST: 0,
     COMPTOKEN_MINT: 1,
-    INITIALIZE_STATIC_ACCOUNT: 2
+    INITIALIZE_STATIC_ACCOUNT: 2,
+    CREATE_USER_DATA_ACCOUNT: 3,
 };
 
 // Read Cache Files

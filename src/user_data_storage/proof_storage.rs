@@ -34,6 +34,8 @@ impl ProofStorage {
     fn contains(&self, new_proof: &Hash) -> bool {
         self.into_iter().any(|proof| proof == new_proof)
     }
+
+    pub fn initialize(&mut self) {}
 }
 
 impl TryFrom<&mut [u8]> for &mut ProofStorage {

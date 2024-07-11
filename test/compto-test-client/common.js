@@ -14,11 +14,12 @@ export const Instruction = {
     COMPTOKEN_MINT: 1,
     INITIALIZE_STATIC_ACCOUNT: 2,
     CREATE_USER_DATA_ACCOUNT: 3,
+    DAILY_DISTRIBUTION_EVENT: 4,
 };
 
 // Read Cache Files
-import static_pda from "../.cache/compto_static_pda.json" assert { type: "json" };
-export const static_pda_str = static_pda["address"];
+import global_data_pda from "../.cache/compto_global_data_pda.json" assert { type: "json" };
+export const global_data_pda_str = global_data_pda["address"];
 
 import comptoken_id from '../.cache/comptoken_id.json' assert { type: "json" };
 export const compto_token_id_str = comptoken_id["commandOutput"]["address"];
@@ -31,7 +32,7 @@ export const test_account = test_account_;
 
 // Pubkeys
 export const destination_pubkey = Keypair.fromSecretKey(new Uint8Array(test_account)).publicKey;
-export const static_pda_pubkey = new PublicKey(bs58.decode(static_pda_str));
+export const global_data_pda_pubkey = new PublicKey(bs58.decode(global_data_pda_str));
 export const comptoken_pubkey = new PublicKey(bs58.decode(compto_token_id_str));
 export const compto_program_id_pubkey = new PublicKey(bs58.decode(compto_program_id_str));
 

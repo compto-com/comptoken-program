@@ -3,7 +3,7 @@ import { PublicKey, Transaction, TransactionInstruction, sendAndConfirmTransacti
 import * as bs58_ from "bs58";
 import { assert } from "console";
 import { createHash } from "crypto";
-import { Instruction, compto_program_id_pubkey, comptoken_pubkey, static_pda_pubkey } from "./common.js";
+import { Instruction, compto_program_id_pubkey, comptoken_pubkey, global_data_pda_pubkey } from "./common.js";
 let bs58 = bs58_.default;
 
 const MIN_NUM_ZEROED_BITS = 3;
@@ -80,7 +80,7 @@ export async function mintComptokens(connection, destination_pubkey, temp_keypai
     let keys = [
         { pubkey: destination_pubkey, isSigner: false, isWritable: true },
         { pubkey: user_pda, isSigner: false, isWritable: true },
-        { pubkey: static_pda_pubkey, isSigner: false, isWritable: false},
+        { pubkey: global_data_pda_pubkey, isSigner: false, isWritable: false},
         { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
         { pubkey: comptoken_pubkey, isSigner: false, isWritable: true },
         { pubkey: compto_program_id_pubkey, isSigner: false, isWritable: false },

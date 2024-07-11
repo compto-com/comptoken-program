@@ -17,7 +17,7 @@ COMPTOKEN_ID_JSON = CACHE_PATH / "comptoken_id.json"
 COMPTO_TEST_ACCOUNT = CACHE_PATH / "compto_test_account.json"
 COMPTO_MINT_AUTHORITY_JSON = CACHE_PATH / "compto_mint_authority.json"
 COMPTO_ADDRESS_FILE = PROJECT_PATH / "src/comptoken_generated.rs"
-COMPTO_STATIC_PDA = CACHE_PATH / "compto_static_pda.json"
+COMPTO_STATIC_PDA = CACHE_PATH / "compto_global_data_pda.json"
 TOKEN_2022_PROGRAM_ID = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 
 

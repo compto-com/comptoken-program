@@ -1,22 +1,17 @@
-use spl_token_2022::solana_program::{
-    account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey,
-};
+use spl_token_2022::solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey};
 
 use crate::generated::{
-    COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS, COMPTO_INTEREST_BANK_ACCOUNT_SEEDS,
-    COMPTO_UBI_BANK_ACCOUNT_SEEDS,
+    COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS, COMPTO_INTEREST_BANK_ACCOUNT_SEEDS, COMPTO_UBI_BANK_ACCOUNT_SEEDS,
 };
 
 pub fn verify_global_data_account(account: &AccountInfo, program_id: &Pubkey) -> Pubkey {
-    let result =
-        Pubkey::create_program_address(COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS, program_id).unwrap();
+    let result = Pubkey::create_program_address(COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS, program_id).unwrap();
     assert_eq!(*account.key, result);
     result
 }
 
 pub fn verify_interest_bank_account(account: &AccountInfo, program_id: &Pubkey) -> Pubkey {
-    let result =
-        Pubkey::create_program_address(COMPTO_INTEREST_BANK_ACCOUNT_SEEDS, program_id).unwrap();
+    let result = Pubkey::create_program_address(COMPTO_INTEREST_BANK_ACCOUNT_SEEDS, program_id).unwrap();
     assert_eq!(*account.key, result);
     result
 }
@@ -33,17 +28,11 @@ pub fn verify_comptoken_user_account(_account: &AccountInfo) -> ProgramResult {
 }
 
 pub fn verify_comptoken_user_data_account(
-    comptoken_user_data_account: &AccountInfo,
-    comptoken_user_account: &AccountInfo,
-    program_id: &Pubkey,
+    comptoken_user_data_account: &AccountInfo, comptoken_user_account: &AccountInfo, program_id: &Pubkey,
 ) -> u8 {
     // if we ever need a user data account to sign something,
     // then we should return the bumpseed in this function
-    let (pda, bump) =
-        Pubkey::find_program_address(&[comptoken_user_account.key.as_ref()], program_id);
-    assert_eq!(
-        *comptoken_user_data_account.key, pda,
-        "Invalid user data account"
-    );
+    let (pda, bump) = Pubkey::find_program_address(&[comptoken_user_account.key.as_ref()], program_id);
+    assert_eq!(*comptoken_user_data_account.key, pda, "Invalid user data account");
     bump
 }

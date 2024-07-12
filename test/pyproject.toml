@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comptoken"
+version = "0.1.0"
+description = "A Python project to test the comptoken Solana Program."
+readme = "README.md"
+requires-python = ">=3.8"
+
+authors = [ 
+    { name = "David Trost", email = "david@compto.com" },
+    { name = "Connor Funk", email = "connor@compto.com" },
+]
+
+[project.optional-dependencies]
+# Optional dependencies for development and testing
+dev = [
+    "yapf",
+    "isort",
+]
+
+[tool.yapf]
+based_on_style = "pep8"
+column_limit = 120
+split_before_closing_bracket = true
+dedent_closing_brackets = true
+split_before_logical_operator = true
+blank_lines_around_top_level_definition = 1
+blank_line_before_nested_class_or_def = true
+
+[tool.isort]
+profile = "black"
+line_length = 88

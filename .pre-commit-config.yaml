@@ -1,0 +1,21 @@
+repos:
+- repo: https://github.com/pre-commit/mirrors-isort
+  rev: v5.10.1
+  hooks:
+  - id: isort
+    args: ["--settings-path", "test/pyproject.toml"]
+    types: [python]
+
+- repo: https://github.com/pre-commit/mirrors-yapf
+  rev: v0.32.0
+  hooks:
+  - id: yapf
+    args: ["--style", "test/pyproject.toml", "test"]
+    types: [python]
+
+- repo: https://github.com/doublify/pre-commit-rust
+  rev: v1.0
+  hooks:
+  - id: fmt
+      # entry: cargo fmt
+      # types: [rust]

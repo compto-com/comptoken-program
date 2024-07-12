@@ -51,8 +51,7 @@ impl TryFrom<&mut [u8]> for &mut UserData {
         // field is correct after step 2
         // This slice is not a strictly accurate representation of the data, since the size is incorrect,
         // but step 2 will correct this
-        let data_hashes =
-            unsafe { std::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut _, capacity) };
+        let data_hashes = unsafe { std::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut _, capacity) };
         // Step 2: Create a ProofStorage from the slice
         // the chaining of `as` first converts a reference to a pointer, and then converts the pointer to a *ProofStorage* pointer
         // Then we convert the ProofStorage pointer to a mutable reference to a ProofStorage
@@ -93,9 +92,7 @@ impl<'a> IntoIterator for &'a UserData {
     type IntoIter = HashIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        HashIter {
-            iter: self.proofs.into_iter().take(self.length),
-        }
+        HashIter { iter: self.proofs.into_iter().take(self.length) }
     }
 }
 
@@ -104,9 +101,7 @@ impl<'a> IntoIterator for &'a mut UserData {
     type IntoIter = MutHashIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        MutHashIter {
-            iter: self.proofs.iter_mut().take(self.length),
-        }
+        MutHashIter { iter: self.proofs.iter_mut().take(self.length) }
     }
 }
 
@@ -145,21 +140,13 @@ mod test {
     }
 
     const POSSIBLE_BLOCKHASHES: [Hash; 2] = [
-        Hash::new_from_array(hex!(
-            "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
-        )),
-        Hash::new_from_array(hex!(
-            "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
-        )),
+        Hash::new_from_array(hex!("5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9")),
+        Hash::new_from_array(hex!("6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b")),
     ];
 
     const POSSIBLE_PROOFS: [Hash; 2] = [
-        Hash::new_from_array(hex!(
-            "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce"
-        )),
-        Hash::new_from_array(hex!(
-            "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
-        )),
+        Hash::new_from_array(hex!("4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce")),
+        Hash::new_from_array(hex!("4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a")),
     ];
 
     /// # SAFETY
@@ -187,14 +174,7 @@ mod test {
             "input data len is not large enough for the test"
         );
 
-        unsafe {
-            write_data(
-                input.data,
-                input.length,
-                &input.stored_blockhash,
-                input.proofs,
-            )
-        }
+        unsafe { write_data(input.data, input.length, &input.stored_blockhash, input.proofs) }
 
         let user_data: &mut UserData = input.data.try_into().expect("panicked already if failed");
 
@@ -205,14 +185,8 @@ mod test {
         let user_data: &UserData = &user_data;
         let output = output.expect("panicked already if not Some");
 
-        assert_eq!(
-            user_data.length, output.length,
-            "hash_storage is the correct length"
-        );
-        assert_eq!(
-            user_data.blockhash, output.stored_blockhash,
-            "hash_storage has the correct blockhash stored"
-        );
+        assert_eq!(user_data.length, output.length, "hash_storage is the correct length");
+        assert_eq!(user_data.blockhash, output.stored_blockhash, "hash_storage has the correct blockhash stored");
         user_data
             .into_iter()
             .zip(output.proofs)

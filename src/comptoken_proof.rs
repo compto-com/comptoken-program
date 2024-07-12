@@ -39,12 +39,7 @@ impl<'a> ComptokenProof<'a> {
         let nonce = u64::from_le_bytes(bytes[range_2].try_into().unwrap());
         let hash = Hash::new_from_array(bytes[range_3].try_into().unwrap());
 
-        ComptokenProof {
-            pubkey: key,
-            recent_block_hash,
-            nonce,
-            hash,
-        }
+        ComptokenProof { pubkey: key, recent_block_hash, nonce, hash }
     }
 
     pub fn leading_zeroes(hash: &Hash) -> u32 {
@@ -82,18 +77,8 @@ mod test {
 
     const ZERO_PUBKEY: Pubkey = Pubkey::new_from_array([0; PUBKEY_BYTES]);
 
-    fn create_arbitrary_block(
-        pubkey: &Pubkey,
-        recent_block_hash: Hash,
-        nonce: u64,
-        hash: Hash,
-    ) -> ComptokenProof {
-        ComptokenProof {
-            pubkey,
-            recent_block_hash,
-            nonce,
-            hash,
-        }
+    fn create_arbitrary_block(pubkey: &Pubkey, recent_block_hash: Hash, nonce: u64, hash: Hash) -> ComptokenProof {
+        ComptokenProof { pubkey, recent_block_hash, nonce, hash }
     }
 
     #[test]
@@ -113,10 +98,7 @@ mod test {
 
     #[test]
     fn test_from_bytes() {
-        assert_eq!(
-            ComptokenProof::from_bytes(&ZERO_PUBKEY, &[0; VERIFY_DATA_SIZE]).hash,
-            [0; 32].into()
-        );
+        assert_eq!(ComptokenProof::from_bytes(&ZERO_PUBKEY, &[0; VERIFY_DATA_SIZE]).hash, [0; 32].into());
 
         let recent_hash = Hash::new_from_array([1; 32]);
         let pubkey = Pubkey::new_from_array([2; PUBKEY_BYTES]);
@@ -138,17 +120,8 @@ mod test {
             block_from_bytes.recent_block_hash, block_from_data.recent_block_hash,
             "recent_block_hashes are different"
         );
-        assert_eq!(
-            block_from_bytes.pubkey, block_from_data.pubkey,
-            "pubkeys are different"
-        );
-        assert_eq!(
-            block_from_bytes.nonce, block_from_data.nonce,
-            "nonces are different"
-        );
-        assert_eq!(
-            block_from_bytes.hash, block_from_data.hash,
-            "hashes are different"
-        );
+        assert_eq!(block_from_bytes.pubkey, block_from_data.pubkey, "pubkeys are different");
+        assert_eq!(block_from_bytes.nonce, block_from_data.nonce, "nonces are different");
+        assert_eq!(block_from_bytes.hash, block_from_data.hash, "hashes are different");
     }
 }

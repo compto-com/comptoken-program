@@ -22,10 +22,8 @@ COMPTO_INTEREST_BANK_ACCOUNT_JSON = CACHE_PATH / "compto_interest_bank_account.j
 COMPTO_UBI_BANK_ACCOUNT_JSON = CACHE_PATH / "compto_ubi_bank_account.json"
 TOKEN_2022_PROGRAM_ID = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 
-
 class SubprocessFailedException(Exception):
     pass
-
 
 # ==== SOLANA COMMANDS ====
 
@@ -39,46 +37,30 @@ def checkIfProgamIdExists():
 def getProgramId():
     return run(f"solana address -k target/deploy/comptoken-keypair.json")
 
-
 def createToken():
-    run(
-        f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} create-token -v  --output json > {COMPTOKEN_MINT_JSON}"
-    )
-
+    run(f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} create-token -v  --output json > {COMPTOKEN_MINT_JSON}")
 
 def createKeyPair(outfile: Path):
     run(f"solana-keygen new --no-bip39-passphrase --force --silent --outfile {outfile}")
 
-
 def createComptoAccount():
     createKeyPair(TEST_USER_ACCOUNT_JSON)
-    run(
-        f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} create-account {getTokenAddress()} {TEST_USER_ACCOUNT_JSON}"
-    )
-
+    run(f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} create-account {getTokenAddress()} {TEST_USER_ACCOUNT_JSON}")
 
 def getPubkey(path: Path) -> str:
     return run(f"solana-keygen pubkey {path}")
 
-
 def getAccountBalance(pubkey: str):
     return run(f"solana balance {pubkey}")
 
-
 def deploy():
-    run(
-        f"solana program deploy -v {COMPTO_SO} --output json > {COMPTO_PROGRAM_ID_JSON}"
-    )
-
+    run(f"solana program deploy -v {COMPTO_SO} --output json > {COMPTO_PROGRAM_ID_JSON}")
 
 def checkIfCurrentMintAuthorityExists() -> bool:
     # TODO: find a more efficient way to do this
     try:
-        json.loads(
-            run(
-                f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} display {getTokenAddress()} --output json"
-            )
-        ).get("MintAuthority")
+        json.loads(run(f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} display {getTokenAddress()} --output json")
+                   ).get("MintAuthority")
         return True
     except (FileNotFoundError, SubprocessFailedException, json.decoder.JSONDecodeError):
         return False
@@ -86,56 +68,39 @@ def checkIfCurrentMintAuthorityExists() -> bool:
         print(f"new Exception: Type:`{type(ex)}' value: `{ex}'")
         raise ex
 
-
 def getCurrentMintAuthority() -> str:
-    return json.loads(
-        run(
-            f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} display {getTokenAddress()} --output json"
-        )
-    ).get("MintAuthority")
-
+    return json.loads(run(f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} display {getTokenAddress()} --output json")
+                      ).get("MintAuthority")
 
 def setGlobalDataPda():
     setPda("Global Data", COMPTO_GLOBAL_DATA_ACCOUNT_JSON)
 
-
 def setInterestBankPda():
     setPda("Interest Bank", COMPTO_INTEREST_BANK_ACCOUNT_JSON)
-
 
 def setUbiBankPda():
     setPda("UBI Bank", COMPTO_UBI_BANK_ACCOUNT_JSON)
 
-
 def setPda(seed: str, outfile: Path):
-    run(
-        f"solana find-program-derived-address {getProgramId()} string:'{seed}' --output json > {outfile}"
-    )
-
+    run(f"solana find-program-derived-address {getProgramId()} string:'{seed}' --output json > {outfile}")
 
 def getGlobalDataPDA():
     return json.loads(COMPTO_GLOBAL_DATA_ACCOUNT_JSON.read_text())
 
-
 def getInterestBankPda():
     return json.loads(COMPTO_INTEREST_BANK_ACCOUNT_JSON.read_text())
-
 
 def getUbiBankPda():
     return json.loads(COMPTO_UBI_BANK_ACCOUNT_JSON.read_text())
 
-
 # ==== SHELL COMMANDS ====
 def build():
-    run("cargo build-sbf --features \"testmode\"", PROJECT_PATH)
-
+    run('cargo build-sbf --features "testmode"', PROJECT_PATH)
 
 def getComptoMd5():
     return run(f"md5sum {COMPTO_SO}", PROJECT_PATH).split()[0]
 
-
 # ========================
-
 
 def checkIfProgamIdChanged() -> bool:
     # Only deploy if the program id has changed
@@ -145,19 +110,14 @@ def checkIfProgamIdChanged() -> bool:
     cached_program_id = json.loads(COMPTO_PROGRAM_ID_JSON.read_text())["programId"]
     return real_program_id != cached_program_id
 
-
 def deployIfNeeded():
     # Only deploy if the md5sum of the program has changed
     md5sum = getComptoMd5()
-    if (
-        not COMPTO_MD5_JSON.exists()
-        or json.loads(COMPTO_MD5_JSON.read_text())["md5sum"] != md5sum
-    ):
+    if (not COMPTO_MD5_JSON.exists() or json.loads(COMPTO_MD5_JSON.read_text())["md5sum"] != md5sum):
         COMPTO_MD5_JSON.write_text(json.dumps({"md5sum": md5sum}))
         deploy()
     else:
         print("Program has not changed, skipping deploy.")
-
 
 def generateComptokenAddressFile():
     setGlobalDataPda()
@@ -194,16 +154,11 @@ pub const COMPTO_UBI_BANK_ACCOUNT_BUMP: u8 = {UBIBankSeed};\
     with open(COMPTO_GENERATED_RS_FILE, "w") as file:
         file.write(file_data)
 
-
 def checkIfTokenAddressExists() -> bool:
     return COMPTOKEN_MINT_JSON.exists()
 
-
 def getTokenAddress():
-    return (
-        json.loads(COMPTOKEN_MINT_JSON.read_text()).get("commandOutput").get("address")
-    )
-
+    return (json.loads(COMPTOKEN_MINT_JSON.read_text()).get("commandOutput").get("address"))
 
 def createTokenIfNeeded():
     # TODO: put TokenCreation and MintAuthorityCreation together
@@ -221,21 +176,16 @@ def createTokenIfNeeded():
     else:
         print("Using existing Comptoken...")
 
-
 def run(command: str | list[str], cwd: Path | None = None):
-    result = subprocess.run(
-        command, shell=True, cwd=cwd, capture_output=True, text=True
-    )
+    result = subprocess.run(command, shell=True, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
         raise SubprocessFailedException(
             f"Failed to run command! command: {command} stdout: {result.stdout} stderr: {result.stderr}"
         )
     return result.stdout.rstrip()
 
-
 def runTestClient():
     return run("node compto-test-client/test_client.js", TEST_PATH)
-
 
 class BackgroundProcess:
     _cmd: str | list[str]
@@ -264,7 +214,6 @@ class BackgroundProcess:
     def checkIfProcessRunning(self):
         return self._process is not None and self._process.poll() is None
 
-
 def checkIfValidatorReady(validator: BackgroundProcess) -> bool:
     if not validator.checkIfProcessRunning():
         return False
@@ -273,7 +222,6 @@ def checkIfValidatorReady(validator: BackgroundProcess) -> bool:
         return True
     except Exception:
         return False
-
 
 def waitTillValidatorReady(validator: BackgroundProcess):
     TIMEOUT = 10
@@ -284,7 +232,6 @@ def waitTillValidatorReady(validator: BackgroundProcess):
             exit(1)
         print("Validator Not Ready")
         sleep(1)
-
 
 if __name__ == "__main__":
     # create cache if it doesn't exist
@@ -309,9 +256,7 @@ if __name__ == "__main__":
         waitTillValidatorReady(validator)
         print("Validator Ready")
         createTokenIfNeeded()
-        print(
-            "Checking Compto Program for hardcoded Comptoken Address and static seed..."
-        )
+        print("Checking Compto Program for hardcoded Comptoken Address and static seed...")
         generateComptokenAddressFile()
         print("Creating Token Account...")
         createComptoAccount()

@@ -1,6 +1,6 @@
 /target
 /node_modules
 /test/.cache
-src/comptoken_generated.rs
+src/generated
 
 test/compto-test-client/tsconfig.json

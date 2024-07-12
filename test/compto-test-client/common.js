@@ -18,22 +18,22 @@ export const Instruction = {
 };
 
 // Read Cache Files
-import global_data_pda from "../.cache/compto_global_data_pda.json" assert { type: "json" };
-export const global_data_pda_str = global_data_pda["address"];
+import global_data_account from "../.cache/compto_global_data_account.json" assert { type: "json" };
+export const global_data_account_str = global_data_account["address"];
 
-import comptoken_id from '../.cache/comptoken_id.json' assert { type: "json" };
-export const compto_token_id_str = comptoken_id["commandOutput"]["address"];
+import comptoken_id from '../.cache/comptoken_mint.json' assert { type: "json" };
+export const comptoken_mint_str = comptoken_id["commandOutput"]["address"];
 
 import compto_program_id from '../.cache/compto_program_id.json' assert { type: "json" };
 export const compto_program_id_str = compto_program_id['programId'];
 
-import test_account_ from '../.cache/compto_test_account.json' assert { type: "json" };
-export const test_account = test_account_;
+import testuser_comptoken_wallet_ from '../.cache/test_user_account.json' assert { type: "json" };
+export const testuser_comptoken_wallet_str = testuser_comptoken_wallet_;
 
 // Pubkeys
-export const destination_pubkey = Keypair.fromSecretKey(new Uint8Array(test_account)).publicKey;
-export const global_data_pda_pubkey = new PublicKey(bs58.decode(global_data_pda_str));
-export const comptoken_pubkey = new PublicKey(bs58.decode(compto_token_id_str));
+export const testuser_comptoken_wallet_pubkey = Keypair.fromSecretKey(new Uint8Array(testuser_comptoken_wallet_str)).publicKey;
+export const global_data_account_pubkey = new PublicKey(bs58.decode(global_data_account_str));
+export const comptoken_mint_pubkey = new PublicKey(bs58.decode(comptoken_mint_str));
 export const compto_program_id_pubkey = new PublicKey(bs58.decode(compto_program_id_str));
 
 // KeyPair

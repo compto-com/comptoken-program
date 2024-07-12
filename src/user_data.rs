@@ -2,7 +2,7 @@ use spl_token_2022::solana_program::{hash::Hash, hash::HASH_BYTES, program_error
 
 #[repr(C)]
 #[derive(Debug)]
-pub struct ProofStorageBase<T: ?Sized> {
+pub struct UserDataBase<T: ?Sized> {
     // capacity is stored in the fat pointer
     length: usize,
     blockhash: Hash,
@@ -10,11 +10,11 @@ pub struct ProofStorageBase<T: ?Sized> {
 }
 
 // MAGIC NUMBER: CHANGE NEEDS TO BE REFLECTED IN test_client.js
-pub const PROOF_STORAGE_MIN_SIZE: usize = std::mem::size_of::<ProofStorageBase<Hash>>();
+pub const USER_DATA_MIN_SIZE: usize = std::mem::size_of::<UserDataBase<Hash>>();
 
-pub type ProofStorage = ProofStorageBase<[Hash]>;
+pub type UserData = UserDataBase<[Hash]>;
 
-impl ProofStorage {
+impl UserData {
     pub fn insert(&mut self, new_proof: &Hash, new_blockhash: &Hash) {
         // new_proof and new_blockhash have already been verified
         if self.blockhash != *new_blockhash {
@@ -38,14 +38,14 @@ impl ProofStorage {
     pub fn initialize(&mut self) {}
 }
 
-impl TryFrom<&mut [u8]> for &mut ProofStorage {
+impl TryFrom<&mut [u8]> for &mut UserData {
     type Error = ProgramError;
 
     fn try_from(data: &mut [u8]) -> Result<Self, Self::Error> {
-        assert!(data.len() >= PROOF_STORAGE_MIN_SIZE);
-        assert!((data.len() - PROOF_STORAGE_MIN_SIZE) % HASH_BYTES == 0);
+        assert!(data.len() >= USER_DATA_MIN_SIZE);
+        assert!((data.len() - USER_DATA_MIN_SIZE) % HASH_BYTES == 0);
 
-        let capacity = ((data.len() - PROOF_STORAGE_MIN_SIZE) / HASH_BYTES) + 1;
+        let capacity = ((data.len() - USER_DATA_MIN_SIZE) / HASH_BYTES) + 1;
         // Two step process to dynamically create ProofStorage from the account data array of bytes
         // Step 1: Create a slice from the account data array of bytes, so the wide pointer extra capacity
         // field is correct after step 2
@@ -58,7 +58,7 @@ impl TryFrom<&mut [u8]> for &mut ProofStorage {
         // Then we convert the ProofStorage pointer to a mutable reference to a ProofStorage
         // This is how the rust docs say to do it... :/
         // https://doc.rust-lang.org/std/mem/fn.transmute.html
-        let result = unsafe { &mut *(data_hashes as *mut _ as *mut ProofStorage) };
+        let result = unsafe { &mut *(data_hashes as *mut _ as *mut UserData) };
         assert!(result.length <= result.proofs.len());
         Ok(result)
     }
@@ -88,7 +88,7 @@ impl<'a> Iterator for MutHashIter<'a> {
     }
 }
 
-impl<'a> IntoIterator for &'a ProofStorage {
+impl<'a> IntoIterator for &'a UserData {
     type Item = &'a Hash;
     type IntoIter = HashIter<'a>;
 
@@ -99,7 +99,7 @@ impl<'a> IntoIterator for &'a ProofStorage {
     }
 }
 
-impl<'a> IntoIterator for &'a mut ProofStorage {
+impl<'a> IntoIterator for &'a mut UserData {
     type Item = &'a mut Hash;
     type IntoIter = MutHashIter<'a>;
 
@@ -183,7 +183,7 @@ mod test {
         let output = test_values.output;
         let max_length = max(input.length, output.as_ref().map_or(0, |o| o.length));
         assert!(
-            input.data.len() >= PROOF_STORAGE_MIN_SIZE + (max_length - 1) * HASH_BYTES,
+            input.data.len() >= USER_DATA_MIN_SIZE + (max_length - 1) * HASH_BYTES,
             "input data len is not large enough for the test"
         );
 
@@ -196,25 +196,24 @@ mod test {
             )
         }
 
-        let proof_storage: &mut ProofStorage =
-            input.data.try_into().expect("panicked already if failed");
+        let user_data: &mut UserData = input.data.try_into().expect("panicked already if failed");
 
         for pow in input.new_proofs {
-            proof_storage.insert(&pow.proof, &pow.blockhash);
+            user_data.insert(&pow.proof, &pow.blockhash);
         }
 
-        let proof_storage: &ProofStorage = &proof_storage;
+        let user_data: &UserData = &user_data;
         let output = output.expect("panicked already if not Some");
 
         assert_eq!(
-            proof_storage.length, output.length,
+            user_data.length, output.length,
             "hash_storage is the correct length"
         );
         assert_eq!(
-            proof_storage.blockhash, output.stored_blockhash,
+            user_data.blockhash, output.stored_blockhash,
             "hash_storage has the correct blockhash stored"
         );
-        proof_storage
+        user_data
             .into_iter()
             .zip(output.proofs)
             .for_each(|(proof, expected_proof)| assert_eq!(proof, expected_proof))
@@ -224,7 +223,7 @@ mod test {
     fn test_try_from() {
         run_test(TestValues {
             input: TestValuesInput {
-                data: &mut [0_u8; PROOF_STORAGE_MIN_SIZE],
+                data: &mut [0_u8; USER_DATA_MIN_SIZE],
                 length: 1,
                 stored_blockhash: POSSIBLE_BLOCKHASHES[0],
                 proofs: &[POSSIBLE_PROOFS[0]],
@@ -242,7 +241,7 @@ mod test {
     fn test_insert() {
         run_test(TestValues {
             input: TestValuesInput {
-                data: &mut [0_u8; PROOF_STORAGE_MIN_SIZE],
+                data: &mut [0_u8; USER_DATA_MIN_SIZE],
                 length: 0,
                 stored_blockhash: POSSIBLE_BLOCKHASHES[0],
                 proofs: &[],
@@ -263,7 +262,7 @@ mod test {
     fn test_insert_new() {
         run_test(TestValues {
             input: TestValuesInput {
-                data: &mut [0_u8; PROOF_STORAGE_MIN_SIZE],
+                data: &mut [0_u8; USER_DATA_MIN_SIZE],
                 length: 1,
                 stored_blockhash: POSSIBLE_BLOCKHASHES[0],
                 proofs: &[POSSIBLE_PROOFS[0]],
@@ -287,7 +286,7 @@ mod test {
             input: TestValuesInput {
                 // size is 1 proof bigger than it needs to be so that we can test the duplicate
                 // failure case specifically and not worry about getting an out-of-size error.
-                data: &mut [0_u8; PROOF_STORAGE_MIN_SIZE + 1 * HASH_BYTES],
+                data: &mut [0_u8; USER_DATA_MIN_SIZE + 1 * HASH_BYTES],
                 length: 1,
                 stored_blockhash: POSSIBLE_BLOCKHASHES[0],
                 proofs: &[POSSIBLE_PROOFS[0]],

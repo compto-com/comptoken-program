@@ -8,13 +8,9 @@ use spl_token_2022::solana_program::{
 // ensure this remains consistent with comptoken_proof.js
 const MIN_NUM_ZEROED_BITS: u32 = 3; // TODO: replace with permanent value
 
-fn check_if_recent_blockhashes(blockhash: &Hash) -> bool {
-    super::get_valid_hash() == blockhash
-}
-
-pub fn verify_proof(block: &ComptokenProof) -> bool {
+pub fn verify_proof(block: &ComptokenProof, valid_blockhash: &Hash) -> bool {
     let leading_zeros: bool = ComptokenProof::leading_zeroes(&block.hash) >= MIN_NUM_ZEROED_BITS;
-    let recent_blockhash: bool = check_if_recent_blockhashes(&block.recent_block_hash);
+    let recent_blockhash: bool = block.recent_block_hash == *valid_blockhash;
     let equal_hash: bool = block.generate_hash() == block.hash;
     // hash duplicate check is part of inserting
     return leading_zeros && recent_blockhash && equal_hash;
@@ -40,7 +36,7 @@ impl<'a> ComptokenProof<'a> {
 
         let recent_block_hash = Hash::new_from_array(bytes[range_1].try_into().unwrap());
         // this nonce is what the miner incremented to find a valid proof
-        let nonce = u64::from_be_bytes(bytes[range_2].try_into().unwrap());
+        let nonce = u64::from_le_bytes(bytes[range_2].try_into().unwrap());
         let hash = Hash::new_from_array(bytes[range_3].try_into().unwrap());
 
         ComptokenProof {
@@ -73,7 +69,7 @@ impl<'a> ComptokenProof<'a> {
         let mut hasher = Hasher::default();
         hasher.hash(&self.pubkey.to_bytes());
         hasher.hash(&self.recent_block_hash.to_bytes());
-        hasher.hash(&self.nonce.to_be_bytes());
+        hasher.hash(&self.nonce.to_le_bytes());
         hasher.result()
     }
 }

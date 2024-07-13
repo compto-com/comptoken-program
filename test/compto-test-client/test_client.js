@@ -21,8 +21,10 @@ import {
     compto_program_id_pubkey,
     comptoken_mint_pubkey,
     global_data_account_pubkey,
+    interest_bank_account_pubkey,
     me_keypair,
     testuser_comptoken_wallet_pubkey,
+    ubi_bank_account_pubkey,
 } from './common.js';
 
 import { mintComptokens } from './comptoken_proof.js';
@@ -86,15 +88,15 @@ async function setMintAuthority(current_mint_authority_pubkey) {
 async function testMint() {
     let data = Buffer.from([Instruction.TEST]);
     let keys = [
+        // communicates to the token program which mint (and therefore which mint authority)
+        // to mint the tokens from
+        { pubkey: comptoken_mint_pubkey, isSigner: false, isWritable: true },
         // the address to receive the test tokens
         { pubkey: testuser_comptoken_wallet_pubkey, isSigner: false, isWritable: true },
         // the mint authority that will sign to mint the tokens
         { pubkey: global_data_account_pubkey, isSigner: false, isWritable: false },
         // the token program that will mint the tokens when instructed by the mint authority
         { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
-        // communicates to the token program which mint (and therefore which mint authority)
-        // to mint the tokens from
-        { pubkey: comptoken_mint_pubkey, isSigner: false, isWritable: true },
     ];
     let testMintTransaction = new Transaction();
     testMintTransaction.add(
@@ -110,19 +112,31 @@ async function testMint() {
 
 async function createGlobalDataAccount() {
     // MAGIC NUMBER: CHANGE NEEDS TO BE REFLECTED IN comptoken.rs
-    const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(4096);
-    console.log("Rent exempt amount: ", rentExemptAmount);
-    let data = Buffer.alloc(9);
+    const globalDataRentExemptAmount = await connection.getMinimumBalanceForRentExemption(4096);
+    const interestBankRentExemptAmount = await connection.getMinimumBalanceForRentExemption(256);
+    const ubiBankRentExemptAmount = await connection.getMinimumBalanceForRentExemption(256);
+    console.log("Rent exempt amount: ", globalDataRentExemptAmount);
+    // 1 byte for instruction 3 x 8 bytes for rent exemptions
+    let data = Buffer.alloc(25);
     data.writeUInt8(Instruction.INITIALIZE_STATIC_ACCOUNT, 0);
-    data.writeBigInt64LE(BigInt(rentExemptAmount), 1);
+    data.writeBigInt64LE(BigInt(globalDataRentExemptAmount), 1);
+    data.writeBigInt64LE(BigInt(interestBankRentExemptAmount), 9);
+    data.writeBigInt64LE(BigInt(ubiBankRentExemptAmount), 17);
     console.log("data: ", data);
     let keys = [
         // the payer of the rent for the account
         { pubkey: testuser_keypair.publicKey, isSigner: true, isWritable: true },
-        // the address of the account to be created
+        // the address of the global data account to be created
         { pubkey: global_data_account_pubkey, isSigner: false, isWritable: true },
+        // the address of the interest bank account to be created
+        { pubkey: interest_bank_account_pubkey, isSigner: false, isWritable: true },
+        // the address of the ubi bank account to be created
+        { pubkey: ubi_bank_account_pubkey, isSigner: false, isWritable: true },
+        // the comptoken mint account
+        { pubkey: comptoken_mint_pubkey, isSigner: false, isWritable: false },
         // needed because compto program interacts with the system program to create the account
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
     ];
     let createGlobalDataAccountTransaction = new Transaction();
     createGlobalDataAccountTransaction.add(
@@ -142,15 +156,15 @@ async function createUserDataAccount() {
     const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(PROOF_STORAGE_MIN_SIZE);
     console.log("Rent exempt amount: ", rentExemptAmount);
 
-    let user_pda = PublicKey.findProgramAddressSync([testuser_comptoken_wallet_pubkey.toBytes()], compto_program_id_pubkey)[0];
+    let user_data_account = PublicKey.findProgramAddressSync([testuser_comptoken_wallet_pubkey.toBytes()], compto_program_id_pubkey)[0];
 
     let createKeys = [
         // the payer of the rent for the account
         { pubkey: testuser_keypair.publicKey, isSigner: true, isWritable: true },
+        // the data account tied to the comptoken wallet
+        { pubkey: user_data_account, isSigner: false, isWritable: true },
         // the payers comptoken wallet (comptoken token acct)
         { pubkey: testuser_comptoken_wallet_pubkey, isSigner: false, isWritable: false },
-        // the data account tied to the comptoken wallet
-        { pubkey: user_pda, isSigner: false, isWritable: true },
         // system account is used to create the account
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ];

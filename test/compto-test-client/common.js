@@ -21,6 +21,12 @@ export const Instruction = {
 import global_data_account from "../.cache/compto_global_data_account.json" assert { type: "json" };
 export const global_data_account_str = global_data_account["address"];
 
+import interest_bank_account from "../.cache/compto_interest_bank_account.json" assert { type: "json" };
+export const interest_bank_account_str = interest_bank_account["address"];
+
+import ubi_bank_account from "../.cache/compto_ubi_bank_account.json" assert { type: "json" };
+export const ubi_bank_account_str = ubi_bank_account["address"];
+
 import comptoken_id from '../.cache/comptoken_mint.json' assert { type: "json" };
 export const comptoken_mint_str = comptoken_id["commandOutput"]["address"];
 
@@ -33,6 +39,8 @@ export const testuser_comptoken_wallet_str = testuser_comptoken_wallet_;
 // Pubkeys
 export const testuser_comptoken_wallet_pubkey = Keypair.fromSecretKey(new Uint8Array(testuser_comptoken_wallet_str)).publicKey;
 export const global_data_account_pubkey = new PublicKey(bs58.decode(global_data_account_str));
+export const interest_bank_account_pubkey = new PublicKey(bs58.decode(interest_bank_account_str));
+export const ubi_bank_account_pubkey = new PublicKey(bs58.decode(ubi_bank_account_str));
 export const comptoken_mint_pubkey = new PublicKey(bs58.decode(comptoken_mint_str));
 export const compto_program_id_pubkey = new PublicKey(bs58.decode(compto_program_id_str));
 

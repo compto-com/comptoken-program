@@ -22,7 +22,7 @@ pub fn verify_ubi_bank_account(account: &AccountInfo, program_id: &Pubkey) -> Pu
     result
 }
 
-pub fn verify_comptoken_user_account(_account: &AccountInfo) -> ProgramResult {
+pub fn verify_user_comptoken_wallet_account(_account: &AccountInfo) -> ProgramResult {
     // TODO: verify comptoken user accounts
     Ok(())
 }

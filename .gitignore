@@ -2,5 +2,5 @@
 /node_modules
 /test/.cache
 src/generated
-
+.vscode
 test/compto-test-client/tsconfig.json

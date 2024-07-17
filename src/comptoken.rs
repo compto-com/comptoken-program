@@ -14,16 +14,17 @@ use spl_token_2022::{
         hash::Hash,
         hash::HASH_BYTES,
         msg,
-        program::invoke_signed,
+        program::{invoke_signed, set_return_data},
         program_pack::Pack,
         pubkey::Pubkey,
         system_instruction,
-        sysvar::slot_history::ProgramError,
+        sysvar::{slot_history::ProgramError, Sysvar},
     },
     state::Mint,
 };
 
 use comptoken_proof::ComptokenProof;
+use constants::SEC_PER_DAY;
 use global_data::{DailyDistributionValues, GlobalData};
 use user_data::{UserData, USER_DATA_MIN_SIZE};
 use verify_accounts::{
@@ -272,8 +273,6 @@ pub fn daily_distribution_event(
     //      Comptoken UBI Bank
     //      Solana Token Program
 
-    // TODO query time and determine if the daily distribution event should happen
-
     let account_info_iter = &mut accounts.iter();
     let comptoken_mint_account = next_account_info(account_info_iter)?;
     let global_data_account = next_account_info(account_info_iter)?;
@@ -287,6 +286,12 @@ pub fn daily_distribution_event(
 
     let global_data: &mut GlobalData = global_data_account.try_into().unwrap();
     let comptoken_mint = Mint::unpack(comptoken_mint_account.try_borrow_data().unwrap().as_ref()).unwrap();
+
+    let current_time = spl_token_2022::solana_program::clock::Clock::get()?.unix_timestamp;
+    assert!(
+        current_time < global_data.last_daily_distribution_time + SEC_PER_DAY,
+        "daily distribution already called today"
+    );
 
     let DailyDistributionValues {
         interest_distributed: interest_daily_distribution,
@@ -302,6 +307,25 @@ pub fn daily_distribution_event(
         &[comptoken_mint_account.clone(), global_data_account.clone(), unpaid_ubi_bank.clone()],
     )?;
 
+    Ok(())
+}
+
+pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_data: &[u8]) -> ProgramResult {
+    //  accounts order:
+    //      Comptoken Global Data (also mint authority) (writable)
+
+    let account_info_iter = &mut accounts.iter();
+    let global_data_account = next_account_info(account_info_iter)?;
+
+    verify_global_data_account(global_data_account, program_id);
+
+    let global_data: &mut GlobalData = global_data_account.try_into().unwrap();
+
+    global_data.update_announced_blockhash_if_necessary();
+
+    let mut data = Vec::from(global_data.valid_blockhash.to_bytes());
+    data.extend(global_data.announced_blockhash.to_bytes());
+    set_return_data(&data);
     Ok(())
 }
 

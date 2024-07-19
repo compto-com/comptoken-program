@@ -1,10 +1,8 @@
 import { TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import { PublicKey, Transaction, TransactionInstruction, sendAndConfirmTransaction } from '@solana/web3.js';
-import * as bs58_ from "bs58";
 import { assert } from "console";
 import { createHash } from "crypto";
-import { Instruction, compto_program_id_pubkey, comptoken_mint_pubkey, global_data_account_pubkey } from "./common.js";
-let bs58 = bs58_.default;
+import { Instruction, bs58, compto_program_id_pubkey, comptoken_mint_pubkey, global_data_account_pubkey } from "./common.js";
 
 const MIN_NUM_ZEROED_BITS = 3;
 
@@ -69,8 +67,8 @@ class ComptokenProof {
     }
 }
 
-export async function mintComptokens(connection, destination_pubkey, temp_keypair) {
-    let proof = new ComptokenProof(destination_pubkey, "11111111111111111111111111111111"); // TODO: get recent_block_hash from caches
+export async function mintComptokens(connection, destination_pubkey, temp_keypair, current_block) {
+    let proof = new ComptokenProof(destination_pubkey, current_block);
     proof.mine();
     let data = Buffer.concat([
         Buffer.from([Instruction.COMPTOKEN_MINT]),

@@ -7,7 +7,7 @@ import fs from 'fs';
 import os from 'os';
 
 import * as bs58_ from 'bs58';
-let bs58 = bs58_.default;
+export const bs58 = bs58_.default;
 
 export const Instruction = {
     TEST: 0,
@@ -15,6 +15,7 @@ export const Instruction = {
     INITIALIZE_STATIC_ACCOUNT: 2,
     CREATE_USER_DATA_ACCOUNT: 3,
     DAILY_DISTRIBUTION_EVENT: 4,
+    GET_VALID_BLOCKHASHES: 5,
 };
 
 // Read Cache Files

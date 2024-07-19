@@ -29,7 +29,7 @@ use global_data::{DailyDistributionValues, GlobalData};
 use user_data::{UserData, USER_DATA_MIN_SIZE};
 use verify_accounts::{
     verify_comptoken_user_data_account, verify_global_data_account, verify_interest_bank_account,
-    verify_ubi_bank_account, verify_user_comptoken_wallet_account,
+    verify_slothashes_account, verify_ubi_bank_account, verify_user_comptoken_wallet_account,
 };
 
 // declare and export the program's entrypoint
@@ -72,6 +72,10 @@ pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instru
         4 => {
             msg!("Perform Daily Distribution Event");
             daily_distribution_event(program_id, accounts, &instruction_data[1..])
+        }
+        5 => {
+            msg!("Get Valid Blockhashes");
+            get_valid_blockhashes(program_id, accounts, &instruction_data[1..])
         }
         _ => {
             msg!("Invalid Instruction");
@@ -151,6 +155,7 @@ pub fn initialize_comptoken_program(
     //      Comptoken Mint
     //      Solana Program
     //      Solana Token 2022 Program
+    //      Solana SlotHashes Sysvar
 
     msg!("instruction_data: {:?}", instruction_data);
 
@@ -162,11 +167,13 @@ pub fn initialize_comptoken_program(
     let comptoken_mint = next_account_info(account_info_iter)?;
     let _solana_program = next_account_info(account_info_iter)?;
     let _token_2022_program = next_account_info(account_info_iter)?;
+    let slot_hashes_account = next_account_info(account_info_iter)?;
 
     // necessary because we use the user provided pubkey to retrieve the data
     verify_global_data_account(global_data_account, program_id);
     verify_interest_bank_account(unpaid_interest_bank, program_id);
     verify_ubi_bank_account(ubi_bank, program_id);
+    verify_slothashes_account(slot_hashes_account);
 
     let first_8_bytes: [u8; 8] = instruction_data[0..8].try_into().unwrap();
     let lamports_global_data = u64::from_le_bytes(first_8_bytes);
@@ -212,7 +219,7 @@ pub fn initialize_comptoken_program(
     msg!("initialized ubi bank account");
 
     let global_data: &mut GlobalData = global_data_account.try_into().unwrap();
-    global_data.initialize();
+    global_data.initialize(slot_hashes_account);
 
     Ok(())
 }
@@ -272,6 +279,7 @@ pub fn daily_distribution_event(
     //      Comptoken Interest Bank
     //      Comptoken UBI Bank
     //      Solana Token Program
+    //      Solana SlotHashes Sysvar
 
     let account_info_iter = &mut accounts.iter();
     let comptoken_mint_account = next_account_info(account_info_iter)?;
@@ -279,10 +287,12 @@ pub fn daily_distribution_event(
     let unpaid_interest_bank = next_account_info(account_info_iter)?;
     let unpaid_ubi_bank = next_account_info(account_info_iter)?;
     let _solana_token_account = next_account_info(account_info_iter)?;
+    let slot_hashes_account = next_account_info(account_info_iter)?;
 
     verify_global_data_account(global_data_account, program_id);
     verify_interest_bank_account(unpaid_interest_bank, program_id);
     verify_ubi_bank_account(unpaid_ubi_bank, program_id);
+    verify_slothashes_account(slot_hashes_account);
 
     let global_data: &mut GlobalData = global_data_account.try_into().unwrap();
     let comptoken_mint = Mint::unpack(comptoken_mint_account.try_borrow_data().unwrap().as_ref()).unwrap();
@@ -296,7 +306,7 @@ pub fn daily_distribution_event(
     let DailyDistributionValues {
         interest_distributed: interest_daily_distribution,
         ubi_distributed: ubi_daily_distribution,
-    } = global_data.daily_distribution_event(comptoken_mint);
+    } = global_data.daily_distribution_event(comptoken_mint, slot_hashes_account);
 
     // mint to banks
     mint(global_data_account.key, unpaid_interest_bank.key, interest_daily_distribution, &accounts[..3])?;
@@ -313,15 +323,18 @@ pub fn daily_distribution_event(
 pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
     //      Comptoken Global Data (also mint authority) (writable)
+    //      Solana SlotHashes Sysvar
 
     let account_info_iter = &mut accounts.iter();
     let global_data_account = next_account_info(account_info_iter)?;
+    let slot_hashes_account = next_account_info(account_info_iter)?;
 
     verify_global_data_account(global_data_account, program_id);
+    verify_slothashes_account(slot_hashes_account);
 
     let global_data: &mut GlobalData = global_data_account.try_into().unwrap();
 
-    global_data.update_announced_blockhash_if_necessary();
+    global_data.update_announced_blockhash_if_necessary(slot_hashes_account);
 
     let mut data = Vec::from(global_data.valid_blockhash.to_bytes());
     data.extend(global_data.announced_blockhash.to_bytes());

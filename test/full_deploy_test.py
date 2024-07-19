@@ -185,7 +185,7 @@ def run(command: str | list[str], cwd: Path | None = None):
     return result.stdout.rstrip()
 
 def runTestClient():
-    return run("node compto-test-client/test_client.js", TEST_PATH)
+    return run("node --trace-warnings compto-test-client/test_client.js", TEST_PATH)
 
 class BackgroundProcess:
     _cmd: str | list[str]

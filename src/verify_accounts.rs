@@ -36,3 +36,7 @@ pub fn verify_comptoken_user_data_account(
     assert_eq!(*comptoken_user_data_account.key, pda, "Invalid user data account");
     bump
 }
+
+pub fn verify_slothashes_account(slot_hashes_account: &AccountInfo) {
+    assert!(solana_program::sysvar::slot_hashes::check_id(slot_hashes_account.key));
+}

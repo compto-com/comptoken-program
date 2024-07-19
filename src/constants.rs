@@ -13,3 +13,6 @@ pub const ADJUST_FACTOR: f64 = 0.3;
 pub const END_GOAL_PERCENT_INCREASE: f64 = 0.00061;
 
 pub const SEC_PER_DAY: i64 = 86_400;
+
+// seconds between earliest possible announcement and switchover point, currently 5 mins
+pub const ANNOUNCEMENT_INTERVAL: i64 = 60 * 5;

@@ -1,24 +1,15 @@
 use spl_token_2022::{
-    solana_program::{
-        account_info::AccountInfo, clock::Clock, hash::Hash, program_error::ProgramError, slot_hashes::SlotHash,
-        sysvar::Sysvar,
-    },
+    solana_program::{account_info::AccountInfo, hash::Hash, slot_hashes::SlotHash},
     state::Mint,
 };
 
-use crate::constants::*;
+use crate::{constants::*, get_current_time, normalize_time};
 
 #[repr(C)]
 #[derive(Debug)]
 pub struct GlobalData {
-    pub valid_blockhash: Hash,
-    pub announced_blockhash: Hash,
-    pub announced_blockhash_time: i64,
-    pub yesterday_supply: u64,
-    pub high_water_mark: u64,
-    pub last_daily_distribution_time: i64,
-    pub oldest_interest: usize,
-    pub historic_interests: [f64; 365],
+    pub valid_blockhashes: ValidBlockhashes,
+    pub daily_distribution_data: DailyDistributionData,
 }
 
 pub struct DailyDistributionValues {
@@ -28,19 +19,76 @@ pub struct DailyDistributionValues {
 
 impl GlobalData {
     pub fn initialize(&mut self, slot_hash_account: &AccountInfo) {
-        let current_time = get_current_time();
-        self.valid_blockhash = get_most_recent_blockhash(slot_hash_account);
-        self.announced_blockhash = self.valid_blockhash;
-
-        let normalized_time = current_time - current_time % SEC_PER_DAY; // midnight today, UTC+0
-        self.announced_blockhash_time = normalized_time;
-        self.last_daily_distribution_time = normalized_time + 60 * 5; // 5 minutes after announcement
+        self.valid_blockhashes.initialize(slot_hash_account);
+        self.daily_distribution_data.initialize();
     }
 
     pub fn daily_distribution_event(&mut self, mint: Mint, slot_hash_account: &AccountInfo) -> DailyDistributionValues {
-        self.update_announced_blockhash_if_necessary(slot_hash_account);
-        self.valid_blockhash = self.announced_blockhash;
+        self.valid_blockhashes.update(slot_hash_account);
+        self.daily_distribution_data.daily_distribution(mint)
+    }
+}
 
+impl<'a> From<&AccountInfo<'a>> for &'a mut GlobalData {
+    fn from(account: &AccountInfo) -> Self {
+        let mut data = account.try_borrow_mut_data().unwrap();
+        let result = unsafe { &mut *(data.as_mut() as *mut _ as *mut GlobalData) };
+        result
+    }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct ValidBlockhashes {
+    pub announced_blockhash: Hash,
+    pub announced_blockhash_time: i64,
+    pub valid_blockhash: Hash,
+    pub valid_blockhash_time: i64,
+}
+
+impl ValidBlockhashes {
+    fn initialize(&mut self, slot_hash_account: &AccountInfo) {
+        self.update(slot_hash_account);
+    }
+
+    pub fn update(&mut self, slot_hash_account: &AccountInfo) {
+        if self.is_announced_blockhash_stale() {
+            self.announced_blockhash = get_most_recent_blockhash(slot_hash_account);
+            // This is necessary for the case where a day's update has been "skipped"
+            self.announced_blockhash_time =
+                normalize_time(get_current_time() + ANNOUNCEMENT_INTERVAL) - ANNOUNCEMENT_INTERVAL;
+        }
+        if self.is_valid_blockhash_stale() {
+            self.valid_blockhash = self.announced_blockhash;
+            self.valid_blockhash_time = normalize_time(get_current_time());
+        }
+    }
+
+    pub fn is_announced_blockhash_stale(&self) -> bool {
+        get_current_time() > self.announced_blockhash_time + SEC_PER_DAY
+    }
+
+    pub fn is_valid_blockhash_stale(&self) -> bool {
+        get_current_time() > self.valid_blockhash_time + SEC_PER_DAY
+    }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct DailyDistributionData {
+    pub yesterday_supply: u64,
+    pub high_water_mark: u64,
+    pub last_daily_distribution_time: i64,
+    pub oldest_interest: usize,
+    pub historic_interests: [f64; 365],
+}
+
+impl DailyDistributionData {
+    fn initialize(&mut self) {
+        self.last_daily_distribution_time = normalize_time(get_current_time());
+    }
+
+    fn daily_distribution(&mut self, mint: Mint) -> DailyDistributionValues {
         // calculate interest/high water mark
         let daily_mining_total = mint.supply - self.yesterday_supply;
         let high_water_mark_increase = self.calculate_high_water_mark_increase(daily_mining_total);
@@ -84,30 +132,6 @@ impl GlobalData {
         (supply as f64 * Self::calculate_distribution_limiter(supply)).round_ties_even() as u64
             / COMPTOKEN_DISTRIBUTION_MULTIPLIER
     }
-
-    pub fn update_announced_blockhash_if_necessary(&mut self, slot_hash_account: &AccountInfo) {
-        let current_time = get_current_time();
-        if current_time > self.announced_blockhash_time + SEC_PER_DAY {
-            let current_block = get_most_recent_blockhash(slot_hash_account);
-            self.announced_blockhash = current_block;
-            self.announced_blockhash_time += SEC_PER_DAY
-        }
-    }
-}
-
-impl<'a> TryFrom<&AccountInfo<'a>> for &'a mut GlobalData {
-    type Error = ProgramError;
-
-    fn try_from(account: &AccountInfo) -> Result<Self, Self::Error> {
-        // TODO safety checks
-        let mut data = account.try_borrow_mut_data()?;
-        let result = unsafe { &mut *(data.as_mut() as *mut _ as *mut GlobalData) };
-        Ok(result)
-    }
-}
-
-fn get_current_time() -> i64 {
-    Clock::get().unwrap().unix_timestamp
 }
 
 fn get_most_recent_blockhash(slot_hash_account: &AccountInfo) -> Hash {

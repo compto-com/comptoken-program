@@ -5,15 +5,18 @@ use spl_token_2022::solana_program::{
     pubkey::Pubkey,
 };
 
+use crate::global_data::ValidBlockhashes;
+
 // ensure this remains consistent with comptoken_proof.js
 const MIN_NUM_ZEROED_BITS: u32 = 3; // TODO: replace with permanent value
 
-pub fn verify_proof(block: &ComptokenProof, valid_blockhash: &Hash) -> bool {
-    let leading_zeros: bool = ComptokenProof::leading_zeroes(&block.hash) >= MIN_NUM_ZEROED_BITS;
-    let recent_blockhash: bool = block.recent_block_hash == *valid_blockhash;
-    let equal_hash: bool = block.generate_hash() == block.hash;
+pub fn verify_proof(proof: &ComptokenProof, valid_blockhashes: &ValidBlockhashes) -> bool {
+    let leading_zeros: bool = ComptokenProof::leading_zeroes(&proof.hash) >= MIN_NUM_ZEROED_BITS;
+    let recent_blockhash: bool = proof.recent_block_hash == valid_blockhashes.valid_blockhash;
+    let equal_hash: bool = proof.generate_hash() == proof.hash;
+    let valid_hash_is_fresh: bool = !valid_blockhashes.is_valid_blockhash_stale();
     // hash duplicate check is part of inserting
-    return leading_zeros && recent_blockhash && equal_hash;
+    return leading_zeros && recent_blockhash && equal_hash && valid_hash_is_fresh;
 }
 
 pub const VERIFY_DATA_SIZE: usize = HASH_BYTES + mem::size_of::<u64>() + HASH_BYTES;

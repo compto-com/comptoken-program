@@ -22,6 +22,8 @@ COMPTO_INTEREST_BANK_ACCOUNT_JSON = CACHE_PATH / "compto_interest_bank_account.j
 COMPTO_UBI_BANK_ACCOUNT_JSON = CACHE_PATH / "compto_ubi_bank_account.json"
 TOKEN_2022_PROGRAM_ID = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 
+MINT_DECIMALS = 0  # MAGIC NUMBER ensure this remains consistent with constants.rs
+
 class SubprocessFailedException(Exception):
     pass
 
@@ -38,7 +40,9 @@ def getProgramId():
     return run(f"solana address -k target/deploy/comptoken-keypair.json")
 
 def createToken():
-    run(f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} create-token -v  --output json > {COMPTOKEN_MINT_JSON}")
+    run(
+        f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} create-token -v --decimals {MINT_DECIMALS} --output json > {COMPTOKEN_MINT_JSON}"
+    )
 
 def createKeyPair(outfile: Path):
     run(f"solana-keygen new --no-bip39-passphrase --force --silent --outfile {outfile}")

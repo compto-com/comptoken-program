@@ -1,5 +1,5 @@
 use spl_token_2022::{
-    solana_program::{account_info::AccountInfo, hash::Hash, slot_hashes::SlotHash},
+    solana_program::{account_info::AccountInfo, hash::Hash, msg, slot_hashes::SlotHash},
     state::Mint,
 };
 
@@ -80,10 +80,12 @@ pub struct DailyDistributionData {
     pub high_water_mark: u64,
     pub last_daily_distribution_time: i64,
     pub oldest_interest: usize,
-    pub historic_interests: [f64; 365],
+    pub historic_interests: [f64; Self::HISTORY_SIZE],
 }
 
 impl DailyDistributionData {
+    const HISTORY_SIZE: usize = 365;
+
     fn initialize(&mut self) {
         self.last_daily_distribution_time = normalize_time(get_current_time());
     }
@@ -103,7 +105,8 @@ impl DailyDistributionData {
             mint.supply + distribution_values.interest_distributed + distribution_values.ubi_distributed;
 
         let interest = distribution_values.interest_distributed as f64 / self.yesterday_supply as f64;
-        self.historic_interests[self.oldest_interest] = interest;
+        msg!("Interest: {}", interest);
+        self.insert(interest);
 
         distribution_values
     }
@@ -132,6 +135,47 @@ impl DailyDistributionData {
         (supply as f64 * Self::calculate_distribution_limiter(supply)).round_ties_even() as u64
             / COMPTOKEN_DISTRIBUTION_MULTIPLIER
     }
+
+    pub fn apply_n_interests(&self, n: usize, initial_money: u64) -> u64 {
+        self.into_iter()
+            .take(n)
+            .fold(initial_money as f64, |money, interest| (money * (1. + interest)).round_ties_even()) as u64
+    }
+
+    fn insert(&mut self, interest: f64) {
+        self.historic_interests[self.oldest_interest] = interest;
+        self.oldest_interest = (self.oldest_interest + 1) % Self::HISTORY_SIZE;
+    }
+}
+
+pub struct DailyDistributionDataIter {
+    iter: Box<dyn Iterator<Item = f64>>,
+}
+
+impl Iterator for DailyDistributionDataIter {
+    type Item = f64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl IntoIterator for &DailyDistributionData {
+    type IntoIter = DailyDistributionDataIter;
+    type Item = f64;
+
+    fn into_iter(self) -> Self::IntoIter {
+        DailyDistributionDataIter {
+            iter: Box::from(
+                self.historic_interests
+                    .into_iter()
+                    .rev()
+                    .cycle()
+                    .skip(DailyDistributionData::HISTORY_SIZE - self.oldest_interest)
+                    .take(DailyDistributionData::HISTORY_SIZE),
+            ),
+        }
+    }
 }
 
 fn get_most_recent_blockhash(slot_hash_account: &AccountInfo) -> Hash {
@@ -150,8 +194,6 @@ fn get_most_recent_blockhash(slot_hash_account: &AccountInfo) -> Hash {
 // the version (1.75) solana uses. this is a reimplementation, however rust's
 // uses compiler intrinsics, so we can't just use their code
 pub trait RoundEven {
-    // not sure why it says this code is unused
-    #[allow(dead_code)]
     fn round_ties_even(self) -> Self;
 }
 

@@ -6,11 +6,11 @@ mod verify_accounts;
 
 extern crate bs58;
 
-use solana_program::clock::Clock;
 use spl_token_2022::{
     instruction::mint_to,
     solana_program::{
         account_info::{next_account_info, AccountInfo},
+        clock::Clock,
         entrypoint,
         hash::HASH_BYTES,
         msg,
@@ -20,17 +20,14 @@ use spl_token_2022::{
         system_instruction,
         sysvar::{slot_history::ProgramError, Sysvar},
     },
-    state::Mint,
+    state::{Account, Mint},
 };
 
 use comptoken_proof::ComptokenProof;
-use constants::SEC_PER_DAY;
+use constants::*;
 use global_data::{DailyDistributionValues, GlobalData, ValidBlockhashes};
 use user_data::{UserData, USER_DATA_MIN_SIZE};
-use verify_accounts::{
-    verify_comptoken_user_data_account, verify_global_data_account, verify_interest_bank_account,
-    verify_slothashes_account, verify_ubi_bank_account, verify_user_comptoken_wallet_account,
-};
+use verify_accounts::*;
 
 // declare and export the program's entrypoint
 entrypoint!(process_instruction);
@@ -77,6 +74,10 @@ pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instru
             msg!("Get Valid Blockhashes");
             get_valid_blockhashes(program_id, accounts, &instruction_data[1..])
         }
+        6 => {
+            msg!("Get Owed Comptokens");
+            get_owed_comptokens(program_id, accounts, &instruction_data[1..])
+        }
         _ => {
             msg!("Invalid Instruction");
             Err(ProgramError::InvalidInstructionData)
@@ -84,11 +85,11 @@ pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instru
     }
 }
 
-pub fn test_mint(_program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
+pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
     //      Comptoken Mint account
     //      Testuser Comptoken Wallet
-    //      Mint Authority (also Global Data)
+    //      Global Data (also Mint Authority)
     //      Solana Token 2022
 
     msg!("instruction_data: {:?}", instruction_data);
@@ -99,14 +100,16 @@ pub fn test_mint(_program_id: &Pubkey, accounts: &[AccountInfo], instruction_dat
     let account_info_iter = &mut accounts.iter();
     let _comptoken_mint_account = next_account_info(account_info_iter)?;
     let user_comptoken_wallet_account = next_account_info(account_info_iter)?;
-    let mint_authority_account = next_account_info(account_info_iter)?;
+    let global_data_account = next_account_info(account_info_iter)?;
     let _solana_token_account = next_account_info(account_info_iter)?;
 
-    verify_user_comptoken_wallet_account(user_comptoken_wallet_account)?;
+    verify_comptoken_mint(_comptoken_mint_account, true);
+    verify_user_comptoken_wallet_account(user_comptoken_wallet_account, false, true)?;
+    verify_global_data_account(global_data_account, program_id, false);
 
     let amount = 2;
 
-    mint(mint_authority_account.key, user_comptoken_wallet_account.key, amount, &accounts[..3])
+    mint(global_data_account.key, user_comptoken_wallet_account.key, amount, &accounts[..3])
 }
 
 pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
@@ -124,15 +127,16 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     let user_data_account = next_account_info(account_info_iter)?;
     let _solana_token_account = next_account_info(account_info_iter)?;
 
-    verify_global_data_account(global_data_account, program_id);
+    verify_comptoken_mint(_comptoken_mint_account, true);
+    verify_global_data_account(global_data_account, program_id, false);
     let global_data: &mut GlobalData = global_data_account.into();
-    verify_user_comptoken_wallet_account(user_comptoken_wallet_account)?;
+    verify_user_comptoken_wallet_account(user_comptoken_wallet_account, false, true)?;
     let proof = verify_comptoken_proof_userdata(
         user_comptoken_wallet_account.key,
         instruction_data,
         &global_data.valid_blockhashes,
     );
-    let _ = verify_comptoken_user_data_account(user_data_account, user_comptoken_wallet_account, program_id);
+    let _ = verify_user_data_account(user_data_account, user_comptoken_wallet_account, program_id, true);
 
     msg!("data/accounts verified");
     let amount = 2;
@@ -140,7 +144,7 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     store_hash(proof, user_data_account);
     msg!("stored the proof");
     mint(global_data_account.key, &user_comptoken_wallet_account.key, amount, &accounts[..3])?;
-
+    msg!("minted {} comptokens", amount);
     Ok(())
 }
 
@@ -169,11 +173,11 @@ pub fn initialize_comptoken_program(
     let _token_2022_program = next_account_info(account_info_iter)?;
     let slot_hashes_account = next_account_info(account_info_iter)?;
 
-    // necessary because we use the user provided pubkey to retrieve the data
-    verify_global_data_account(global_data_account, program_id);
-    verify_interest_bank_account(unpaid_interest_bank, program_id);
-    verify_ubi_bank_account(ubi_bank, program_id);
-    verify_slothashes_account(slot_hashes_account);
+    verify_payer_account(payer_account);
+    verify_global_data_account(global_data_account, program_id, true);
+    verify_interest_bank_account(unpaid_interest_bank, program_id, true);
+    verify_ubi_bank_account(ubi_bank, program_id, true);
+    verify_comptoken_mint(comptoken_mint, false);
 
     let first_8_bytes: [u8; 8] = instruction_data[0..8].try_into().unwrap();
     let lamports_global_data = u64::from_le_bytes(first_8_bytes);
@@ -203,7 +207,7 @@ pub fn initialize_comptoken_program(
         &[COMPTO_INTEREST_BANK_ACCOUNT_SEEDS],
     )?;
     msg!("created interest bank account");
-    init_comptoken_account(unpaid_interest_bank, program_id, &[], comptoken_mint)?;
+    init_comptoken_account(unpaid_interest_bank, global_data_account.key, &[], comptoken_mint)?;
     msg!("initialized interest bank account");
     create_pda(
         payer_account.key,
@@ -215,7 +219,7 @@ pub fn initialize_comptoken_program(
         &[COMPTO_UBI_BANK_ACCOUNT_SEEDS],
     )?;
     msg!("created ubi bank account");
-    init_comptoken_account(ubi_bank, program_id, &[], comptoken_mint)?;
+    init_comptoken_account(ubi_bank, global_data_account.key, &[], comptoken_mint)?;
     msg!("initialized ubi bank account");
 
     let global_data: &mut GlobalData = global_data_account.try_into().unwrap();
@@ -247,7 +251,9 @@ pub fn create_user_data_account(
     assert!(space >= USER_DATA_MIN_SIZE);
     assert!((space - USER_DATA_MIN_SIZE) % HASH_BYTES == 0);
 
-    let bump = verify_comptoken_user_data_account(user_data_account, user_comptoken_wallet_account, program_id);
+    verify_payer_account(payer_account);
+    let bump = verify_user_data_account(user_data_account, user_comptoken_wallet_account, program_id, true);
+    verify_user_comptoken_wallet_account(user_comptoken_wallet_account, false, false)?;
 
     create_pda(
         payer_account.key,
@@ -288,9 +294,9 @@ pub fn daily_distribution_event(
     let _solana_token_account = next_account_info(account_info_iter)?;
     let slot_hashes_account = next_account_info(account_info_iter)?;
 
-    verify_global_data_account(global_data_account, program_id);
-    verify_interest_bank_account(unpaid_interest_bank, program_id);
-    verify_ubi_bank_account(unpaid_ubi_bank, program_id);
+    verify_global_data_account(global_data_account, program_id, true);
+    verify_interest_bank_account(unpaid_interest_bank, program_id, true);
+    verify_ubi_bank_account(unpaid_ubi_bank, program_id, true);
     verify_slothashes_account(slot_hashes_account);
 
     let global_data: &mut GlobalData = global_data_account.try_into().unwrap();
@@ -328,7 +334,7 @@ pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], _ins
     let global_data_account = next_account_info(account_info_iter)?;
     let slot_hashes_account = next_account_info(account_info_iter)?;
 
-    verify_global_data_account(global_data_account, program_id);
+    verify_global_data_account(global_data_account, program_id, true);
     verify_slothashes_account(slot_hashes_account);
 
     let global_data: &mut GlobalData = global_data_account.try_into().unwrap();
@@ -342,6 +348,72 @@ pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], _ins
     Ok(())
 }
 
+pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_data: &[u8]) -> ProgramResult {
+    //  accounts order:
+    //      User's Data (writable)
+    //      User's Comptoken Wallet (writable)
+    //      Comptoken Mint
+    //      Comptoken Global Data (also mint authority)
+    //      Comptoken Interest Bank (writable)
+    //      Comptoken UBI Bank (writable)
+    //      Solana Token 2022 Program
+
+    let account_info_iter = &mut accounts.iter();
+    let user_data_account = next_account_info(account_info_iter)?;
+    let user_comptoken_wallet_account = next_account_info(account_info_iter)?;
+    let comptoken_mint_account = next_account_info(account_info_iter)?;
+    let global_data_account = next_account_info(account_info_iter)?;
+    let unpaid_interest_bank = next_account_info(account_info_iter)?;
+    let unpaid_ubi_bank = next_account_info(account_info_iter)?;
+    let _solana_token_account = next_account_info(account_info_iter)?;
+
+    verify_user_data_account(user_data_account, user_comptoken_wallet_account, program_id, true);
+    verify_user_comptoken_wallet_account(user_comptoken_wallet_account, false, true)?;
+    verify_comptoken_mint(comptoken_mint_account, false);
+    verify_global_data_account(global_data_account, program_id, false);
+    verify_interest_bank_account(unpaid_interest_bank, program_id, true);
+    verify_ubi_bank_account(unpaid_ubi_bank, program_id, true);
+
+    let user_comptoken_wallet = Account::unpack(&user_comptoken_wallet_account.data.borrow())?;
+    let global_data: &mut GlobalData = global_data_account.try_into().unwrap();
+    let user_data: &mut UserData = user_data_account.try_into().unwrap();
+    // get days since last update
+    let current_day = normalize_time(get_current_time());
+    let days_since_last_update = (user_data.last_interest_payout_date - current_day) / SEC_PER_DAY;
+
+    msg!("total before interest: {}", user_comptoken_wallet.amount);
+    // get interest
+    let new_total = global_data
+        .daily_distribution_data
+        .apply_n_interests(days_since_last_update as usize, user_comptoken_wallet.amount);
+
+    msg!("total after interest: {}", new_total);
+    transfer(
+        unpaid_interest_bank,
+        user_comptoken_wallet_account,
+        comptoken_mint_account,
+        global_data_account,
+        new_total - user_comptoken_wallet.amount,
+    )?;
+
+    // get ubi if verified
+    if user_data.is_verified_human {
+        transfer(
+            unpaid_ubi_bank,
+            user_comptoken_wallet_account,
+            comptoken_mint_account,
+            global_data_account,
+            0, // TODO figure out correct amount
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn realloc_user_data() {
+    // TODO implement
+}
+
 fn mint(mint_authority: &Pubkey, destination_wallet: &Pubkey, amount: u64, accounts: &[AccountInfo]) -> ProgramResult {
     let instruction = mint_to(
         &spl_token_2022::id(),
@@ -352,6 +424,27 @@ fn mint(mint_authority: &Pubkey, destination_wallet: &Pubkey, amount: u64, accou
         amount,
     )?;
     invoke_signed(&instruction, accounts, &[COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS])
+}
+
+fn transfer<'a>(
+    source: &AccountInfo<'a>, destination: &AccountInfo<'a>, mint: &AccountInfo<'a>, global_data: &AccountInfo<'a>,
+    amount: u64,
+) -> ProgramResult {
+    let instruction = spl_token_2022::instruction::transfer_checked(
+        &spl_token_2022::ID,
+        source.key,
+        mint.key,
+        destination.key,
+        global_data.key,
+        &[],
+        amount,
+        MINT_DECIMALS,
+    )?;
+    invoke_signed(
+        &instruction,
+        &[source.clone(), mint.clone(), destination.clone(), global_data.clone()],
+        &[COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS],
+    )
 }
 
 fn create_pda(

@@ -54,6 +54,7 @@ let connection = new Connection('http://localhost:8899', 'recent');
     let current_block = (await getValidBlockHashes()).current_block;
     await mintComptokens(connection, testuser_comptoken_wallet_pubkey, testuser_keypair, current_block);
     await dailyDistributionEvent();
+    await getOwedComptokens();
 })();
 
 
@@ -159,8 +160,8 @@ async function createGlobalDataAccount() {
 }
 
 async function createUserDataAccount() {
-    // MAGIC NUMBER: CHANGE NEEDS TO BE REFLECTED IN proof_storage.rs
-    const PROOF_STORAGE_MIN_SIZE = 72;
+    // MAGIC NUMBER: CHANGE NEEDS TO BE REFLECTED IN user_data.rs
+    const PROOF_STORAGE_MIN_SIZE = 88;
     const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(PROOF_STORAGE_MIN_SIZE);
     console.log("Rent exempt amount: ", rentExemptAmount);
 
@@ -253,6 +254,41 @@ async function getValidBlockHashes() {
     let validBlockHashes = { current_block: currentBlockB58, announced_block: announcedBlockB58, };
     console.log("Valid Block Hashes: ", validBlockHashes);
     return validBlockHashes;
+}
+
+async function getOwedComptokens() {
+    let data = Buffer.alloc(1);
+    data.writeUInt8(Instruction.GET_OWED_COMPTOKENS, 0);
+    console.log("data: ", data);
+
+    let user_data_account = PublicKey.findProgramAddressSync([testuser_comptoken_wallet_pubkey.toBytes()], compto_program_id_pubkey)[0];
+
+    let keys = [
+        //  User's Data Account
+        { pubkey: user_data_account, isSigner: false, isWritable: true },
+        //  User's Comptoken Wallet
+        { pubkey: testuser_comptoken_wallet_pubkey, isSigner: false, isWritable: true },
+        //  Comptoken Mint
+        { pubkey: comptoken_mint_pubkey, isSigner: false, isWritable: false },
+        //  Comptoken Global Data (also mint authority)
+        { pubkey: global_data_account_pubkey, isSigner: false, isWritable: false },
+        //  Comptoken Interest Bank 
+        { pubkey: interest_bank_account_pubkey, isSigner: false, isWritable: true },
+        //  Comptoken UBI Bank
+        { pubkey: ubi_bank_account_pubkey, isSigner: false, isWritable: true },
+        //  Token 2022 Program
+        { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+    ];
+    let getValidBlockhashesTransaction = new Transaction();
+    getValidBlockhashesTransaction.add(
+        new TransactionInstruction({
+            keys: keys,
+            programId: compto_program_id_pubkey,
+            data: data,
+        }),
+    );
+    let getValidBlockhashesResult = await sendAndConfirmTransaction(connection, getValidBlockhashesTransaction, [testuser_keypair, testuser_keypair]);
+    console.log("getOwedComptokens transaction confirmed", getValidBlockhashesResult);
 }
 
 async function waitForTransactionConfirmation(signature) {

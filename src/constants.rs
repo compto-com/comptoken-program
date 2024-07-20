@@ -16,3 +16,6 @@ pub const SEC_PER_DAY: i64 = 86_400;
 
 // seconds between earliest possible announcement and switchover point, currently 5 mins
 pub const ANNOUNCEMENT_INTERVAL: i64 = 60 * 5;
+
+// MAGIC NUMBER: ensure this remains consistent with full_deploy_test.py
+pub const MINT_DECIMALS: u8 = 0;

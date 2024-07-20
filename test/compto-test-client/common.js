@@ -16,6 +16,7 @@ export const Instruction = {
     CREATE_USER_DATA_ACCOUNT: 3,
     DAILY_DISTRIBUTION_EVENT: 4,
     GET_VALID_BLOCKHASHES: 5,
+    GET_OWED_COMPTOKENS: 6,
 };
 
 // Read Cache Files

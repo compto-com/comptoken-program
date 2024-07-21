@@ -1,9 +1,9 @@
 use spl_token_2022::{
-    solana_program::{account_info::AccountInfo, hash::Hash, msg, slot_hashes::SlotHash},
+    solana_program::{hash::Hash, msg, slot_hashes::SlotHash},
     state::Mint,
 };
 
-use crate::{constants::*, get_current_time, normalize_time};
+use crate::{constants::*, get_current_time, normalize_time, VerifiedAccountInfo};
 
 #[repr(C)]
 #[derive(Debug)]
@@ -18,20 +18,22 @@ pub struct DailyDistributionValues {
 }
 
 impl GlobalData {
-    pub fn initialize(&mut self, slot_hash_account: &AccountInfo) {
+    pub fn initialize(&mut self, slot_hash_account: &VerifiedAccountInfo) {
         self.valid_blockhashes.initialize(slot_hash_account);
         self.daily_distribution_data.initialize();
     }
 
-    pub fn daily_distribution_event(&mut self, mint: Mint, slot_hash_account: &AccountInfo) -> DailyDistributionValues {
+    pub fn daily_distribution_event(
+        &mut self, mint: Mint, slot_hash_account: &VerifiedAccountInfo,
+    ) -> DailyDistributionValues {
         self.valid_blockhashes.update(slot_hash_account);
         self.daily_distribution_data.daily_distribution(mint)
     }
 }
 
-impl<'a> From<&AccountInfo<'a>> for &'a mut GlobalData {
-    fn from(account: &AccountInfo) -> Self {
-        let mut data = account.try_borrow_mut_data().unwrap();
+impl<'a> From<&VerifiedAccountInfo<'a>> for &'a mut GlobalData {
+    fn from(account: &VerifiedAccountInfo) -> Self {
+        let mut data = account.0.try_borrow_mut_data().unwrap();
         let result = unsafe { &mut *(data.as_mut() as *mut _ as *mut GlobalData) };
         result
     }
@@ -47,11 +49,11 @@ pub struct ValidBlockhashes {
 }
 
 impl ValidBlockhashes {
-    fn initialize(&mut self, slot_hash_account: &AccountInfo) {
+    fn initialize(&mut self, slot_hash_account: &VerifiedAccountInfo) {
         self.update(slot_hash_account);
     }
 
-    pub fn update(&mut self, slot_hash_account: &AccountInfo) {
+    pub fn update(&mut self, slot_hash_account: &VerifiedAccountInfo) {
         if self.is_announced_blockhash_stale() {
             self.announced_blockhash = get_most_recent_blockhash(slot_hash_account);
             // This is necessary for the case where a day's update has been "skipped"
@@ -178,10 +180,10 @@ impl IntoIterator for &DailyDistributionData {
     }
 }
 
-fn get_most_recent_blockhash(slot_hash_account: &AccountInfo) -> Hash {
+fn get_most_recent_blockhash(slot_hash_account: &VerifiedAccountInfo) -> Hash {
     // slothashes is too large to deserialize with the normal methods
     // based on https://github.com/solana-labs/solana/issues/33015
-    let data = slot_hash_account.try_borrow_data().unwrap();
+    let data = slot_hash_account.0.try_borrow_data().unwrap();
     let len: usize = usize::from_ne_bytes(data[0..8].try_into().expect("correct size"));
     let slot_hashes: &[SlotHash] =
         unsafe { std::slice::from_raw_parts(data.as_ptr().offset(8) as *const SlotHash, len) };

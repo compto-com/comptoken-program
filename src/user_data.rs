@@ -2,6 +2,8 @@ use spl_token_2022::solana_program::{
     account_info::AccountInfo, hash::Hash, hash::HASH_BYTES, program_error::ProgramError,
 };
 
+use crate::VerifiedAccountInfo;
+
 #[repr(C)]
 #[derive(Debug)]
 // CHANGES TO THE SIZE OF THIS STRUCT NEED TO BE REFLECTED IN test_client.js
@@ -66,16 +68,15 @@ impl TryFrom<&mut [u8]> for &mut UserData {
         // This is how the rust docs say to do it... :/
         // https://doc.rust-lang.org/std/mem/fn.transmute.html
         let result = unsafe { &mut *(data_hashes as *mut _ as *mut UserData) };
+        println!("{}, {}, {}", data.len(), result.length, result.proofs.len());
         assert!(result.length <= result.proofs.len());
         Ok(result)
     }
 }
 
-impl<'a> TryFrom<&AccountInfo<'a>> for &'a mut UserData {
-    type Error = ProgramError;
-
-    fn try_from(account: &AccountInfo) -> Result<Self, Self::Error> {
-        account.try_borrow_mut_data()?.as_mut().try_into()
+impl<'a> From<&VerifiedAccountInfo<'a>> for &'a mut UserData {
+    fn from(account: &VerifiedAccountInfo) -> Self {
+        account.0.data.borrow_mut().as_mut().try_into().unwrap()
     }
 }
 

@@ -1,6 +1,4 @@
-use spl_token_2022::solana_program::{
-    account_info::AccountInfo, hash::Hash, hash::HASH_BYTES, program_error::ProgramError,
-};
+use spl_token_2022::solana_program::{hash::Hash, hash::HASH_BYTES, program_error::ProgramError};
 
 use crate::VerifiedAccountInfo;
 
@@ -76,7 +74,7 @@ impl TryFrom<&mut [u8]> for &mut UserData {
 
 impl<'a> From<&VerifiedAccountInfo<'a>> for &'a mut UserData {
     fn from(account: &VerifiedAccountInfo) -> Self {
-        account.0.data.borrow_mut().as_mut().try_into().unwrap()
+        account.data.borrow_mut().as_mut().try_into().unwrap()
     }
 }
 
@@ -109,7 +107,7 @@ impl<'a> IntoIterator for &'a UserData {
     type IntoIter = HashIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        HashIter { iter: self.proofs.into_iter().take(self.length) }
+        HashIter { iter: self.proofs.iter().take(self.length) }
     }
 }
 
@@ -177,7 +175,7 @@ mod test {
         *blockhash_ptr = *blockhash;
 
         for (i, proof) in proofs.iter().enumerate() {
-            let proof_ptr = data.as_mut_ptr().offset((56 + i * HASH_BYTES) as isize) as *mut Hash;
+            let proof_ptr = data.as_mut_ptr().add(56 + i * HASH_BYTES) as *mut Hash;
             *proof_ptr = *proof;
         }
     }
@@ -199,7 +197,7 @@ mod test {
             user_data.insert(&pow.proof, &pow.blockhash);
         }
 
-        let user_data: &UserData = &user_data;
+        let user_data: &UserData = user_data;
         let output = output.expect("panicked already if not Some");
 
         assert_eq!(user_data.length, output.length, "hash_storage is the correct length");
@@ -280,7 +278,7 @@ mod test {
             input: TestValuesInput {
                 // size is 1 proof bigger than it needs to be so that we can test the duplicate
                 // failure case specifically and not worry about getting an out-of-size error.
-                data: &mut [0_u8; USER_DATA_MIN_SIZE + 1 * HASH_BYTES],
+                data: &mut [0_u8; USER_DATA_MIN_SIZE + HASH_BYTES],
                 length: 1,
                 stored_blockhash: POSSIBLE_BLOCKHASHES[0],
                 proofs: &[POSSIBLE_PROOFS[0]],

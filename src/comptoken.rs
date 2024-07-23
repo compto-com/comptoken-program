@@ -26,7 +26,7 @@ use spl_token_2022::{
 
 use comptoken_proof::ComptokenProof;
 use constants::*;
-use global_data::{DailyDistributionValues, GlobalData, ValidBlockhashes};
+use global_data::{valid_blockhashes::ValidBlockhashes, DailyDistributionValues, GlobalData};
 use user_data::{UserData, USER_DATA_MIN_SIZE};
 use verify_accounts::*;
 
@@ -275,7 +275,7 @@ pub fn create_user_data_account(
         rent_lamports,
         space as u64,
         program_id,
-        &[&[&user_comptoken_wallet_account.key.as_ref(), &[bump]]],
+        &[&[user_comptoken_wallet_account.key.as_ref(), &[bump]]],
     )?;
 
     // initialize data account
@@ -443,9 +443,9 @@ fn mint(
     let instruction = mint_to(
         &spl_token_2022::id(),
         &COMPTOKEN_MINT_ADDRESS,
-        &destination_wallet.key,
-        &mint_authority.key,
-        &[&mint_authority.key],
+        destination_wallet.key,
+        mint_authority.key,
+        &[mint_authority.key],
         amount,
     )?;
     invoke_signed_verified(&instruction, accounts, &[COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS])
@@ -483,15 +483,15 @@ fn init_comptoken_account<'a>(
 ) -> ProgramResult {
     let init_comptoken_account_instr = spl_token_2022::instruction::initialize_account3(
         &spl_token_2022::ID,
-        &account.key,
+        account.key,
         &COMPTOKEN_MINT_ADDRESS,
-        &owner.key,
+        owner.key,
     )?;
     invoke_signed_verified(&init_comptoken_account_instr, &[account, mint], signer_seeds)
 }
 
 fn store_hash(proof: ComptokenProof, data_account: &VerifiedAccountInfo) {
-    let user_data: &mut UserData = data_account.data.borrow_mut().as_mut().try_into().expect("error already panicked");
+    let user_data: &mut UserData = data_account.into();
     user_data.insert(&proof.hash, &proof.recent_block_hash)
 }
 
@@ -502,7 +502,7 @@ fn verify_comptoken_proof_userdata<'a>(
     let proof = ComptokenProof::from_bytes(comptoken_wallet.key, data.try_into().expect("correct size"));
     msg!("block: {:?}", proof);
     assert!(comptoken_proof::verify_proof(&proof, valid_blockhashes), "invalid proof");
-    return proof;
+    proof
 }
 
 fn get_current_time() -> i64 {

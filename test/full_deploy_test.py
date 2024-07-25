@@ -20,12 +20,59 @@ COMPTO_GENERATED_RS_FILE = GENERATED_PATH / "comptoken_generated.rs"
 COMPTO_GLOBAL_DATA_ACCOUNT_JSON = CACHE_PATH / "compto_global_data_account.json"
 COMPTO_INTEREST_BANK_ACCOUNT_JSON = CACHE_PATH / "compto_interest_bank_account.json"
 COMPTO_UBI_BANK_ACCOUNT_JSON = CACHE_PATH / "compto_ubi_bank_account.json"
-TOKEN_2022_PROGRAM_ID = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 
+TOKEN_2022_PROGRAM_ID = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+SPL_TOKEN_CMD = f"spl-token --program-id {TOKEN_2022_PROGRAM_ID}"
 MINT_DECIMALS = 0  # MAGIC NUMBER ensure this remains consistent with constants.rs
 
 class SubprocessFailedException(Exception):
     pass
+
+class BackgroundProcess:
+    _cmd: str | list[str]
+    _kwargs: dict[str, Any]
+    _process: subprocess.Popen[Any] | None = None
+
+    def __init__(self, cmd: str | list[str], **kwargs: Any):
+        self._cmd = cmd
+        self._kwargs = kwargs
+
+    def __enter__(self) -> Self:
+        self._process = subprocess.Popen(self._cmd, **self._kwargs)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Type[BaseException] | None,
+        exc_value: BaseException | None,
+        exc_tb: TracebackType,
+    ) -> bool:
+        print("Killing Background Process...")
+        if self._process is not None and self.checkIfProcessRunning():
+            os.killpg(os.getpgid(self._process.pid), signal.SIGTERM)
+        return False
+
+    def checkIfProcessRunning(self):
+        return self._process is not None and self._process.poll() is None
+
+def checkIfValidatorReady(validator: BackgroundProcess) -> bool:
+    if not validator.checkIfProcessRunning():
+        return False
+    try:
+        run("solana ping -c 1")
+        return True
+    except Exception:
+        return False
+
+def waitTillValidatorReady(validator: BackgroundProcess):
+    TIMEOUT = 10
+    t1 = time()
+    while not checkIfValidatorReady(validator):
+        if t1 + TIMEOUT < time():
+            print("Validator Timeout, Exiting...")
+            exit(1)
+        print("Validator Not Ready")
+        sleep(1)
 
 # ==== SOLANA COMMANDS ====
 
@@ -40,14 +87,14 @@ def getProgramId():
     return run(f"solana address -k target/deploy/comptoken-keypair.json")
 
 def createToken():
-    run(f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} create-token -v --decimals {MINT_DECIMALS} --output json > {COMPTOKEN_MINT_JSON}")
+    run(f"{SPL_TOKEN_CMD} create-token -v --decimals {MINT_DECIMALS} --output json > {COMPTOKEN_MINT_JSON}")
 
 def createKeyPair(outfile: Path):
     run(f"solana-keygen new --no-bip39-passphrase --force --silent --outfile {outfile}")
 
 def createComptoAccount():
     createKeyPair(TEST_USER_ACCOUNT_JSON)
-    run(f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} create-account {getTokenAddress()} {TEST_USER_ACCOUNT_JSON}")
+    run(f"{SPL_TOKEN_CMD} create-account {getTokenAddress()} {TEST_USER_ACCOUNT_JSON}")
 
 def getPubkey(path: Path) -> str:
     return run(f"solana-keygen pubkey {path}")
@@ -61,8 +108,7 @@ def deploy():
 def checkIfCurrentMintAuthorityExists() -> bool:
     # TODO: find a more efficient way to do this
     try:
-        json.loads(run(f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} display {getTokenAddress()} --output json")
-                   ).get("MintAuthority")
+        json.loads(run(f"{SPL_TOKEN_CMD} display {getTokenAddress()} --output json")).get("MintAuthority")
         return True
     except (FileNotFoundError, SubprocessFailedException, json.decoder.JSONDecodeError):
         return False
@@ -71,8 +117,7 @@ def checkIfCurrentMintAuthorityExists() -> bool:
         raise ex
 
 def getCurrentMintAuthority() -> str:
-    return json.loads(run(f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} display {getTokenAddress()} --output json")
-                      ).get("MintAuthority")
+    return json.loads(run(f"{SPL_TOKEN_CMD} display {getTokenAddress()} --output json")).get("MintAuthority")
 
 def setGlobalDataPda():
     setPda("Global Data", COMPTO_GLOBAL_DATA_ACCOUNT_JSON)
@@ -188,52 +233,6 @@ def run(command: str | list[str], cwd: Path | None = None):
 
 def runTestClient():
     return run("node --trace-warnings compto-test-client/test_client.js", TEST_PATH)
-
-class BackgroundProcess:
-    _cmd: str | list[str]
-    _kwargs: dict[str, Any]
-    _process: subprocess.Popen[Any] | None = None
-
-    def __init__(self, cmd: str | list[str], **kwargs: Any):
-        self._cmd = cmd
-        self._kwargs = kwargs
-
-    def __enter__(self) -> Self:
-        self._process = subprocess.Popen(self._cmd, **self._kwargs)
-        return self
-
-    def __exit__(
-        self,
-        exc_type: Type[BaseException] | None,
-        exc_value: BaseException | None,
-        exc_tb: TracebackType,
-    ) -> bool:
-        print("Killing Background Process...")
-        if self._process is not None and self.checkIfProcessRunning():
-            os.killpg(os.getpgid(self._process.pid), signal.SIGTERM)
-        return False
-
-    def checkIfProcessRunning(self):
-        return self._process is not None and self._process.poll() is None
-
-def checkIfValidatorReady(validator: BackgroundProcess) -> bool:
-    if not validator.checkIfProcessRunning():
-        return False
-    try:
-        run("solana ping -c 1")
-        return True
-    except Exception:
-        return False
-
-def waitTillValidatorReady(validator: BackgroundProcess):
-    TIMEOUT = 10
-    t1 = time()
-    while not checkIfValidatorReady(validator):
-        if t1 + TIMEOUT < time():
-            print("Validator Timeout, Exiting...")
-            exit(1)
-        print("Validator Not Ready")
-        sleep(1)
 
 if __name__ == "__main__":
     # create cache if it doesn't exist

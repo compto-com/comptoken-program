@@ -34,11 +34,11 @@ import base64 from "base64-js";
 import { mintComptokens } from './comptoken_proof.js';
 
 
-const testuser_keypair = Keypair.generate();
+const testUser_keypair = Keypair.generate();
 
 console.log("me: " + me_keypair.publicKey);
 console.log("testuser comptoken wallet: " + testuser_comptoken_wallet_pubkey);
-console.log("testuser: " + testuser_keypair.publicKey);
+console.log("testuser: " + testUser_keypair.publicKey);
 console.log("comptoken mint: " + comptoken_mint_pubkey);
 console.log("compto program id: " + compto_program_id_pubkey);
 console.log("global data account: " + global_data_account_pubkey);
@@ -46,13 +46,13 @@ console.log("global data account: " + global_data_account_pubkey);
 let connection = new Connection('http://localhost:8899', 'recent');
 
 (async () => {
-    await airdrop(testuser_keypair.publicKey);
+    await airdrop(testUser_keypair.publicKey);
+    await createGlobalDataAccount();
     await setMintAuthorityIfNeeded();
     await testMint();
-    await createGlobalDataAccount();
     await createUserDataAccount();
     let current_block = (await getValidBlockHashes()).current_block;
-    await mintComptokens(connection, testuser_comptoken_wallet_pubkey, testuser_keypair, current_block);
+    await mintComptokens(connection, testuser_comptoken_wallet_pubkey, testUser_keypair, current_block);
     await dailyDistributionEvent();
     await getOwedComptokens();
 })();
@@ -112,7 +112,7 @@ async function testMint() {
             data: data,
         }),
     );
-    let testMintResult = await sendAndConfirmTransaction(connection, testMintTransaction, [testuser_keypair, testuser_keypair]);
+    let testMintResult = await sendAndConfirmTransaction(connection, testMintTransaction, [testUser_keypair, testUser_keypair]);
     console.log("testMint transaction confirmed", testMintResult);
 }
 
@@ -131,7 +131,7 @@ async function createGlobalDataAccount() {
     console.log("data: ", data);
     let keys = [
         // the payer of the rent for the account
-        { pubkey: testuser_keypair.publicKey, isSigner: true, isWritable: true },
+        { pubkey: testUser_keypair.publicKey, isSigner: true, isWritable: true },
         // the address of the global data account to be created
         { pubkey: global_data_account_pubkey, isSigner: false, isWritable: true },
         // the address of the interest bank account to be created
@@ -155,7 +155,7 @@ async function createGlobalDataAccount() {
             data: data,
         }),
     );
-    let createGlobalDataAccountResult = await sendAndConfirmTransaction(connection, createGlobalDataAccountTransaction, [testuser_keypair, testuser_keypair]);
+    let createGlobalDataAccountResult = await sendAndConfirmTransaction(connection, createGlobalDataAccountTransaction, [testUser_keypair, testUser_keypair]);
     console.log("createGlobalDataAccount transaction confirmed", createGlobalDataAccountResult);
 }
 
@@ -169,7 +169,7 @@ async function createUserDataAccount() {
 
     let createKeys = [
         // the payer of the rent for the account
-        { pubkey: testuser_keypair.publicKey, isSigner: true, isWritable: true },
+        { pubkey: testUser_keypair.publicKey, isSigner: true, isWritable: true },
         // the data account tied to the comptoken wallet
         { pubkey: user_data_account, isSigner: false, isWritable: true },
         // the payers comptoken wallet (comptoken token acct)
@@ -191,7 +191,7 @@ async function createUserDataAccount() {
             data: createData,
         }),
     );
-    let createUserDataAccountResult = await sendAndConfirmTransaction(connection, createUserDataAccountTransaction, [testuser_keypair]);
+    let createUserDataAccountResult = await sendAndConfirmTransaction(connection, createUserDataAccountTransaction, [testUser_keypair]);
     console.log("createUserDataAccount transaction confirmed", createUserDataAccountResult);
 }
 
@@ -221,7 +221,7 @@ async function dailyDistributionEvent() {
             data: data,
         }),
     );
-    let dailyDistributionEventResult = await sendAndConfirmTransaction(connection, dailyDistributionEventTransaction, [testuser_keypair, testuser_keypair]);
+    let dailyDistributionEventResult = await sendAndConfirmTransaction(connection, dailyDistributionEventTransaction, [testUser_keypair, testUser_keypair]);
     console.log("DailyDistributionEvent transaction confirmed", dailyDistributionEventResult);
 
 }
@@ -244,7 +244,7 @@ async function getValidBlockHashes() {
             data: data,
         }),
     );
-    let getValidBlockhashesResult = await sendAndConfirmTransaction(connection, getValidBlockhashesTransaction, [testuser_keypair, testuser_keypair]);
+    let getValidBlockhashesResult = await sendAndConfirmTransaction(connection, getValidBlockhashesTransaction, [testUser_keypair, testUser_keypair]);
     console.log("getValidBlockhashes transaction confirmed", getValidBlockhashesResult);
     let result = await waitForTransactionConfirmation(getValidBlockhashesResult);
     let resultData = result.meta.returnData.data[0];
@@ -287,7 +287,7 @@ async function getOwedComptokens() {
             data: data,
         }),
     );
-    let getValidBlockhashesResult = await sendAndConfirmTransaction(connection, getValidBlockhashesTransaction, [testuser_keypair, testuser_keypair]);
+    let getValidBlockhashesResult = await sendAndConfirmTransaction(connection, getValidBlockhashesTransaction, [testUser_keypair, testUser_keypair]);
     console.log("getOwedComptokens transaction confirmed", getValidBlockhashesResult);
 }
 

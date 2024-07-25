@@ -94,15 +94,16 @@ pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data
     //      Solana Token 2022
 
     msg!("instruction_data: {:?}", instruction_data);
-    for account_info in accounts.iter() {
-        msg!("Public Key: {:?}", account_info.key);
-    }
 
     let account_info_iter = &mut accounts.iter();
     let comptoken_mint_account = next_account_info(account_info_iter)?;
+    msg!("Comptoken Mint Key: {:?}", comptoken_mint_account.key);
     let user_comptoken_wallet_account = next_account_info(account_info_iter)?;
+    msg!("User Comptoken Wallet Key: {:?}", user_comptoken_wallet_account.key);
     let global_data_account = next_account_info(account_info_iter)?;
+    msg!("Global Data Key: {:?}", global_data_account.key);
     let _solana_token_account = next_account_info(account_info_iter)?;
+    msg!("Solana Token Key: {:?}", _solana_token_account.key);
 
     let comptoken_mint_account = verify_comptoken_mint(comptoken_mint_account, true);
     let user_comptoken_wallet_account =

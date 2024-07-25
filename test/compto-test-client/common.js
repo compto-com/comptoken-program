@@ -1,12 +1,12 @@
 import {
     Keypair,
     PublicKey,
-} from '@solana/web3.js';
+} from "@solana/web3.js";
 
-import fs from 'fs';
-import os from 'os';
+import fs from "fs";
+import os from "os";
 
-import * as bs58_ from 'bs58';
+import * as bs58_ from "bs58";
 export const bs58 = bs58_.default;
 
 export const Instruction = {
@@ -29,13 +29,13 @@ export const interest_bank_account_str = interest_bank_account["address"];
 import ubi_bank_account from "../.cache/compto_ubi_bank_account.json" assert { type: "json" };
 export const ubi_bank_account_str = ubi_bank_account["address"];
 
-import comptoken_id from '../.cache/comptoken_mint.json' assert { type: "json" };
+import comptoken_id from "../.cache/comptoken_mint.json" assert { type: "json" };
 export const comptoken_mint_str = comptoken_id["commandOutput"]["address"];
 
-import compto_program_id from '../.cache/compto_program_id.json' assert { type: "json" };
-export const compto_program_id_str = compto_program_id['programId'];
+import compto_program_id from "../.cache/compto_program_id.json" assert { type: "json" };
+export const compto_program_id_str = compto_program_id["programId"];
 
-import testuser_comptoken_wallet_ from '../.cache/test_user_account.json' assert { type: "json" };
+import testuser_comptoken_wallet_ from "../.cache/test_user_account.json" assert { type: "json" };
 export const testuser_comptoken_wallet_str = testuser_comptoken_wallet_;
 
 // Pubkeys

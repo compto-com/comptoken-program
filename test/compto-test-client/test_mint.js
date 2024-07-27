@@ -30,7 +30,7 @@ async function test_mint() {
         // the token program that will mint the tokens when instructed by the mint authority
         { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
     ];
-    const ixs = [new TransactionInstruction({ programId, keys: keys, data: Buffer.from([Instruction.TEST]) })];
+    const ixs = [new TransactionInstruction({ programId, keys, data: Buffer.from([Instruction.TEST]) })];
     const tx = new Transaction();
     tx.recentBlockhash = blockhash;
     tx.add(...ixs);
@@ -45,6 +45,4 @@ async function test_mint() {
     );
 }
 
-(async () => {
-    await test_mint();
-})();
+(async () => { await test_mint(); })();

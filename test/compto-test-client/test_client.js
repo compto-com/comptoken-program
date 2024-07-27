@@ -118,7 +118,8 @@ async function testMint() {
 
 async function createGlobalDataAccount() {
     // MAGIC NUMBER: CHANGE NEEDS TO BE REFLECTED IN comptoken.rs
-    const globalDataRentExemptAmount = await connection.getMinimumBalanceForRentExemption(4096);
+    const GLOBAL_DATA_SIZE = 3032;
+    const globalDataRentExemptAmount = await connection.getMinimumBalanceForRentExemption(GLOBAL_DATA_SIZE);
     const interestBankRentExemptAmount = await connection.getMinimumBalanceForRentExemption(256);
     const ubiBankRentExemptAmount = await connection.getMinimumBalanceForRentExemption(256);
     console.log("Rent exempt amount: ", globalDataRentExemptAmount);

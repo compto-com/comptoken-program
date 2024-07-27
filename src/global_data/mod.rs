@@ -1,22 +1,18 @@
-mod daily_distribution_data;
+pub mod daily_distribution_data;
 pub mod valid_blockhashes;
 
 use spl_token_2022::state::Mint;
 
 use crate::VerifiedAccountInfo;
-use daily_distribution_data::DailyDistributionData;
+use daily_distribution_data::{DailyDistributionData, DailyDistributionValues};
 use valid_blockhashes::ValidBlockhashes;
 
 #[repr(C)]
 #[derive(Debug)]
+// MAGIC NUMBER: Changes to the size of this struct need to be reflected in test_client.js
 pub struct GlobalData {
     pub valid_blockhashes: ValidBlockhashes,
     pub daily_distribution_data: DailyDistributionData,
-}
-
-pub struct DailyDistributionValues {
-    pub interest_distributed: u64,
-    pub ubi_distributed: u64,
 }
 
 impl GlobalData {

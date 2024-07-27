@@ -26,7 +26,7 @@ use spl_token_2022::{
 
 use comptoken_proof::ComptokenProof;
 use constants::*;
-use global_data::{valid_blockhashes::ValidBlockhashes, DailyDistributionValues, GlobalData};
+use global_data::{daily_distribution_data::DailyDistributionValues, valid_blockhashes::ValidBlockhashes, GlobalData};
 use user_data::{UserData, USER_DATA_MIN_SIZE};
 use verify_accounts::*;
 
@@ -35,8 +35,7 @@ entrypoint!(process_instruction);
 
 type ProgramResult = Result<(), ProgramError>;
 
-// MAGIC NUMBER: CHANGE NEEDS TO BE REFLECTED IN test_client.js
-const GLOBAL_DATA_ACCOUNT_SPACE: u64 = 4096;
+const GLOBAL_DATA_ACCOUNT_SPACE: u64 = std::mem::size_of::<GlobalData>() as u64;
 
 mod generated;
 use generated::{

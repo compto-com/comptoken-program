@@ -1,10 +1,13 @@
 # Environment
 
-Ubuntu 22.04
+Ubuntu 22.04  
 
 # Build
 
-`cargo build-sbf`
+Default build:  
+`cargo build-sbf`  
+Testing build (If building for the first time default build must be done first):  
+`cargo build-sbf --features testmode` 
 
 # Local Environment
 
@@ -19,20 +22,33 @@ pre-commit install
 
 ## Test Dependencies
 
-python ^3.11.6
+python ^3.11.6  
 navigate to `test/compt-test-client` and run `npm install`  
 
 # Testing
 
-`pip install -r test/requirements.txt`
+`pip install -r test/requirements.txt`  
 
-## integration tests
+## Unit Tests
+
+run `cargo test-sbf`  
+
+## Component Tests
+
+Prerequisite: Build the project for testmode.
+Set the location of `comptoken.so`  
+`export SBF_OUT_DIR=$(pwd)/target/deploy`  
+run with `node test/compto-test-client/<test>`  
+
+available component tests: 
+- test_mint
+- initialize_comptoken_program
+- test_getValidBlockhashes
+- test_createUserDataAccount
+
+## Integration Tests
 
 run the test deployment script: `python3 test/full_deploy_test.py`  
-
-## unit tests
-
-run `cargo test-sbf`
 
 # Debugging
 

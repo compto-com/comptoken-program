@@ -35,7 +35,7 @@ impl DailyDistributionData {
         self.yesterday_supply =
             mint.supply + distribution_values.interest_distributed + distribution_values.ubi_distributed;
 
-        let interest = distribution_values.interest_distributed as f64 / self.yesterday_supply as f64;
+        let interest = distribution_values.interest_distributed as f64 / self.yesterday_supply as f64; // TODO: interest is NaN if yesterday supply is 0
         msg!("Interest: {}", interest);
         self.insert(interest);
 

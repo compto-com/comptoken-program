@@ -1,7 +1,4 @@
-import {
-    Keypair,
-    PublicKey,
-} from "@solana/web3.js";
+import { Keypair, PublicKey, } from "@solana/web3.js";
 
 import fs from "fs";
 import os from "os";
@@ -18,6 +15,11 @@ export const Instruction = {
     GET_VALID_BLOCKHASHES: 5,
     GET_OWED_COMPTOKENS: 6,
 };
+
+export const DEFAULT_START_TIME = 1_721_940_656n;
+export const DEFAULT_DISTRIBUTION_TIME = 1_721_865_600n;
+export const DEFAULT_ANNOUNCE_TIME = 1_721_865_300n;
+export const SEC_PER_DAY = 86_400n;
 
 // Read Cache Files
 import global_data_account from "../.cache/compto_global_data_account.json" assert { type: "json" };

@@ -2,17 +2,23 @@ import { TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import { PublicKey, Transaction, TransactionInstruction, sendAndConfirmTransaction } from '@solana/web3.js';
 import { assert } from "console";
 import { createHash } from "crypto";
+
 import { Instruction, bs58, compto_program_id_pubkey, comptoken_mint_pubkey, global_data_account_pubkey } from "./common.js";
 
 const MIN_NUM_ZEROED_BITS = 3;
 
 // Ensure changes to this class remain consistent with comptoken_proof.rs
-class ComptokenProof {
-    pubkey;
-    recentBlockHash; // bs58 encoded string
+export class ComptokenProof {
+    pubkey; // PublicKey
+    recentBlockHash; // Uint8Array
     nonce; // uint_64
-    hash;
+    hash; // buffer
 
+    /**
+     * 
+     * @param {PublicKey} pubkey 
+     * @param {Uint8Array} recentBlockHash
+     */
     constructor(pubkey, recentBlockHash) {
         this.pubkey = pubkey;
         this.recentBlockHash = recentBlockHash;
@@ -20,16 +26,24 @@ class ComptokenProof {
         this.hash = this.generateHash();
     }
 
+    /**
+     * 
+     * @returns {Buffer}
+     */
     generateHash() {
         let hasher = createHash("sha256");
         hasher.update(this.pubkey.toBuffer());
-        hasher.update(bs58.decode(this.recentBlockHash));
+        hasher.update(this.recentBlockHash);
         hasher.update(this.nonce);
-        return bs58.encode(hasher.digest());
+        return hasher.digest();
     }
 
+    /**
+     * 
+     * @param {Buffer} hash 
+     * @returns {number}
+     */
     static leadingZeroes(hash) {
-        hash = bs58.decode(hash)
         let numZeroes = 0;
         for (let i = 0; i < hash.length; i++) {
             let byte = hash[i];
@@ -56,11 +70,15 @@ class ComptokenProof {
         }
     }
 
+    /**
+     * 
+     * @returns {Buffer}
+     */
     serializeData() {
         let buffer = Buffer.concat([
-            bs58.decode(this.recentBlockHash),
+            this.recentBlockHash,
             this.nonce,
-            bs58.decode(this.hash),
+            this.hash,
         ]);
         assert(buffer.length == 72);
         return buffer;
@@ -68,7 +86,7 @@ class ComptokenProof {
 }
 
 export async function mintComptokens(connection, destination_pubkey, temp_keypair, current_block) {
-    let proof = new ComptokenProof(destination_pubkey, current_block);
+    let proof = new ComptokenProof(destination_pubkey, bs58.decode(current_block));
     proof.mine();
     let data = Buffer.concat([
         Buffer.from([Instruction.COMPTOKEN_MINT]),

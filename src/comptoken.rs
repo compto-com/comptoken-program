@@ -315,7 +315,7 @@ pub fn daily_distribution_event(
 
     let current_time = get_current_time();
     assert!(
-        current_time < global_data.daily_distribution_data.last_daily_distribution_time + SEC_PER_DAY,
+        current_time > global_data.daily_distribution_data.last_daily_distribution_time + SEC_PER_DAY,
         "daily distribution already called today"
     );
 

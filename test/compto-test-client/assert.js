@@ -4,6 +4,12 @@ export class AssertionError extends Error {
     notes;
     msg;
 
+    /**
+     * 
+     * @param {string} cause 
+     * @param {string[]} notes 
+     * @param {string} msg 
+     */
     constructor(cause, notes, msg) {
         let name = "Assertion Error";
         let note = notes.map((p) => "\n    note: " + p).join("");
@@ -21,6 +27,7 @@ export class Assert {
      * 
      * @param {T} left 
      * @param {T} right 
+     * @param {string} msg
      */
     static assertEqual(left, right, msg) {
         if (left !== right) {
@@ -35,6 +42,7 @@ export class Assert {
      * 
      * @param {T} left 
      * @param {T} right 
+     * @param {string} msg
      */
     static assertNotEqual(left, right, msg) {
         if (left === right) {
@@ -48,6 +56,7 @@ export class Assert {
     /**
      * 
      * @param {boolean} cond 
+     * @param {string} msg
      */
     static assert(cond, msg) {
         if (!cond) {
@@ -58,6 +67,7 @@ export class Assert {
     /**
      * 
      * @param {any} obj 
+     * @param {string} msg
      */
     static assertNotNull(obj, msg) {
         if (obj === null) {

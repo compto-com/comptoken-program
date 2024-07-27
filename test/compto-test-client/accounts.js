@@ -4,13 +4,9 @@ import solana_bankrun from "solana-bankrun";
 const { AccountInfoBytes } = solana_bankrun;
 
 import {
-    compto_program_id_pubkey,
-    comptoken_mint_pubkey,
-    global_data_account_pubkey,
-    interest_bank_account_pubkey,
-    ubi_bank_account_pubkey,
+    compto_program_id_pubkey, comptoken_mint_pubkey, DEFAULT_ANNOUNCE_TIME, DEFAULT_DISTRIBUTION_TIME, global_data_account_pubkey,
+    interest_bank_account_pubkey, ubi_bank_account_pubkey,
 } from "./common.js";
-
 
 export const BIG_NUMBER = 1_000_000_000;
 export const programId = compto_program_id_pubkey;
@@ -43,18 +39,36 @@ export function numAsDouble2LEBytes(num) {
 }
 
 /**
- * 
- * @param {Uint8Array} bytes 
+ *
+ * @param {Uint8Array} bytes
+ * @param {number} elem_size
+ * @returns {Uint8Array[]}
+ */
+function LEBytes2SplitArray(bytes, elem_size) {
+    let len = bytes.length / elem_size;
+    let arr = new Array(len);
+    for (let i = 0; i < len; ++i) {
+        arr[i] = bytes.subarray(i * elem_size, i * elem_size + elem_size);
+    }
+    return arr;
+}
+
+/**
+ *
+ * @param {Uint8Array} bytes
  * @returns {number[]}
  */
 export function LEBytes2DoubleArray(bytes) {
-    let len = bytes.length / 8;
-    let arr = new Array(len);
-    let dataView = new DataView(bytes.buffer);
-    for (let i = 0; i < len; ++i) {
-        arr[i] = dataView.getFloat64(i, true);
-    }
-    return arr;
+    return LEBytes2SplitArray(bytes, 8).map((elem) => new DataView(elem.buffer.slice(elem.byteOffset)).getFloat64(0, true));
+}
+
+/**
+ * 
+ * @param {Uint8Array} bytes 
+ * @returns {Uint8Array[]}
+ */
+export function LEBytes2BlockhashArray(bytes) {
+    return LEBytes2SplitArray(bytes, 32);
 }
 
 /**
@@ -82,10 +96,29 @@ export function getOptionOr(opt_val, fn) {
     return { option: 1, val: opt_val };
 }
 
+/**
+ * 
+ * @param {T[]} left 
+ * @param {T[]} right 
+ * @returns {boolean}
+ */
+export function isArrayEqual(left, right) {
+    if (left.length != right.length) {
+        return false;
+    }
+    for (let i = 0; i < left.length; ++i) {
+        if (left[i] != right[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 // =============================== Classes ===============================
 export class MintAccount {
     address; //  PublicKey
     lamports; //  u64
+    owner; // PublicKey
     supply; //  u64
     decimals; //  u8
     mintAuthority; //  optional PublicKey
@@ -103,6 +136,7 @@ export class MintAccount {
     constructor(address, lamports, supply, decimals, mintAuthority = null, freezeAuthority = null) {
         this.address = address;
         this.lamports = lamports;
+        this.owner = TOKEN_2022_PROGRAM_ID
         this.supply = supply;
         this.decimals = decimals;
         this.mintAuthority = toOption(mintAuthority);
@@ -136,16 +170,16 @@ export class MintAccount {
             info: {
                 lamports: this.lamports,
                 data: buffer,
-                owner: TOKEN_2022_PROGRAM_ID,
+                owner: this.owner,
                 executable: false,
             },
         };
     }
 
     /**
-     * 
-     * @param {PublicKey} address 
-     * @param {AccountInfoBytes} accountInfo 
+     *
+     * @param {PublicKey} address
+     * @param {AccountInfoBytes} accountInfo
      * @returns {MintAccount}
      */
     static fromAccountInfoBytes(address, accountInfo) {
@@ -192,12 +226,12 @@ export class ValidBlockhashes {
     }
 
     /**
-     * 
-     * @param {Uint8Array} bytes 
+     *
+     * @param {Uint8Array} bytes
      * @returns {ValidBlockhashes}
      */
     static fromBytes(bytes) {
-        const dataView = new DataView(bytes.buffer);
+        const dataView = new DataView(bytes.buffer.slice(bytes.byteOffset));
         return new ValidBlockhashes(
             { blockhash: bytes.subarray(0, 32), time: dataView.getBigInt64(32, true) },
             { blockhash: bytes.subarray(40, 72), time: dataView.getBigInt64(72, true) },
@@ -253,7 +287,7 @@ export class DailyDistributionData {
      * @returns {DailyDistributionData}
      */
     static fromBytes(bytes) {
-        let dataView = new DataView(bytes.buffer);
+        let dataView = new DataView(bytes.buffer.slice(bytes.byteOffset));
         return new DailyDistributionData(
             dataView.getBigUint64(0, true),
             dataView.getBigUint64(8, true),
@@ -265,6 +299,8 @@ export class DailyDistributionData {
 }
 
 export class GlobalDataAccount {
+    address;
+    owner;
     validBlockhashes;
     dailyDistributionData;
 
@@ -274,6 +310,8 @@ export class GlobalDataAccount {
      * @param {DailyDistributionData} dailyDistributionData
      */
     constructor(validBlockhashes, dailyDistributionData) {
+        this.address = global_data_account_pubkey;
+        this.owner = programId;
         this.validBlockhashes = validBlockhashes;
         this.dailyDistributionData = dailyDistributionData;
     }
@@ -284,11 +322,11 @@ export class GlobalDataAccount {
      */
     toAccount() {
         return {
-            address: global_data_account_pubkey,
+            address: this.address,
             info: {
                 lamports: BIG_NUMBER,
                 data: new Uint8Array([...this.validBlockhashes.toBytes(), ...this.dailyDistributionData.toBytes()]),
-                owner: programId,
+                owner: this.owner,
                 executable: false,
             },
         };
@@ -297,7 +335,7 @@ export class GlobalDataAccount {
     /**
      *
      * @param {PublicKey} address unused; for API consistency with other accounts
-     * @param {AccountInfoBytes} accountInfo
+     * @param {import("solana-bankrun").AccountInfoBytes} accountInfo
      * @returns {GlobalDataAccount}
      */
     static fromAccountInfoBytes(address, accountInfo) {
@@ -311,8 +349,9 @@ export class GlobalDataAccount {
 export class TokenAccount {
     address; //  PublicKey
     lamports; //  u64
+    owner; // PublicKey
     mint; //  PublicKey
-    owner; //  PublicKey
+    nominalOwner; //  PublicKey
     amount; //  u64
     delegate; //  optional PublicKey
     isNative; //  optional u64
@@ -325,7 +364,7 @@ export class TokenAccount {
      * @param {PublicKey} address
      * @param {number} lamports
      * @param {PublicKey} mint
-     * @param {PublicKey} owner
+     * @param {PublicKey} nominalOwner
      * @param {bigint} amount
      * @param {AccountState} state
      * @param {bigint} delegatedAmount
@@ -333,12 +372,13 @@ export class TokenAccount {
      * @param {bigint | null} isNative if is_some, mint should be native mint, and this stores rent exempt amt
      * @param {PublicKey | null} closeAuthority
      */
-    constructor(address, lamports, mint, owner, amount, state, delegatedAmount, delegate = null, isNative = null, closeAuthority = null) {
+    constructor(address, lamports, mint, nominalOwner, amount, state, delegatedAmount, delegate = null, isNative = null, closeAuthority = null) {
         this.address = address;
         this.lamports = lamports;
+        this.owner = TOKEN_2022_PROGRAM_ID;
         this.mint = mint;
         this.isNative = toOption(isNative);
-        this.owner = owner;
+        this.nominalOwner = nominalOwner;
         this.amount = amount;
         this.state = state;
         this.delegatedAmount = delegatedAmount;
@@ -359,7 +399,7 @@ export class TokenAccount {
         AccountLayout.encode(
             {
                 mint: this.mint,
-                owner: this.owner,
+                owner: this.nominalOwner,
                 amount: this.amount,
                 delegateOption: delegateOption,
                 delegate: delegate,
@@ -378,7 +418,7 @@ export class TokenAccount {
             info: {
                 lamports: this.lamports,
                 data: buffer,
-                owner: TOKEN_2022_PROGRAM_ID,
+                owner: this.owner,
                 executable: false,
             },
         };
@@ -407,6 +447,81 @@ export class TokenAccount {
     }
 }
 
+export class UserDataAccount {
+    address; // PublicKey
+    lamports; // u64
+    owner; // PublicKey
+    lastInterestPayoutDate; // i64
+    isVerifiedHuman; // bool
+    length; // usize
+    recentBlockhash; // Hash
+    proofs; // [Hash]
+
+    /**
+     *
+     * @param {PublicKey} address
+     * @param {bigint} lamports
+     * @param {bigint} lastInterestPayoutDate
+     * @param {boolean} isVerifiedHuman
+     * @param {bigint} length
+     * @param {Uint8Array} recentBlockhash
+     * @param {Uint8Array[]} proofs
+     */
+    constructor(address, lamports, lastInterestPayoutDate, isVerifiedHuman, length, recentBlockhash, proofs) {
+        this.address = address;
+        this.lamports = lamports;
+        this.owner = compto_program_id_pubkey;
+        this.lastInterestPayoutDate = lastInterestPayoutDate;
+        this.isVerifiedHuman = isVerifiedHuman;
+        this.length = length;
+        this.recentBlockhash = recentBlockhash;
+        this.proofs = proofs;
+    }
+
+    /**
+     *
+     * @returns {AddedAccount}
+     */
+    toAccount() {
+        let buffer = new Uint8Array([
+            ...bigintAsU64ToBytes(this.lastInterestPayoutDate),
+            this.isVerifiedHuman ? 1 : 0,
+            ...[0, 0, 0, 0, 0, 0, 0], // padding
+            ...bigintAsU64ToBytes(this.length),
+            ...this.recentBlockhash,
+            ...this.proofs.reduce((a, b) => Uint8Array.from([...a, ...b]), new Uint8Array()),
+        ]);
+        return {
+            address: this.address,
+            info: {
+                lamports: this.lamports,
+                data: buffer,
+                owner: this.owner,
+                executable: false,
+            },
+        };
+    }
+
+    /**
+     *
+     * @param {PublicKey} address
+     * @param {AccountInfoBytes} accountInfo
+     * @returns {UserDataAccount}
+     */
+    static fromAccountInfoBytes(address, accountInfo) {
+        const dataView = new DataView(accountInfo.data.buffer);
+        return new UserDataAccount(
+            address,
+            accountInfo.lamports,
+            dataView.getBigInt64(0, true),
+            dataView.getUint8(8) === 0 ? false : true,
+            dataView.getBigUint64(16, true),
+            accountInfo.data.subarray(24, 56),
+            LEBytes2BlockhashArray(accountInfo.data.subarray(56)),
+        );
+    }
+}
+
 // =============================== Default Account Factories ===============================
 
 /**
@@ -414,7 +529,7 @@ export class TokenAccount {
  * @returns {MintAccount}
  */
 export function get_default_comptoken_mint() {
-    return new MintAccount(comptoken_mint_pubkey, BIG_NUMBER, 0n, COMPTOKEN_DECIMALS, global_data_account_pubkey);
+    return new MintAccount(comptoken_mint_pubkey, BIG_NUMBER, 1n, COMPTOKEN_DECIMALS, global_data_account_pubkey);
 }
 
 /**
@@ -423,8 +538,11 @@ export function get_default_comptoken_mint() {
  */
 export function get_default_global_data() {
     return new GlobalDataAccount(
-        new ValidBlockhashes({ blockhash: PublicKey.default.toBytes(), time: 0n }, { blockhash: PublicKey.default.toBytes(), time: 0n }),
-        new DailyDistributionData(0n, 0n, 0n, 0n, []),
+        new ValidBlockhashes(
+            { blockhash: Uint8Array.from({ length: 32 }, (v, i) => i), time: DEFAULT_ANNOUNCE_TIME },
+            { blockhash: Uint8Array.from({ length: 32 }, (v, i) => 2 * i), time: DEFAULT_DISTRIBUTION_TIME }
+        ),
+        new DailyDistributionData(0n, 0n, DEFAULT_DISTRIBUTION_TIME, 0n, []),
     );
 }
 
@@ -452,4 +570,13 @@ export function get_default_unpaid_interest_bank() {
  */
 export function get_default_unpaid_ubi_bank() {
     return get_default_comptoken_wallet(ubi_bank_account_pubkey, global_data_account_pubkey);
+}
+
+/**
+ * 
+ * @param {PublicKey} address 
+ * @returns {UserDataAccount}
+ */
+export function get_default_user_data_account(address) {
+    return new UserDataAccount(address, BIG_NUMBER, DEFAULT_DISTRIBUTION_TIME, false, 0n, new Uint8Array(32), Array.from({ length: 8 }, (v, i) => new Uint8Array(32)));
 }

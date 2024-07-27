@@ -1,15 +1,12 @@
 import { AccountState, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
-import {
-    SystemProgram, SYSVAR_SLOT_HASHES_PUBKEY, Transaction, TransactionInstruction
-} from "@solana/web3.js";
+import { SystemProgram, SYSVAR_SLOT_HASHES_PUBKEY, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { Clock, start } from "solana-bankrun";
 
-import {
-    get_default_comptoken_mint, GlobalDataAccount, programId, TokenAccount,
-} from "./accounts.js";
+import { get_default_comptoken_mint, GlobalDataAccount, programId, TokenAccount, } from "./accounts.js";
 import { Assert } from "./assert.js";
 import {
-    comptoken_mint_pubkey, global_data_account_pubkey, Instruction, interest_bank_account_pubkey, ubi_bank_account_pubkey
+    comptoken_mint_pubkey, DEFAULT_ANNOUNCE_TIME, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME, global_data_account_pubkey, Instruction,
+    interest_bank_account_pubkey, ubi_bank_account_pubkey
 } from "./common.js";
 
 async function initialize_comptoken_program() {
@@ -59,12 +56,12 @@ async function initialize_comptoken_program() {
     tx.recentBlockhash = blockhash;
     tx.add(...ixs);
     tx.sign(payer);
-    context.setClock(new Clock(0n, 0n, 0n, 0n, 1_721_940_656n));
+    context.setClock(new Clock(0n, 0n, 0n, 0n, DEFAULT_START_TIME));
     const meta = await client.processTransaction(tx);
 
     const finalGlobalData = GlobalDataAccount.fromAccountInfoBytes(global_data_account_pubkey, await client.getAccount(global_data_account_pubkey));
-    Assert.assertEqual(finalGlobalData.validBlockhashes.announcedBlockhashTime, 1_721_865_300n, "announced blockhash time");
-    Assert.assertEqual(finalGlobalData.validBlockhashes.validBlockhashTime, 1_721_865_600n, "valid blockhash time");
+    Assert.assertEqual(finalGlobalData.validBlockhashes.announcedBlockhashTime, DEFAULT_ANNOUNCE_TIME, "announced blockhash time");
+    Assert.assertEqual(finalGlobalData.validBlockhashes.validBlockhashTime, DEFAULT_DISTRIBUTION_TIME, "valid blockhash time");
 
     const finalInterestBank = TokenAccount.fromAccountInfoBytes(interest_bank_account_pubkey, await client.getAccount(interest_bank_account_pubkey));
     Assert.assertEqual(finalInterestBank.amount, 0n, "interest amount");

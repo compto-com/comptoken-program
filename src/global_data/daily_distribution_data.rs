@@ -23,6 +23,8 @@ impl DailyDistributionData {
 
     pub(super) fn daily_distribution(&mut self, mint: Mint) -> DailyDistributionValues {
         // calculate interest/high water mark
+        self.last_daily_distribution_time = normalize_time(get_current_time());
+
         let daily_mining_total = mint.supply - self.yesterday_supply;
         let high_water_mark_increase = self.calculate_high_water_mark_increase(daily_mining_total);
         self.high_water_mark += high_water_mark_increase;

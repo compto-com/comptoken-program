@@ -35,16 +35,7 @@ run `cargo test-sbf`
 
 ## Component Tests
 
-Prerequisite: Build the project for testmode.
-Set the location of `comptoken.so`  
-`export SBF_OUT_DIR=$(pwd)/target/deploy`  
-run with `node test/compto-test-client/<test>`  
-
-available component tests: 
-- test_mint
-- initialize_comptoken_program
-- test_getValidBlockhashes
-- test_createUserDataAccount
+run the test script: `python3 test/component_tests.py`
 
 ## Integration Tests
 

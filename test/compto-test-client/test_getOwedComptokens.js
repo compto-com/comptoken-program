@@ -16,7 +16,7 @@ async function test_getOwedComptokens() {
     let comptoken_mint = get_default_comptoken_mint();
     comptoken_mint.supply = 292_004n
     let user_wallet = get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, PublicKey.unique());
-    user_wallet.amount = 2;
+    user_wallet.amount = 2n;
     let user_data_account_address = PublicKey.findProgramAddressSync([user_wallet.address.toBytes()], programId)[0];
     let user_data = get_default_user_data_account(user_data_account_address);
     user_data.lastInterestPayoutDate = DEFAULT_DISTRIBUTION_TIME - SEC_PER_DAY;
@@ -40,7 +40,6 @@ async function test_getOwedComptokens() {
             ubi_bank.toAccount(),
         ]
     );
-
     const client = context.banksClient;
     const payer = context.payer;
     const blockhash = context.lastBlockhash;
@@ -75,7 +74,7 @@ async function test_getOwedComptokens() {
     let account = await client.getAccount(user_wallet.address);
     Assert.assertNotNull(account);
     let finalUserWallet = TokenAccount.fromAccountInfoBytes(user_wallet.address, account);
-    Assert.assertEqual(finalUserWallet.amount, BigInt(user_wallet.amount + user_wallet.amount * global_data.dailyDistributionData.historicInterests[0]), "interest amount");
+    Assert.assertEqual(finalUserWallet.amount, 3n, "interest amount");
 
     account = await client.getAccount(user_data.address);
     Assert.assertNotNull(account);

@@ -38,10 +38,10 @@ import compto_program_id from "../.cache/compto_program_id.json" assert { type: 
 export const compto_program_id_str = compto_program_id["programId"];
 
 import testuser_comptoken_wallet_ from "../.cache/test_user_account.json" assert { type: "json" };
-export const testuser_comptoken_wallet_str = testuser_comptoken_wallet_;
+export const testuser_comptoken_wallet_num_arr = testuser_comptoken_wallet_;
 
 // Pubkeys
-export const testuser_comptoken_wallet_pubkey = Keypair.fromSecretKey(new Uint8Array(testuser_comptoken_wallet_str)).publicKey;
+export const testuser_comptoken_wallet_pubkey = Keypair.fromSecretKey(new Uint8Array(testuser_comptoken_wallet_num_arr)).publicKey;
 export const global_data_account_pubkey = new PublicKey(bs58.decode(global_data_account_str));
 export const interest_bank_account_pubkey = new PublicKey(bs58.decode(interest_bank_account_str));
 export const ubi_bank_account_pubkey = new PublicKey(bs58.decode(ubi_bank_account_str));

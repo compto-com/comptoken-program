@@ -66,13 +66,13 @@ async function initialize_comptoken_program() {
     const finalInterestBank = TokenAccount.fromAccountInfoBytes(interest_bank_account_pubkey, await client.getAccount(interest_bank_account_pubkey));
     Assert.assertEqual(finalInterestBank.amount, 0n, "interest amount");
     Assert.assert(finalInterestBank.mint.equals(comptoken_mint_pubkey), "interest mint");
-    Assert.assert(finalInterestBank.owner.equals(global_data_account_pubkey), "interest owner");
+    Assert.assert(finalInterestBank.nominalOwner.equals(global_data_account_pubkey), "interest owner");
     Assert.assertEqual(finalInterestBank.state, AccountState.Initialized, "interest state");
 
     const finalUBIBank = TokenAccount.fromAccountInfoBytes(ubi_bank_account_pubkey, await client.getAccount(ubi_bank_account_pubkey));
     Assert.assertEqual(finalUBIBank.amount, 0n, "ubi amount");
     Assert.assert(finalUBIBank.mint.equals(comptoken_mint_pubkey), "ubi mint");
-    Assert.assert(finalUBIBank.owner.equals(global_data_account_pubkey), "ubi owner");
+    Assert.assert(finalUBIBank.nominalOwner.equals(global_data_account_pubkey), "ubi owner");
     Assert.assertEqual(finalUBIBank.state, AccountState.Initialized, "ubi state");
 }
 

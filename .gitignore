@@ -1,7 +1,7 @@
-/target
+**/target
 **/node_modules
 **/__pycache__
 /test/.cache
-src/generated
+comptoken/src/generated/*
 .vscode
 test/compto-test-client/tsconfig.json

@@ -8,8 +8,9 @@ from typing import Any, Mapping, Self, Type
 
 TEST_PATH = Path(__file__).parent
 PROJECT_PATH = TEST_PATH.parent
+COMPTOKEN_SRC_PATH = PROJECT_PATH / "comptoken"
 CACHE_PATH = TEST_PATH / ".cache"
-GENERATED_PATH = PROJECT_PATH / "src/generated"
+GENERATED_PATH = COMPTOKEN_SRC_PATH / "src/generated"
 
 COMPTO_GENERATED_RS_FILE = GENERATED_PATH / "comptoken_generated.rs"
 COMPTO_SO = PROJECT_PATH / "target/deploy/comptoken.so"
@@ -80,7 +81,7 @@ def run(command: str | list[str], cwd: Path | None = None, env: Mapping[str, str
 
 def build():
     print("building...")
-    run('cargo build-sbf --features "testmode"', PROJECT_PATH)
+    run('cargo build-sbf --features "testmode"', COMPTOKEN_SRC_PATH)
     print("done buiding")
 
 def write(path: Path, data: str):

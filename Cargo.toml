@@ -1,23 +1,5 @@
-[package]
-name = "comptoken"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-bs58 = "0.5.1"
-hex = "0.4.3"
-solana-program = "*"
-spl-token-2022 = { version="4.0.0", features=["no-entrypoint"] }
-
-[dev-dependencies]
-hex-literal = "0.4.1"
-
-[lib]
-path = "src/comptoken.rs"
-name = "comptoken"
-crate-type = ["cdylib", "lib"]
-
-[features]
-testmode = []
+[workspace]
+resolver =  "2"
+members = [
+    "comptoken",
+]

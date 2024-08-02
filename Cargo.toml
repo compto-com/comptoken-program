@@ -3,6 +3,7 @@ resolver =  "2"
 members = [
     "comptoken",
     "comptoken-utils",
+    "comptoken-transfer-hook",
 ]
 
 [workspace.dependencies]

@@ -4,21 +4,21 @@ import { Clock, start } from "solana-bankrun";
 
 import {
     get_default_comptoken_mint, get_default_comptoken_wallet, get_default_global_data, get_default_user_data_account,
-    isArrayEqual, MintAccount, programId, TokenAccount, UserDataAccount,
-} from "./accounts.js";
-import { Assert } from "./assert.js";
-import { DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME, Instruction, testuser_comptoken_wallet_pubkey } from "./common.js";
-import { ComptokenProof } from "./comptoken_proof.js";
+    isArrayEqual, MintAccount, TokenAccount, UserDataAccount,
+} from "../accounts.js";
+import { Assert } from "../assert.js";
+import { compto_program_id_pubkey, DEFAULT_START_TIME, Instruction, testuser_comptoken_wallet_pubkey } from "../common.js";
+import { ComptokenProof } from "../comptoken_proof.js";
 
 async function test_proofSubmission() {
     let global_data_account = get_default_global_data();
     let mint_account = get_default_comptoken_mint();
     let destination_comptoken_wallet = get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, PublicKey.unique());
-    const user_data_pda = PublicKey.findProgramAddressSync([destination_comptoken_wallet.address.toBytes()], programId)[0];
+    const user_data_pda = PublicKey.findProgramAddressSync([destination_comptoken_wallet.address.toBytes()], compto_program_id_pubkey)[0];
     let user_data_account = get_default_user_data_account(user_data_pda);
 
     const context = await start(
-        [{ name: "comptoken", programId }],
+        [{ name: "comptoken", programId: compto_program_id_pubkey }],
         [
             mint_account.toAccount(),
             global_data_account.toAccount(),
@@ -51,7 +51,7 @@ async function test_proofSubmission() {
         proof.serializeData(),
     ]);
 
-    const ixs = [new TransactionInstruction({ programId, keys, data })];
+    const ixs = [new TransactionInstruction({ programId: compto_program_id_pubkey, keys, data })];
     const tx = new Transaction();
     tx.recentBlockhash = blockhash;
     tx.add(...ixs);

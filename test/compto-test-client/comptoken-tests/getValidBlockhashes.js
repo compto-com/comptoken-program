@@ -1,15 +1,15 @@
 import { SYSVAR_SLOT_HASHES_PUBKEY, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { Clock, start } from "solana-bankrun";
 
-import { get_default_comptoken_mint, get_default_global_data, programId } from "./accounts.js";
-import { Assert } from "./assert.js";
-import { DEFAULT_START_TIME, global_data_account_pubkey, Instruction } from "./common.js";
+import { get_default_comptoken_mint, get_default_global_data } from "../accounts.js";
+import { Assert } from "../assert.js";
+import { compto_program_id_pubkey, DEFAULT_START_TIME, global_data_account_pubkey, Instruction } from "../common.js";
 
 async function test_getValidBlockhashes() {
     let globalData = get_default_global_data();
 
     const context = await start(
-        [{ name: "comptoken", programId }],
+        [{ name: "comptoken", programId: compto_program_id_pubkey }],
         [
             get_default_comptoken_mint().toAccount(),
             globalData.toAccount(),
@@ -27,7 +27,7 @@ async function test_getValidBlockhashes() {
         { pubkey: SYSVAR_SLOT_HASHES_PUBKEY, isSigner: false, isWritable: false },
     ];
 
-    const ixs = [new TransactionInstruction({ programId, keys, data: Buffer.from([Instruction.GET_VALID_BLOCKHASHES]) })];
+    const ixs = [new TransactionInstruction({ programId: compto_program_id_pubkey, keys, data: Buffer.from([Instruction.GET_VALID_BLOCKHASHES]) })];
     const tx = new Transaction();
     tx.recentBlockhash = blockhash;
     tx.add(...ixs);

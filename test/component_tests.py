@@ -68,7 +68,7 @@ def runTests(args: Namespace, tests: list[str]):
 
     passed = 0
     for test in tests:
-        passed += runTest(args, test, f'test_{test}')
+        passed += runTest(args, test, test)
     failed = len(tests) - passed
     print()
     print(f"passed: {passed}    failed: {failed}")
@@ -80,10 +80,12 @@ def parseArgs():
     return parser.parse_args()
 
 if __name__ == "__main__":
-    tests = [
+    comptoken_tests: list[str] = [
         "mint", "initializeComptokenProgram", "createUserDataAccount", "proofSubmission", "getValidBlockhashes",
         "getOwedComptokens", "dailyDistributionEvent"
     ]
+
+    tests = list(map(lambda test: "comptoken-tests/" + test, comptoken_tests))
     args = parseArgs()
     generateFiles()
     build()

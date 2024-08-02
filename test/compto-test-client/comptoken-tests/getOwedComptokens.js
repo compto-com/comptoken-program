@@ -3,21 +3,18 @@ import { PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js"
 import { Clock, start } from "solana-bankrun";
 
 import {
-    BIG_NUMBER,
     get_default_comptoken_mint, get_default_comptoken_wallet, get_default_global_data, get_default_unpaid_interest_bank,
-    get_default_unpaid_ubi_bank, get_default_user_data_account, programId,
-    TokenAccount,
-    UserDataAccount
-} from "./accounts.js";
-import { Assert } from "./assert.js";
-import { DEFAULT_ANNOUNCE_TIME, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME, Instruction, SEC_PER_DAY, testuser_comptoken_wallet_pubkey } from "./common.js";
+    get_default_unpaid_ubi_bank, get_default_user_data_account, TokenAccount, UserDataAccount
+} from "../accounts.js";
+import { Assert } from "../assert.js";
+import { compto_program_id_pubkey, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME, Instruction, SEC_PER_DAY, testuser_comptoken_wallet_pubkey } from "../common.js";
 
 async function test_getOwedComptokens() {
     let comptoken_mint = get_default_comptoken_mint();
     comptoken_mint.supply = 292_004n
     let user_wallet = get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, PublicKey.unique());
     user_wallet.amount = 2n;
-    let user_data_account_address = PublicKey.findProgramAddressSync([user_wallet.address.toBytes()], programId)[0];
+    let user_data_account_address = PublicKey.findProgramAddressSync([user_wallet.address.toBytes()], compto_program_id_pubkey)[0];
     let user_data = get_default_user_data_account(user_data_account_address);
     user_data.lastInterestPayoutDate = DEFAULT_DISTRIBUTION_TIME - SEC_PER_DAY;
     let global_data = get_default_global_data();
@@ -30,7 +27,7 @@ async function test_getOwedComptokens() {
     ubi_bank.amount = 146_000n;
 
     const context = await start(
-        [{ name: "comptoken", programId }],
+        [{ name: "comptoken", programId: compto_program_id_pubkey }],
         [
             user_data.toAccount(),
             user_wallet.toAccount(),
@@ -63,7 +60,7 @@ async function test_getOwedComptokens() {
 
     let data = Buffer.from([Instruction.GET_OWED_COMPTOKENS]);
 
-    const ixs = [new TransactionInstruction({ programId, keys, data })];
+    const ixs = [new TransactionInstruction({ programId: compto_program_id_pubkey, keys, data })];
     const tx = new Transaction();
     tx.recentBlockhash = blockhash;
     tx.add(...ixs);

@@ -9,7 +9,6 @@ import {
 } from "./common.js";
 
 export const BIG_NUMBER = 1_000_000_000;
-export const programId = compto_program_id_pubkey;
 export const COMPTOKEN_DECIMALS = 0; // MAGIC NUMBER: remain consistent with comptoken.rs and full_deploy_test.py
 
 // =============================== Helper functions ===============================
@@ -311,7 +310,7 @@ export class GlobalDataAccount {
      */
     constructor(validBlockhashes, dailyDistributionData) {
         this.address = global_data_account_pubkey;
-        this.owner = programId;
+        this.owner = compto_program_id_pubkey;
         this.validBlockhashes = validBlockhashes;
         this.dailyDistributionData = dailyDistributionData;
     }

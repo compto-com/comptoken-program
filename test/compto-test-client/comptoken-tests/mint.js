@@ -2,14 +2,14 @@ import { AccountLayout, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey, Transaction, TransactionInstruction, } from "@solana/web3.js";
 import { start } from "solana-bankrun";
 
-import { get_default_comptoken_mint, get_default_comptoken_wallet, get_default_global_data, programId } from "./accounts.js";
-import { Assert } from "./assert.js";
-import { comptoken_mint_pubkey, global_data_account_pubkey, Instruction } from "./common.js";
+import { get_default_comptoken_mint, get_default_comptoken_wallet, get_default_global_data } from "../accounts.js";
+import { Assert } from "../assert.js";
+import { compto_program_id_pubkey, comptoken_mint_pubkey, global_data_account_pubkey, Instruction } from "../common.js";
 
 async function test_mint() {
     const user_wallet_before = get_default_comptoken_wallet(PublicKey.unique(), PublicKey.unique());
     const context = await start(
-        [{ name: "comptoken", programId }],
+        [{ name: "comptoken", programId: compto_program_id_pubkey }],
         [
             get_default_comptoken_mint().toAccount(),
             get_default_global_data().toAccount(),
@@ -30,7 +30,7 @@ async function test_mint() {
         // the token program that will mint the tokens when instructed by the mint authority
         { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
     ];
-    const ixs = [new TransactionInstruction({ programId, keys, data: Buffer.from([Instruction.TEST]) })];
+    const ixs = [new TransactionInstruction({ programId: compto_program_id_pubkey, keys, data: Buffer.from([Instruction.TEST]) })];
     const tx = new Transaction();
     tx.recentBlockhash = blockhash;
     tx.add(...ixs);

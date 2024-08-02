@@ -1,13 +1,13 @@
 import { PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { Clock, start } from "solana-bankrun";
 
-import { get_default_comptoken_mint, get_default_global_data, programId, UserDataAccount } from "./accounts.js";
-import { Assert } from "./assert.js";
-import { compto_program_id_pubkey, Instruction, testuser_comptoken_wallet_pubkey } from "./common.js";
+import { get_default_comptoken_mint, get_default_global_data, UserDataAccount } from "../accounts.js";
+import { Assert } from "../assert.js";
+import { compto_program_id_pubkey, Instruction, testuser_comptoken_wallet_pubkey } from "../common.js";
 
 async function test_createUserDataAccount() {
     const context = await start(
-        [{ name: "comptoken", programId }],
+        [{ name: "comptoken", programId: compto_program_id_pubkey }],
         [
             get_default_comptoken_mint().toAccount(),
             get_default_global_data().toAccount(),
@@ -40,7 +40,7 @@ async function test_createUserDataAccount() {
     data.writeBigInt64LE(rentExemptAmount, 1);
     data.writeBigInt64LE(PROOF_STORAGE_MIN_SIZE, 9);
 
-    const ixs = [new TransactionInstruction({ programId, keys, data })];
+    const ixs = [new TransactionInstruction({ programId: compto_program_id_pubkey, keys, data })];
     const tx = new Transaction();
     tx.recentBlockhash = blockhash;
     tx.add(...ixs);

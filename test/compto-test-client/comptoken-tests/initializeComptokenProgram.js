@@ -2,16 +2,16 @@ import { AccountState, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { SystemProgram, SYSVAR_SLOT_HASHES_PUBKEY, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { Clock, start } from "solana-bankrun";
 
-import { get_default_comptoken_mint, GlobalDataAccount, programId, TokenAccount, } from "./accounts.js";
-import { Assert } from "./assert.js";
+import { get_default_comptoken_mint, GlobalDataAccount, TokenAccount, } from "../accounts.js";
+import { Assert } from "../assert.js";
 import {
-    comptoken_mint_pubkey, DEFAULT_ANNOUNCE_TIME, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME, global_data_account_pubkey, Instruction,
-    interest_bank_account_pubkey, ubi_bank_account_pubkey
-} from "./common.js";
+    compto_program_id_pubkey, comptoken_mint_pubkey, DEFAULT_ANNOUNCE_TIME, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME,
+    global_data_account_pubkey, Instruction, interest_bank_account_pubkey, ubi_bank_account_pubkey
+} from "../common.js";
 
 async function initialize_comptoken_program() {
     const context = await start(
-        [{ name: "comptoken", programId }],
+        [{ name: "comptoken", programId: compto_program_id_pubkey }],
         [get_default_comptoken_mint().toAccount()]
     );
 
@@ -51,7 +51,7 @@ async function initialize_comptoken_program() {
     data.writeBigInt64LE(interestBankRentExemptAmount, 9);
     data.writeBigInt64LE(ubiBankRentExemptAmount, 17);
 
-    const ixs = [new TransactionInstruction({ programId, keys, data })];
+    const ixs = [new TransactionInstruction({ programId: compto_program_id_pubkey, keys, data })];
     const tx = new Transaction();
     tx.recentBlockhash = blockhash;
     tx.add(...ixs);

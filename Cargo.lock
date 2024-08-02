@@ -416,8 +416,17 @@ name = "comptoken"
 version = "0.1.0"
 dependencies = [
  "bs58",
+ "comptoken-utils",
  "hex",
  "hex-literal",
+ "solana-program",
+ "spl-token-2022",
+]
+
+[[package]]
+name = "comptoken-utils"
+version = "0.1.0"
+dependencies = [
  "solana-program",
  "spl-token-2022",
 ]

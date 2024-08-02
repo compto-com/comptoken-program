@@ -1,0 +1,12 @@
+[package]
+name = "comptoken-utils"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/comptoken_utils.rs"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+solana-program = { workspace = true }
+spl-token-2022 = { workspace = true }

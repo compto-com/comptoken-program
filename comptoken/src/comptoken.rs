@@ -10,23 +10,22 @@ use spl_token_2022::{
     instruction::mint_to,
     solana_program::{
         account_info::{next_account_info, AccountInfo},
-        clock::Clock,
         entrypoint,
         hash::HASH_BYTES,
-        instruction::Instruction,
         msg,
-        program::{invoke_signed, set_return_data},
+        program::set_return_data,
+        program_error::ProgramError,
         program_pack::Pack,
         pubkey::Pubkey,
-        system_instruction,
-        sysvar::{slot_history::ProgramError, Sysvar},
     },
     state::{Account, Mint},
 };
 
+use comptoken_utils::{create_pda, get_current_time, invoke_signed_verified, normalize_time, SEC_PER_DAY};
+
 use comptoken_proof::ComptokenProof;
 use constants::*;
-use global_data::{daily_distribution_data::DailyDistributionValues, valid_blockhashes::ValidBlockhashes, GlobalData};
+use global_data::{daily_distribution_data::DailyDistributionValues, GlobalData};
 use user_data::{UserData, USER_DATA_MIN_SIZE};
 use verify_accounts::*;
 
@@ -139,7 +138,7 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     let global_data: &mut GlobalData = (&global_data_account).into();
     let user_comptoken_wallet_account =
         verify_user_comptoken_wallet_account(user_comptoken_wallet_account, false, true);
-    let proof = verify_comptoken_proof_userdata(
+    let proof = ComptokenProof::verify_submitted_proof(
         &user_comptoken_wallet_account,
         instruction_data,
         &global_data.valid_blockhashes,
@@ -469,15 +468,6 @@ fn transfer<'a>(
     invoke_signed_verified(&instruction, &[source, mint, destination, global_data], &[COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS])
 }
 
-fn create_pda<'a>(
-    payer: &VerifiedAccountInfo<'a>, new_account: &VerifiedAccountInfo<'a>, lamports: u64, space: u64, owner: &Pubkey,
-    signers_seeds: &[&[&[u8]]],
-) -> ProgramResult {
-    let create_acct_instr = system_instruction::create_account(payer.key, new_account.key, lamports, space, owner);
-    // The PDA that is being created must sign for its own creation.
-    invoke_signed_verified(&create_acct_instr, &[payer, new_account], signers_seeds)
-}
-
 fn init_comptoken_account<'a>(
     account: &VerifiedAccountInfo<'a>, owner: &VerifiedAccountInfo, signer_seeds: &[&[&[u8]]],
     mint: &VerifiedAccountInfo<'a>,
@@ -494,30 +484,4 @@ fn init_comptoken_account<'a>(
 fn store_hash(proof: ComptokenProof, data_account: &VerifiedAccountInfo) {
     let user_data: &mut UserData = data_account.into();
     user_data.insert(&proof.hash, &proof.recent_block_hash)
-}
-
-fn verify_comptoken_proof_userdata<'a>(
-    comptoken_wallet: &'a VerifiedAccountInfo, data: &[u8], valid_blockhashes: &ValidBlockhashes,
-) -> ComptokenProof<'a> {
-    assert_eq!(data.len(), comptoken_proof::VERIFY_DATA_SIZE, "Invalid proof size");
-    let proof = ComptokenProof::from_bytes(comptoken_wallet.key, data.try_into().expect("correct size"));
-    msg!("block: {:?}", proof);
-    assert!(comptoken_proof::verify_proof(&proof, valid_blockhashes), "invalid proof");
-    proof
-}
-
-fn get_current_time() -> i64 {
-    Clock::get().unwrap().unix_timestamp
-}
-
-fn normalize_time(time: i64) -> i64 {
-    time - time % SEC_PER_DAY // midnight today, UTC+0
-}
-
-fn invoke_signed_verified<'a>(
-    instruction: &Instruction, accounts: &[&VerifiedAccountInfo<'a>], signers_seeds: &[&[&[u8]]],
-) -> ProgramResult {
-    // Convert VerifiedAccountInfo references to AccountInfo references
-    let account_refs: Vec<AccountInfo<'a>> = accounts.iter().map(|acct| acct.0.clone()).collect();
-    invoke_signed(instruction, &account_refs[..], signers_seeds)
 }

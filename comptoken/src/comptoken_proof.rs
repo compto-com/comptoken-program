@@ -5,19 +5,12 @@ use spl_token_2022::solana_program::{
     pubkey::Pubkey,
 };
 
+use comptoken_utils::verify_accounts::VerifiedAccountInfo;
+
 use crate::global_data::valid_blockhashes::ValidBlockhashes;
 
 // ensure this remains consistent with comptoken_proof.js
 const MIN_NUM_ZEROED_BITS: u32 = 3; // TODO: replace with permanent value
-
-pub fn verify_proof(proof: &ComptokenProof, valid_blockhashes: &ValidBlockhashes) -> bool {
-    let leading_zeros: bool = ComptokenProof::leading_zeroes(&proof.hash) >= MIN_NUM_ZEROED_BITS;
-    let recent_blockhash: bool = proof.recent_block_hash == valid_blockhashes.valid_blockhash;
-    let equal_hash: bool = proof.generate_hash() == proof.hash;
-    let valid_hash_is_fresh: bool = !valid_blockhashes.is_valid_blockhash_stale();
-    // hash duplicate check is part of inserting
-    leading_zeros && recent_blockhash && equal_hash && valid_hash_is_fresh
-}
 
 pub const VERIFY_DATA_SIZE: usize = HASH_BYTES + mem::size_of::<u64>() + HASH_BYTES;
 
@@ -69,6 +62,23 @@ impl<'a> ComptokenProof<'a> {
         hasher.hash(&self.recent_block_hash.to_bytes());
         hasher.hash(&self.nonce.to_le_bytes());
         hasher.result()
+    }
+
+    pub fn verify_submitted_proof(
+        comptoken_wallet: &'a VerifiedAccountInfo, data: &[u8], valid_blockhashes: &ValidBlockhashes,
+    ) -> Self {
+        let proof = ComptokenProof::from_bytes(comptoken_wallet.key, data.try_into().expect("valid proof size"));
+        assert!(proof.verify_proof(valid_blockhashes), "invalid proof");
+        proof
+    }
+
+    fn verify_proof(&self, valid_blockhashes: &ValidBlockhashes) -> bool {
+        let leading_zeros: bool = ComptokenProof::leading_zeroes(&self.hash) >= MIN_NUM_ZEROED_BITS;
+        let recent_blockhash: bool = self.recent_block_hash == valid_blockhashes.valid_blockhash;
+        let equal_hash: bool = self.generate_hash() == self.hash;
+        let valid_hash_is_fresh: bool = !valid_blockhashes.is_valid_blockhash_stale();
+        // hash duplicate check is part of inserting
+        leading_zeros && recent_blockhash && equal_hash && valid_hash_is_fresh
     }
 }
 

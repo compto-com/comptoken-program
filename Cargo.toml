@@ -2,4 +2,9 @@
 resolver =  "2"
 members = [
     "comptoken",
+    "comptoken-utils",
 ]
+
+[workspace.dependencies]
+solana-program = "*"
+spl-token-2022 = { version="4.0.0", features=["no-entrypoint"] }

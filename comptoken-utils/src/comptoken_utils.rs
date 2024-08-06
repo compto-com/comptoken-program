@@ -1,3 +1,4 @@
+pub mod user_data;
 pub mod verify_accounts;
 
 use spl_token_2022::solana_program::{

@@ -1,7 +1,6 @@
 mod comptoken_proof;
 mod constants;
 mod global_data;
-mod user_data;
 mod verify_accounts;
 
 extern crate bs58;
@@ -21,12 +20,15 @@ use spl_token_2022::{
     state::{Account, Mint},
 };
 
-use comptoken_utils::{create_pda, get_current_time, invoke_signed_verified, normalize_time, SEC_PER_DAY};
+use comptoken_utils::{
+    create_pda, get_current_time, invoke_signed_verified, normalize_time,
+    user_data::{UserData, USER_DATA_MIN_SIZE},
+    SEC_PER_DAY,
+};
 
 use comptoken_proof::ComptokenProof;
 use constants::*;
 use global_data::{daily_distribution_data::DailyDistributionValues, GlobalData};
-use user_data::{UserData, USER_DATA_MIN_SIZE};
 use verify_accounts::*;
 
 // declare and export the program's entrypoint

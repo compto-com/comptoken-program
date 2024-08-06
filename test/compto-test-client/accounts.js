@@ -1,11 +1,13 @@
-import { ACCOUNT_SIZE, AccountLayout, AccountState, MINT_SIZE, MintLayout, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { ACCOUNT_SIZE, AccountLayout, AccountState, ExtraAccountMetaLayout, MINT_SIZE, MintLayout, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
 import solana_bankrun from "solana-bankrun";
 const { AccountInfoBytes } = solana_bankrun;
 
+import { assert } from "console";
+import exp from "constants";
 import {
-    compto_program_id_pubkey, comptoken_mint_pubkey, DEFAULT_ANNOUNCE_TIME, DEFAULT_DISTRIBUTION_TIME, global_data_account_pubkey,
-    interest_bank_account_pubkey, ubi_bank_account_pubkey,
+    compto_extra_account_metas_account_pubkey, compto_program_id_pubkey, compto_transfer_hook_id_pubkey, comptoken_mint_pubkey, DEFAULT_ANNOUNCE_TIME,
+    DEFAULT_DISTRIBUTION_TIME, global_data_account_pubkey, Instruction, interest_bank_account_pubkey, ubi_bank_account_pubkey,
 } from "./common.js";
 
 export const BIG_NUMBER = 1_000_000_000;
@@ -27,11 +29,31 @@ export function bigintAsU64ToBytes(int) {
 }
 
 /**
+ * @param {number} num
+ * @returns {number[]}
+ */
+export function numAsU16ToLEBytes(num) {
+    let buffer = Buffer.alloc(2);
+    buffer.writeUInt16LE(num);
+    return Array.from({ length: 2 }, (v, i) => buffer.readUint8(i));
+}
+
+/**
+ * @param {number} num
+ * @returns {number[]}
+ */
+export function numAsU32ToLEBytes(num) {
+    let buffer = Buffer.alloc(4);
+    buffer.writeUInt32LE(num);
+    return Array.from({ length: 2 }, (v, i) => buffer.readUint8(i));
+}
+
+/**
  *
  * @param {number} num
  * @returns {number[]}
  */
-export function numAsDouble2LEBytes(num) {
+export function numAsDoubleToLEBytes(num) {
     let buffer = Buffer.alloc(8);
     buffer.writeDoubleLE(num);
     return Array.from({ length: 8 }, (v, i) => buffer.readUint8(i));
@@ -43,7 +65,7 @@ export function numAsDouble2LEBytes(num) {
  * @param {number} elem_size
  * @returns {Uint8Array[]}
  */
-function LEBytes2SplitArray(bytes, elem_size) {
+function LEBytesToSplitArray(bytes, elem_size) {
     let len = bytes.length / elem_size;
     let arr = new Array(len);
     for (let i = 0; i < len; ++i) {
@@ -57,8 +79,8 @@ function LEBytes2SplitArray(bytes, elem_size) {
  * @param {Uint8Array} bytes
  * @returns {number[]}
  */
-export function LEBytes2DoubleArray(bytes) {
-    return LEBytes2SplitArray(bytes, 8).map((elem) => new DataView(elem.buffer.slice(elem.byteOffset)).getFloat64(0, true));
+export function LEBytesToDoubleArray(bytes) {
+    return LEBytesToSplitArray(bytes, 8).map((elem) => new DataView(elem.buffer.slice(elem.byteOffset)).getFloat64(0, true));
 }
 
 /**
@@ -66,9 +88,19 @@ export function LEBytes2DoubleArray(bytes) {
  * @param {Uint8Array} bytes 
  * @returns {Uint8Array[]}
  */
-export function LEBytes2BlockhashArray(bytes) {
-    return LEBytes2SplitArray(bytes, 32);
+export function LEBytesToBlockhashArray(bytes) {
+    return LEBytesToSplitArray(bytes, 32);
 }
+
+/**
+ * 
+ * @param {Uint8Array} bytes 
+ * @returns {ExtraAccountMeta[]}
+ */
+export function LEBytesToAccountMetaArray(bytes) {
+    return LEBytesToSplitArray(bytes, 35).map((elem) => ExtraAccountMeta.fromBytes(elem));
+}
+
 
 /**
  *
@@ -276,7 +308,7 @@ export class DailyDistributionData {
             ...bigintAsU64ToBytes(this.highWaterMark),
             ...bigintAsU64ToBytes(this.lastDailyDistributionTime),
             ...bigintAsU64ToBytes(this.oldestInterest),
-            ...this.historicInterests.flatMap((num) => numAsDouble2LEBytes(num)),
+            ...this.historicInterests.flatMap((num) => numAsDoubleToLEBytes(num)),
         ]);
     }
 
@@ -292,7 +324,7 @@ export class DailyDistributionData {
             dataView.getBigUint64(8, true),
             dataView.getBigInt64(16, true),
             dataView.getBigUint64(24, true),
-            LEBytes2DoubleArray(bytes.subarray(32)),
+            LEBytesToDoubleArray(bytes.subarray(32)),
         );
     }
 }
@@ -516,7 +548,176 @@ export class UserDataAccount {
             dataView.getUint8(8) === 0 ? false : true,
             dataView.getBigUint64(16, true),
             accountInfo.data.subarray(24, 56),
-            LEBytes2BlockhashArray(accountInfo.data.subarray(56)),
+            LEBytesToBlockhashArray(accountInfo.data.subarray(56)),
+        );
+    }
+}
+
+export class Seed {
+    discriminator; // u8
+    data; // [u8]
+
+    static Types = {
+        NULL: 0,
+        LITERAL: 1, // corresponds to a data of [u8]
+        INSTRUCTION_ARG: 2,
+        ACCOUNT_KEY: 3, // corresponds to a data of u8 (refernces )
+        ACCOUNT_DATA: 4,
+    }
+
+    constructor(discriminator, data) {
+        if (discriminator !== Seed.Types.ACCOUNT_KEY) {
+            throw Error("not implemented");
+        }
+        this.discriminator = discriminator;
+        this.data = [data];
+    }
+
+    toBytes() {
+        if (this.discriminator !== Seed.Types.ACCOUNT_KEY) {
+            throw Error("not implemented");
+        }
+        return Uint8Array.from([this.discriminator, ...this.data])
+    }
+}
+
+export class AddressConfig {
+    type;
+    configData; //
+
+    static Types = {
+        LITERAL: 0,
+        PDA_TRANSFER_HOOK_PROGRAM: 1,
+        PDA_OTHER_PROGRAM: 0b1000_0000,
+    }
+
+    /**
+     * @param {number} type 
+     * @param {PublicKey | seeds: Seed[]} configData 
+     */
+    constructor(type, configData, other = -1) {
+        if (type === AddressConfig.Types.PDA_OTHER_PROGRAM) {
+            this.type = type | other;
+        } else {
+            this.type = type;
+        }
+
+        if (type === AddressConfig.Types.LITERAL) {
+            // data is pubkey
+            this.configData = configData.toBytes();
+            return;
+        }
+        // data is Seeds[]
+        let data = new Uint8Array(32);
+        data.set(configData.flatMap((seed, i) => Array.from(seed.toBytes())), 0);
+        this.configData = data;
+    }
+}
+
+// effectively implements ExtraAccountMeta interface from
+// @solana/spl-token/src/extensions/transferHook/state.ts
+export class ExtraAccountMeta {
+    discriminator; // u8
+    addressConfig; // [u8; 32]
+    isSigner; // bool
+    isWritable; // bool
+
+    /**
+     * @param {AddressConfig} addressConfig 
+     * @param {boolean} isSigner 
+     * @param {boolean} isWritable 
+     */
+    constructor(addressConfig, isSigner, isWritable) {
+        this.isSigner = isSigner;
+        this.isWritable = isWritable;
+        this.addressConfig = addressConfig.configData;
+        this.discriminator = addressConfig.type;
+    }
+
+    static SIZE = 35;
+
+    /**
+     * @returns {Uint8Array}
+     */
+    toBytes() {
+        return ExtraAccountMetaLayout.encode(this);
+    }
+
+    /**
+     * @param {Uint8Array} bytes 
+     * @returns {ExtraAccountMeta}
+     */
+    static fromBytes(bytes) {
+        let data = ExtraAccountMetaLayout.decode(bytes);
+        let extraAccountMeta = new ExtraAccountMeta(
+            new AddressConfig(0, PublicKey.default),
+            data.isSigner,
+            data.isWritable,
+        );
+        extraAccountMeta.addressConfig = data.addressConfig;
+        extraAccountMeta.discriminator = data.discriminator;
+        return extraAccountMeta;
+    }
+}
+
+export class ExtraAccountMetaAccount {
+    address; //  PublicKey
+    lamports; //  u64
+    owner; // PublicKey
+
+    extraAccountMetas; // [accountMeta]
+
+    /**
+     * 
+     * @param {PublicKey} address 
+     * @param {number} lamports 
+     * @param {PublicKey} owner 
+     * @param {ExtraAccountMeta[]} extraAccountMetas 
+     */
+    constructor(address, lamports, owner, extraAccountMetas) {
+        this.address = address;
+        this.lamports = lamports;
+        this.owner = owner;
+        this.extraAccountMetas = extraAccountMetas;
+    }
+
+    toAccount() {
+        let extraAccountMetasSize = ExtraAccountMeta.SIZE * this.extraAccountMetas.length;
+        let buffer = new Uint8Array(16 + extraAccountMetasSize);
+        // value is solanas transfer hook execute instruction discriminator
+        // https://github.com/solana-labs/solana-program-library/blob/token-2022-v3.0/token/js/src/extensions/transferHook/instructions.ts#L168
+        buffer.set(Uint8Array.from([105, 37, 101, 197, 75, 251, 102, 26]), 0);
+        buffer.set(numAsU32ToLEBytes(extraAccountMetasSize));
+        buffer.set(numAsU32ToLEBytes(this.extraAccountMetas.length), 12);
+        let i = 16;
+        for (accountMeta of this.extraAccountMetas) {
+            buffer.set(accountMeta.toBytes(), i);
+            i += ExtraAccountMeta.SIZE;
+        }
+
+        return {
+            address: this.address,
+            info: {
+                lamports: this.lamports,
+                data: buffer,
+                owner: this.owner,
+                executable: false,
+            },
+        };
+    }
+
+    /**
+     *
+     * @param {PublicKey} address
+     * @param {import("solana-bankrun").AccountInfoBytes} accountInfo
+     * @returns {ExtraAccountMetaAccount}
+     */
+    static fromAccountInfoBytes(address, accountInfo) {
+        return new ExtraAccountMetaAccount(
+            address,
+            accountInfo.lamports,
+            accountInfo.owner,
+            LEBytesToAccountMetaArray(accountInfo.data.subarray(16)),
         );
     }
 }
@@ -578,4 +779,17 @@ export function get_default_unpaid_ubi_bank() {
  */
 export function get_default_user_data_account(address) {
     return new UserDataAccount(address, BIG_NUMBER, DEFAULT_DISTRIBUTION_TIME, false, 0n, new Uint8Array(32), Array.from({ length: 8 }, (v, i) => new Uint8Array(32)));
+}
+
+/**
+ * @returns {ExtraAccountMetaAccount}
+ */
+export function get_default_extra_account_metas_account() {
+    return new ExtraAccountMetaAccount(compto_extra_account_metas_account_pubkey, BIG_NUMBER, compto_transfer_hook_id_pubkey, [
+        new ExtraAccountMeta(new AddressConfig(AddressConfig.Types.LITERAL, compto_program_id_pubkey), false, false),
+        // 0 refers to senders account, 5 refers to compto program
+        new ExtraAccountMeta(new AddressConfig(AddressConfig.Types.PDA_OTHER_PROGRAM, [new Seed(Seed.Types.ACCOUNT_KEY, 0)], 5), false, false),
+        // 2 refers to recievers account, 5 refers to compto program
+        new ExtraAccountMeta(new AddressConfig(AddressConfig.Types.PDA_OTHER_PROGRAM, [new Seed(Seed.Types.ACCOUNT_KEY, 2)], 5), false, false),
+    ]);
 }

@@ -1,4 +1,4 @@
-// full_deploy_test.py generates a comptoken_generated.rs
+// common.py generates a comptoken_generated.rs
 // The first build must not have the testmode feature enabled so that a ProgramId is created.
 // full_deploy_test.py handles this case gracefully by building twice on the first usage.
 #[cfg(feature = "testmode")]

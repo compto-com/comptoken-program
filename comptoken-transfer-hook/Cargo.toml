@@ -14,3 +14,6 @@ spl-transfer-hook-interface = "0.7.0"
 path = "src/comptoken-transfer-hook.rs"
 name = "comptoken_transfer_hook"
 crate-type = ["cdylib", "lib"]
+
+[features]
+testmode = []

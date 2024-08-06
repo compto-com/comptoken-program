@@ -37,6 +37,12 @@ export const comptoken_mint_str = comptoken_id["commandOutput"]["address"];
 import compto_program_id from "../.cache/compto_program_id.json" assert { type: "json" };
 export const compto_program_id_str = compto_program_id["programId"];
 
+import compto_transfer_hook_id from "../.cache/compto_transfer_hook_id.json" assert { type: "json" };
+export const compto_transfer_hook_id_str = compto_transfer_hook_id["programId"];
+
+import compto_extra_account_metas_account from "../.cache/compto_extra_account_metas_account.json" assert { type: "json" };
+export const compto_extra_account_metas_account_str = compto_extra_account_metas_account["address"];
+
 import testuser_comptoken_wallet_ from "../.cache/test_user_account.json" assert { type: "json" };
 export const testuser_comptoken_wallet_num_arr = testuser_comptoken_wallet_;
 
@@ -47,6 +53,8 @@ export const interest_bank_account_pubkey = new PublicKey(bs58.decode(interest_b
 export const ubi_bank_account_pubkey = new PublicKey(bs58.decode(ubi_bank_account_str));
 export const comptoken_mint_pubkey = new PublicKey(bs58.decode(comptoken_mint_str));
 export const compto_program_id_pubkey = new PublicKey(bs58.decode(compto_program_id_str));
+export const compto_extra_account_metas_account_pubkey = new PublicKey(bs58.decode(compto_extra_account_metas_account_str));
+export const compto_transfer_hook_id_pubkey = new PublicKey(bs58.decode(compto_transfer_hook_id_str));
 
 // KeyPair
 let solana_id = JSON.parse(fs.readFileSync(os.homedir() + "/.config/solana/id.json").toString());

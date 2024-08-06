@@ -105,7 +105,8 @@ def runTestClient():
 if __name__ == "__main__":
     # create cache if it doesn't exist
     run(f"[ -d {CACHE_PATH} ] || mkdir {CACHE_PATH} ")
-    run(f"[ -d {GENERATED_PATH} ] || mkdir {GENERATED_PATH} ")
+    run(f"[ -d {COMPTOKEN_GENERATED_PATH} ] || mkdir {COMPTOKEN_GENERATED_PATH} ")
+    run(f"[ -d {TRANSFER_HOOK_GENERATED_PATH} ] || mkdir {TRANSFER_HOOK_GENERATED_PATH} ")
     # If ProgramId doesn't exist, we need to build WITHOUT the testmode feature.
     # This is because the static seed in testmode depends on ProgramId and ProgramId
     # is generated on the first build.

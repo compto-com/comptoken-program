@@ -9,26 +9,32 @@ def generateFiles():
     print("generating files...")
     # create cache if it doesn't exist
     run(f"[ -d {CACHE_PATH} ] || mkdir {CACHE_PATH} ")
-    run(f"[ -d {GENERATED_PATH} ] || mkdir {GENERATED_PATH} ")
+    run(f"[ -d {COMPTOKEN_GENERATED_PATH} ] || mkdir {COMPTOKEN_GENERATED_PATH} ")
+    run(f"[ -d {TRANSFER_HOOK_GENERATED_PATH} ] || mkdir {TRANSFER_HOOK_GENERATED_PATH} ")
     # programId
-    programId = randAddress()
-    generateMockProgramIdFile(programId)
+    comptokenProgramId = randAddress()
+    transferHookId = randAddress()
+    generateMockComptokenProgramIdFile(comptokenProgramId)
+    generateMockTransferHookProgramIdFile(transferHookId)
     # mint
     mint_address = generateMockMint()
     # pdas
-    globalDataPDA = setGlobalDataPDA(programId)
-    interestBankPDA = setInterestBankPDA(programId)
-    UBIBankPDA = setUBIBankPDA(programId)
+    globalDataSeed = setGlobalDataPDA(comptokenProgramId)["bumpSeed"]
+    interestBankSeed = setInterestBankPDA(comptokenProgramId)["bumpSeed"]
+    UBIBankSeed = setUBIBankPDA(comptokenProgramId)["bumpSeed"]
+    extraAccountMetasSeed = setExtraAccountMetasPDA(transferHookId, Pubkey(mint_address))["bumpSeed"]
     # test user
     generateTestUser()
     # rust file
-    generateComptokenAddressFile(
-        globalDataPDA["bumpSeed"], interestBankPDA["bumpSeed"], UBIBankPDA["bumpSeed"], mint_address
-    )
+    generateComptokenAddressFile(globalDataSeed, interestBankSeed, UBIBankSeed, mint_address)
+    generateTransferHookAddressFile(extraAccountMetasSeed, mint_address, comptokenProgramId)
     print("done generating files")
 
-def generateMockProgramIdFile(programId: str):
+def generateMockComptokenProgramIdFile(programId: str):
     write(COMPTO_PROGRAM_ID_JSON, json.dumps({"programId": programId}))
+
+def generateMockTransferHookProgramIdFile(programId: str):
+    write(COMPTO_TRANSFER_HOOK_ID_JSON, json.dumps({"programId": programId}))
 
 def generateMockMint() -> str:
     address = randAddress()
@@ -47,8 +53,8 @@ def generateMockMint() -> str:
     write(COMPTOKEN_MINT_JSON, file_data)
     return address
 
-def runTest(args: Namespace, test: str, file: str) -> bool:
-    print(f"running {test}")
+def runTest(args: Namespace, file: str) -> bool:
+    print(f"running {file}")
     env = os.environ
     env["SBF_OUT_DIR"] = str(PROJECT_PATH / "target/deploy/")
     node = ("node --trace-warnings" if args.verbose >= 2 else "node")
@@ -56,10 +62,10 @@ def runTest(args: Namespace, test: str, file: str) -> bool:
         stdout = run(f"{node} {TEST_PATH / f'compto-test-client/{file}'}", env=env)
         if args.verbose >= 1:
             print(stdout)
-        print(f"✅ \033[92m{test}\033[0m passed")
+        print(f"✅ \033[92m{file}\033[0m passed")
         return True
     except SubprocessFailedException as e:
-        print(f"❌ \033[91m{test}\033[0m failed")
+        print(f"❌ \033[91m{file}\033[0m failed")
         print(e)
         return False
 
@@ -68,7 +74,7 @@ def runTests(args: Namespace, tests: list[str]):
 
     passed = 0
     for test in tests:
-        passed += runTest(args, test, test)
+        passed += runTest(args, test)
     failed = len(tests) - passed
     print()
     print(f"passed: {passed}    failed: {failed}")
@@ -76,6 +82,7 @@ def runTests(args: Namespace, tests: list[str]):
 def parseArgs():
     parser = ArgumentParser(prog="comptoken component tests")
     parser.add_argument("--verbose", "-v", action="count", default=0)
+    parser.add_argument("--no-build", action="store_false", dest="build")
 
     return parser.parse_args()
 
@@ -84,9 +91,17 @@ if __name__ == "__main__":
         "mint", "initializeComptokenProgram", "createUserDataAccount", "proofSubmission", "getValidBlockhashes",
         "getOwedComptokens", "dailyDistributionEvent"
     ]
+    transfer_hook_tests: list[str] = ["initialize_extra_account_meta_list"]
 
-    tests = list(map(lambda test: "comptoken-tests/" + test, comptoken_tests))
+    tests = list(map(lambda test: "comptoken-tests/" + test, comptoken_tests)
+                 ) + list(map(lambda test: "transfer-hook-tests/" + test, transfer_hook_tests))
+
     args = parseArgs()
-    generateFiles()
-    build()
+    if args.build:
+        generateFiles()
+        build()
+    else:
+        print("skipping generating files")
+        print("skipping building")
+
     runTests(args, tests)

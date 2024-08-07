@@ -13,11 +13,16 @@ use spl_token_2022::solana_program::{
 };
 use spl_transfer_hook_interface::instruction::{ExecuteInstruction, TransferHookInstruction};
 
-use comptoken_utils::create_pda;
+use comptoken_utils::{create_pda, user_data::UserData};
 
-use generated::{COMPTOKEN_ID, EXTRA_ACCOUNT_METAS_ACCOUNT_SEEDS};
+use generated::{
+    COMPTOKEN_ID, COMPTO_INTEREST_BANK_ACCOUNT_PUBKEY, COMPTO_UBI_BANK_ACCOUNT_PUBKEY,
+    EXTRA_ACCOUNT_METAS_ACCOUNT_SEEDS,
+};
 use verify_accounts::{
-    verify_account_meta_storage_account, verify_mint_account, verify_mint_authority, VerifiedAccountInfo,
+    verify_account_meta_storage_account, verify_comptoken_mint, verify_comptoken_program, verify_destination_account,
+    verify_mint_account, verify_mint_authority, verify_source_account, verify_source_authority_account,
+    verify_user_data_account, VerifiedAccountInfo,
 };
 
 entrypoint!(process_instruction);
@@ -34,18 +39,54 @@ pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instru
     }
 }
 
-fn process_execute(program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> ProgramResult {
-    todo!()
+fn process_execute(program_id: &Pubkey, accounts: &[AccountInfo], _amount: u64) -> ProgramResult {
+    //  Accounts
+    //      []: Source token account
+    //      []: Mint
+    //      []: Destination token account
+    //      []: Source token account authority
+    //      []: Validation account
+    //      []: Comptoken Program
+    //      []: Source Data Account
+    //      []: Destination Data Account
+
+    let account_info_iter = &mut accounts.iter();
+    let source_account = verify_source_account(next_account_info(account_info_iter)?);
+    // required as part of the transferhook API to identify that comptokens are being transferred
+    let _comptoken_mint_account = verify_comptoken_mint(next_account_info(account_info_iter)?);
+    let destination_account = verify_destination_account(next_account_info(account_info_iter)?);
+    // also required as part of the transferhook API but we don't use
+    let _source_account_authority = verify_source_authority_account(next_account_info(account_info_iter)?);
+    // used by transferhook to get the comptoken program and the PDAs before it gets here
+    let _account_meta_storage_account =
+        verify_account_meta_storage_account(next_account_info(account_info_iter)?, program_id, false);
+    // used by transferhook to generate the PDAs before it gets here
+    let _comptoken_program = verify_comptoken_program(next_account_info(account_info_iter)?);
+    let source_data_account = verify_user_data_account(next_account_info(account_info_iter)?, &source_account);
+    let destination_data_account =
+        verify_user_data_account(next_account_info(account_info_iter)?, &destination_account);
+
+    // Account must either be a bank account or have no unpaid interest or UBI amounts to do a transfer
+    if !is_bank(source_account.key) {
+        let source_user_data: &mut UserData = (&source_data_account).into();
+        assert!(source_user_data.is_current());
+        if !is_bank(destination_account.key) {
+            let destination_user_data: &mut UserData = (&destination_data_account).into();
+            assert!(destination_user_data.is_current());
+        }
+    }
+    Ok(())
 }
 
 fn process_initialize_extra_account_meta_list(
     program_id: &Pubkey, accounts: &[AccountInfo], _extra_account_metas: Vec<ExtraAccountMeta>,
 ) -> ProgramResult {
-    //      [writable]: Validation account
+    //  Accounts
+    //      [w]: Validation account
     //      []: Mint
-    //      [signer]: Mint authority
+    //      [s]: Mint authority
     //      []: System program
-    //      [signer, writable]: payer account (not part of the standard)
+    //      [sw]: payer account (not part of the standard)
 
     let account_info_iter = &mut accounts.iter();
     let account_meta_storage_account = next_account_info(account_info_iter)?;
@@ -100,4 +141,8 @@ fn process_initialize_extra_account_meta_list(
     )?;
 
     Ok(())
+}
+
+fn is_bank(address: &Pubkey) -> bool {
+    *address == COMPTO_INTEREST_BANK_ACCOUNT_PUBKEY || *address == COMPTO_UBI_BANK_ACCOUNT_PUBKEY
 }

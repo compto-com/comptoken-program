@@ -11,6 +11,9 @@ mod comptoken_generated {
 
     pub const EXTRA_ACCOUNT_METAS_BUMP: u8 = 255;
     pub const MINT_ADDRESS: Pubkey = pubkey!("11111111111111111111111111111111");
+
+    pub const COMPTO_INTEREST_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("11111111111111111111111111111111");
+    pub const COMPTO_UBI_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("11111111111111111111111111111111");
 }
 pub use comptoken_generated::*;
 

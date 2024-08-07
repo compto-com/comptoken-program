@@ -20,14 +20,22 @@ def generateFiles():
     mint_address = generateMockMint()
     # pdas
     globalDataSeed = setGlobalDataPDA(comptokenProgramId)["bumpSeed"]
-    interestBankSeed = setInterestBankPDA(comptokenProgramId)["bumpSeed"]
-    UBIBankSeed = setUBIBankPDA(comptokenProgramId)["bumpSeed"]
+
+    interestBankPDA = setInterestBankPDA(comptokenProgramId)
+    interestBankSeed = interestBankPDA["bumpSeed"]
+    interestBankAddress = interestBankPDA["address"]
+    UBIBankPDA = setUBIBankPDA(comptokenProgramId)
+    UBIBankSeed = UBIBankPDA["bumpSeed"]
+    UBIBankAddress = UBIBankPDA["address"]
+
     extraAccountMetasSeed = setExtraAccountMetasPDA(transferHookId, Pubkey(mint_address))["bumpSeed"]
     # test user
     generateTestUser()
     # rust file
     generateComptokenAddressFile(globalDataSeed, interestBankSeed, UBIBankSeed, mint_address)
-    generateTransferHookAddressFile(extraAccountMetasSeed, mint_address, comptokenProgramId)
+    generateTransferHookAddressFile(
+        comptokenProgramId, extraAccountMetasSeed, mint_address, interestBankAddress, UBIBankAddress
+    )
     print("done generating files")
 
 def generateMockComptokenProgramIdFile(programId: str):

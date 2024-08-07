@@ -44,6 +44,10 @@ impl UserData {
         self.last_interest_payout_date = crate::normalize_time(crate::get_current_time());
         self.is_verified_human = false;
     }
+
+    pub fn is_current(&self) -> bool {
+        self.last_interest_payout_date == crate::normalize_time(crate::get_current_time())
+    }
 }
 
 impl TryFrom<&mut [u8]> for &mut UserData {

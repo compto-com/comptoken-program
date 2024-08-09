@@ -70,7 +70,31 @@ impl TryFrom<&mut [u8]> for &mut UserData {
         // This is how the rust docs say to do it... :/
         // https://doc.rust-lang.org/std/mem/fn.transmute.html
         let result = unsafe { &mut *(data_hashes as *mut _ as *mut UserData) };
-        println!("{}, {}, {}", data.len(), result.length, result.proofs.len());
+        assert!(result.length <= result.proofs.len());
+        Ok(result)
+    }
+}
+
+impl TryFrom<&[u8]> for &UserData {
+    type Error = ProgramError;
+
+    fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
+        assert!(data.len() >= USER_DATA_MIN_SIZE);
+        assert!((data.len() - USER_DATA_MIN_SIZE) % HASH_BYTES == 0);
+
+        let capacity = ((data.len() - USER_DATA_MIN_SIZE) / HASH_BYTES) + 1;
+        // Two step process to dynamically create ProofStorage from the account data array of bytes
+        // Step 1: Create a slice from the account data array of bytes, so the wide pointer extra capacity
+        // field is correct after step 2
+        // This slice is not a strictly accurate representation of the data, since the size is incorrect,
+        // but step 2 will correct this
+        let data_hashes = unsafe { std::slice::from_raw_parts(data.as_ptr() as *const _, capacity) };
+        // Step 2: Create a ProofStorage from the slice
+        // the chaining of `as` first converts a reference to a pointer, and then converts the pointer to a *ProofStorage* pointer
+        // Then we convert the ProofStorage pointer to a mutable reference to a ProofStorage
+        // This is how the rust docs say to do it... :/
+        // https://doc.rust-lang.org/std/mem/fn.transmute.html
+        let result = unsafe { &*(data_hashes as *const _ as *const UserData) };
         assert!(result.length <= result.proofs.len());
         Ok(result)
     }
@@ -79,6 +103,12 @@ impl TryFrom<&mut [u8]> for &mut UserData {
 impl<'a> From<&VerifiedAccountInfo<'a>> for &'a mut UserData {
     fn from(account: &VerifiedAccountInfo) -> Self {
         account.data.borrow_mut().as_mut().try_into().unwrap()
+    }
+}
+
+impl<'a> From<&VerifiedAccountInfo<'a>> for &'a UserData {
+    fn from(account: &VerifiedAccountInfo) -> Self {
+        account.data.borrow().as_ref().try_into().unwrap()
     }
 }
 

@@ -26,7 +26,7 @@ pub fn verify_mint_account<'a>(account: &AccountInfo<'a>) -> VerifiedAccountInfo
 }
 
 pub fn verify_comptoken_mint<'a>(account: &AccountInfo<'a>) -> VerifiedAccountInfo<'a> {
-    VerifiedAccountInfo::verify_specific_address(account, &MINT_ADDRESS, true, false)
+    VerifiedAccountInfo::verify_specific_address(account, &MINT_ADDRESS, false, false)
 }
 
 pub fn verify_mint_authority<'a>(

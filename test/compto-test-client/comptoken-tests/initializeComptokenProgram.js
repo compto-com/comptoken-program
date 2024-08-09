@@ -59,17 +59,27 @@ async function initialize_comptoken_program() {
     context.setClock(new Clock(0n, 0n, 0n, 0n, DEFAULT_START_TIME));
     const meta = await client.processTransaction(tx);
 
-    const finalGlobalData = GlobalDataAccount.fromAccountInfoBytes(global_data_account_pubkey, await client.getAccount(global_data_account_pubkey));
+    console.log("logMessages: %s", meta.logMessages);
+    console.log("computeUnitsConsumed: %d", meta.computeUnitsConsumed);
+    console.log("returnData: %s", meta.returnData)
+
+    let account = await client.getAccount(global_data_account_pubkey);
+    Assert.assertNotNull(account);
+    const finalGlobalData = GlobalDataAccount.fromAccountInfoBytes(global_data_account_pubkey, account);
     Assert.assertEqual(finalGlobalData.validBlockhashes.announcedBlockhashTime, DEFAULT_ANNOUNCE_TIME, "announced blockhash time");
     Assert.assertEqual(finalGlobalData.validBlockhashes.validBlockhashTime, DEFAULT_DISTRIBUTION_TIME, "valid blockhash time");
 
-    const finalInterestBank = TokenAccount.fromAccountInfoBytes(interest_bank_account_pubkey, await client.getAccount(interest_bank_account_pubkey));
+    account = await client.getAccount(interest_bank_account_pubkey);
+    Assert.assertNotNull(account);
+    const finalInterestBank = TokenAccount.fromAccountInfoBytes(interest_bank_account_pubkey, account);
     Assert.assertEqual(finalInterestBank.amount, 0n, "interest amount");
     Assert.assert(finalInterestBank.mint.equals(comptoken_mint_pubkey), "interest mint");
     Assert.assert(finalInterestBank.nominalOwner.equals(global_data_account_pubkey), "interest owner");
     Assert.assertEqual(finalInterestBank.state, AccountState.Initialized, "interest state");
 
-    const finalUBIBank = TokenAccount.fromAccountInfoBytes(ubi_bank_account_pubkey, await client.getAccount(ubi_bank_account_pubkey));
+    account = await client.getAccount(ubi_bank_account_pubkey);
+    Assert.assertNotNull(account);
+    const finalUBIBank = TokenAccount.fromAccountInfoBytes(ubi_bank_account_pubkey, account);
     Assert.assertEqual(finalUBIBank.amount, 0n, "ubi amount");
     Assert.assert(finalUBIBank.mint.equals(comptoken_mint_pubkey), "ubi mint");
     Assert.assert(finalUBIBank.nominalOwner.equals(global_data_account_pubkey), "ubi owner");

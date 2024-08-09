@@ -32,7 +32,7 @@ def generateFiles():
     # test user
     generateTestUser()
     # rust file
-    generateComptokenAddressFile(globalDataSeed, interestBankSeed, UBIBankSeed, mint_address)
+    generateComptokenAddressFile(globalDataSeed, interestBankSeed, UBIBankSeed, mint_address, transferHookId)
     generateTransferHookAddressFile(
         comptokenProgramId, extraAccountMetasSeed, mint_address, interestBankAddress, UBIBankAddress
     )
@@ -99,7 +99,9 @@ if __name__ == "__main__":
         "mint", "initializeComptokenProgram", "createUserDataAccount", "proofSubmission", "getValidBlockhashes",
         "getOwedComptokens", "dailyDistributionEvent"
     ]
-    transfer_hook_tests: list[str] = ["initialize_extra_account_meta_list"]
+    transfer_hook_tests: list[str] = [
+        "initialize_extra_account_meta_list", "execute"
+    ]
 
     tests = list(map(lambda test: "comptoken-tests/" + test, comptoken_tests)
                  ) + list(map(lambda test: "transfer-hook-tests/" + test, transfer_hook_tests))

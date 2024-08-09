@@ -8,6 +8,8 @@ mod comptoken_generated {
     use spl_token_2022::solana_program::{pubkey, pubkey::Pubkey};
     pub const COMPTOKEN_MINT_ADDRESS: Pubkey = pubkey!("11111111111111111111111111111111");
 
+    pub const TRANSFER_HOOK_ID: Pubkey = pubkey!("11111111111111111111111111111111");
+
     pub const COMPTO_GLOBAL_DATA_ACCOUNT_BUMP: u8 = 255;
     pub const COMPTO_INTEREST_BANK_ACCOUNT_BUMP: u8 = 255;
     pub const COMPTO_UBI_BANK_ACCOUNT_BUMP: u8 = 255;

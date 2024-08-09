@@ -6,7 +6,9 @@ mod verify_accounts;
 extern crate bs58;
 
 use spl_token_2022::{
+    extension::StateWithExtensions,
     instruction::mint_to,
+    onchain,
     solana_program::{
         account_info::{next_account_info, AccountInfo},
         entrypoint,
@@ -14,7 +16,6 @@ use spl_token_2022::{
         msg,
         program::set_return_data,
         program_error::ProgramError,
-        program_pack::Pack,
         pubkey::Pubkey,
     },
     state::{Account, Mint},
@@ -311,20 +312,26 @@ pub fn daily_distribution_event(
     let unpaid_ubi_bank = verify_ubi_bank_account(unpaid_ubi_bank, program_id, true);
     let slot_hashes_account = verify_slothashes_account(slot_hashes_account);
 
-    let global_data: &mut GlobalData = (&global_data_account).into();
-    let comptoken_mint = Mint::unpack(comptoken_mint_account.try_borrow_data().unwrap().as_ref()).unwrap();
+    let interest_daily_distribution;
+    let ubi_daily_distribution;
+    // scope to prevent reborrowing issues
+    {
+        let mut global_data_account_data = global_data_account.try_borrow_mut_data().unwrap();
+        let global_data: &mut GlobalData = global_data_account_data.as_mut().into();
+        let mint_data = comptoken_mint_account.try_borrow_data().unwrap();
+        let comptoken_mint = StateWithExtensions::<Mint>::unpack(mint_data.as_ref()).unwrap();
 
-    let current_time = get_current_time();
-    assert!(
-        current_time > global_data.daily_distribution_data.last_daily_distribution_time + SEC_PER_DAY,
-        "daily distribution already called today"
-    );
+        let current_time = get_current_time();
+        assert!(
+            current_time > global_data.daily_distribution_data.last_daily_distribution_time + SEC_PER_DAY,
+            "daily distribution already called today"
+        );
 
-    let DailyDistributionValues {
-        interest_distributed: interest_daily_distribution,
-        ubi_distributed: ubi_daily_distribution,
-    } = global_data.daily_distribution_event(comptoken_mint, &slot_hashes_account);
-
+        DailyDistributionValues {
+            interest_distributed: interest_daily_distribution,
+            ubi_distributed: ubi_daily_distribution,
+        } = global_data.daily_distribution_event(comptoken_mint.base, &slot_hashes_account);
+    }
     // mint to banks
     mint(
         &global_data_account,
@@ -367,13 +374,18 @@ pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], _ins
 
 pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
-    //      User's Data (writable)
-    //      User's Comptoken Wallet (writable)
-    //      Comptoken Mint
-    //      Comptoken Global Data (also mint authority)
-    //      Comptoken Interest Bank (writable)
-    //      Comptoken UBI Bank (writable)
-    //      Solana Token 2022 Program
+    //      [w] User's Data
+    //      [w] User's Comptoken Wallet
+    //      [] Comptoken Mint
+    //      [] Comptoken Global Data (also mint authority)
+    //      [w] Comptoken Interest Bank
+    //      [w] Comptoken UBI Bank
+    //      [] Solana Token 2022 Program
+    //      [] Extra Account Metas Account
+    //      [] Transfer Hook Program
+    //      [] Comptoken Program
+    //      [] Interest Bank Data PDA (doesn't actually exist)
+    //      [] UBI Bank Data PDA (doesn't actually exist)
 
     let account_info_iter = &mut accounts.iter();
     let user_data_account = next_account_info(account_info_iter)?;
@@ -383,6 +395,11 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
     let unpaid_interest_bank = next_account_info(account_info_iter)?;
     let unpaid_ubi_bank = next_account_info(account_info_iter)?;
     let _solana_token_account = next_account_info(account_info_iter)?;
+    let extra_account_metas_account = next_account_info(account_info_iter)?;
+    let transfer_hook_program = next_account_info(account_info_iter)?;
+    let compto_program = next_account_info(account_info_iter)?;
+    let interest_data_pda /* not a real account */ = next_account_info(account_info_iter)?;
+    let ubi_data_pda /* not a real account */ = next_account_info(account_info_iter)?;
 
     let user_comptoken_wallet_account =
         verify_user_comptoken_wallet_account(user_comptoken_wallet_account, false, true);
@@ -392,45 +409,78 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
     let global_data_account = verify_global_data_account(global_data_account, program_id, false);
     let unpaid_interest_bank = verify_interest_bank_account(unpaid_interest_bank, program_id, true);
     let unpaid_ubi_bank = verify_ubi_bank_account(unpaid_ubi_bank, program_id, true);
+    let transfer_hook_program = verify_transfer_hook_program(transfer_hook_program);
+    let validation_account =
+        verify_validation_account(extra_account_metas_account, &comptoken_mint_account, &transfer_hook_program);
+    let compto_program = VerifiedAccountInfo::verify_specific_address(compto_program, program_id, false, false);
+    let interest_data_pda = VerifiedAccountInfo::verify_pda(
+        interest_data_pda,
+        program_id,
+        &[unpaid_interest_bank.key.as_ref()],
+        false,
+        false,
+    )
+    .0;
+    let ubi_data_pda =
+        VerifiedAccountInfo::verify_pda(ubi_data_pda, program_id, &[unpaid_ubi_bank.key.as_ref()], false, false).0;
 
-    let user_comptoken_wallet =
-        Account::unpack(user_comptoken_wallet_account.try_borrow_data().unwrap().as_ref()).unwrap();
-    let global_data: &mut GlobalData = (&global_data_account).into();
-    let user_data: &mut UserData = (&user_data_account).into();
+    let interest;
+    let is_verified_human;
+    {
+        let user_wallet_data = user_comptoken_wallet_account.try_borrow_data().unwrap();
+        let user_comptoken_wallet = StateWithExtensions::<Account>::unpack(user_wallet_data.as_ref()).unwrap();
+        let global_data: &mut GlobalData = (&global_data_account).into();
+        let user_data: &mut UserData = (&user_data_account).into();
 
-    // get days since last update
-    let current_day = normalize_time(get_current_time());
-    let days_since_last_update = (current_day - user_data.last_interest_payout_date) / SEC_PER_DAY;
+        // get days since last update
+        let current_day = normalize_time(get_current_time());
+        let days_since_last_update = (current_day - user_data.last_interest_payout_date) / SEC_PER_DAY;
 
-    msg!("total before interest: {}", user_comptoken_wallet.amount);
-    // get interest
-    let interest = global_data
-        .daily_distribution_data
-        .apply_n_interests(days_since_last_update as usize, user_comptoken_wallet.amount)
-        - user_comptoken_wallet.amount;
+        msg!("total before interest: {}", user_comptoken_wallet.base.amount);
+        // get interest
+        interest = global_data
+            .daily_distribution_data
+            .apply_n_interests(days_since_last_update as usize, user_comptoken_wallet.base.amount)
+            - user_comptoken_wallet.base.amount;
 
-    msg!("Interest: {}", interest);
+        msg!("Interest: {}", interest);
+        user_data.last_interest_payout_date = current_day;
+        is_verified_human = user_data.is_verified_human;
+    }
 
     transfer(
         &unpaid_interest_bank,
         &user_comptoken_wallet_account,
         &comptoken_mint_account,
         &global_data_account,
+        &[
+            &validation_account,
+            &transfer_hook_program,
+            &compto_program,
+            &user_data_account,
+            &interest_data_pda,
+        ],
         interest,
     )?;
 
     // get ubi if verified
-    if user_data.is_verified_human {
+    if is_verified_human {
         transfer(
             &unpaid_ubi_bank,
             &user_comptoken_wallet_account,
             &comptoken_mint_account,
             &global_data_account,
+            &[
+                &validation_account,
+                &transfer_hook_program,
+                &compto_program,
+                &user_data_account,
+                &ubi_data_pda,
+            ],
             0, // TODO figure out correct amount
         )?;
     }
 
-    user_data.last_interest_payout_date = current_day;
     Ok(())
 }
 
@@ -455,19 +505,20 @@ fn mint(
 
 fn transfer<'a>(
     source: &VerifiedAccountInfo<'a>, destination: &VerifiedAccountInfo<'a>, mint: &VerifiedAccountInfo<'a>,
-    global_data: &VerifiedAccountInfo<'a>, amount: u64,
+    global_data: &VerifiedAccountInfo<'a>, additional_accounts: &[&VerifiedAccountInfo<'a>], amount: u64,
 ) -> ProgramResult {
-    let instruction = spl_token_2022::instruction::transfer_checked(
+    let additional_accounts: Vec<_> = additional_accounts.iter().map(|account| account.0.clone()).collect();
+    onchain::invoke_transfer_checked(
         &spl_token_2022::ID,
-        source.key,
-        mint.key,
-        destination.key,
-        global_data.key,
-        &[],
+        source.0.clone(),
+        mint.0.clone(),
+        destination.0.clone(),
+        global_data.0.clone(),
+        &additional_accounts,
         amount,
         MINT_DECIMALS,
-    )?;
-    invoke_signed_verified(&instruction, &[source, mint, destination, global_data], &[COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS])
+        &[COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS],
+    )
 }
 
 fn init_comptoken_account<'a>(

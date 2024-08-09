@@ -1,10 +1,6 @@
 import { ACCOUNT_SIZE, AccountLayout, AccountState, ExtraAccountMetaLayout, MINT_SIZE, MintLayout, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
-import solana_bankrun from "solana-bankrun";
-const { AccountInfoBytes } = solana_bankrun;
 
-import { assert } from "console";
-import exp from "constants";
 import {
     compto_extra_account_metas_account_pubkey, compto_program_id_pubkey, compto_transfer_hook_id_pubkey, comptoken_mint_pubkey, DEFAULT_ANNOUNCE_TIME,
     DEFAULT_DISTRIBUTION_TIME, global_data_account_pubkey, Instruction, interest_bank_account_pubkey, ubi_bank_account_pubkey,
@@ -15,7 +11,6 @@ export const COMPTOKEN_DECIMALS = 0; // MAGIC NUMBER: remain consistent with com
 
 // =============================== Helper functions ===============================
 /**
- *
  * @param {bigint} int
  * @returns {number[]}
  */
@@ -49,7 +44,6 @@ export function numAsU32ToLEBytes(num) {
 }
 
 /**
- *
  * @param {number} num
  * @returns {number[]}
  */
@@ -60,50 +54,47 @@ export function numAsDoubleToLEBytes(num) {
 }
 
 /**
- *
- * @param {Uint8Array} bytes
- * @param {number} elem_size
- * @returns {Uint8Array[]}
+ * @template T
+ * @param {T[]} bytes
+ * @param {number} chunk_size
+ * @returns {T[][]}
  */
-function LEBytesToSplitArray(bytes, elem_size) {
-    let len = bytes.length / elem_size;
+function chunkArray(bytes, chunk_size) {
+    let len = bytes.length / chunk_size;
     let arr = new Array(len);
     for (let i = 0; i < len; ++i) {
-        arr[i] = bytes.subarray(i * elem_size, i * elem_size + elem_size);
+        arr[i] = bytes.subarray(i * chunk_size, i * chunk_size + chunk_size);
     }
     return arr;
 }
 
 /**
- *
  * @param {Uint8Array} bytes
  * @returns {number[]}
  */
 export function LEBytesToDoubleArray(bytes) {
-    return LEBytesToSplitArray(bytes, 8).map((elem) => new DataView(elem.buffer.slice(elem.byteOffset)).getFloat64(0, true));
+    return chunkArray(bytes, 8).map((elem) => new DataView(elem.buffer.slice(elem.byteOffset)).getFloat64(0, true));
 }
 
 /**
- * 
  * @param {Uint8Array} bytes 
  * @returns {Uint8Array[]}
  */
 export function LEBytesToBlockhashArray(bytes) {
-    return LEBytesToSplitArray(bytes, 32);
+    return chunkArray(bytes, 32);
 }
 
 /**
- * 
  * @param {Uint8Array} bytes 
  * @returns {ExtraAccountMeta[]}
  */
 export function LEBytesToAccountMetaArray(bytes) {
-    return LEBytesToSplitArray(bytes, 35).map((elem) => ExtraAccountMeta.fromBytes(elem));
+    return chunkArray(bytes, 35).map((elem) => ExtraAccountMeta.fromBytes(elem));
 }
 
 
 /**
- *
+ * @template T
  * @param {T | null | undefined} val
  * @returns {T | null}
  */
@@ -115,7 +106,7 @@ export function toOption(val) {
 }
 
 /**
- *
+ * @template T
  * @param {T | null} opt_val
  * @param {() => T} fn
  * @returns {T} opt_val if it is not null or result of calling fn
@@ -128,7 +119,7 @@ export function getOptionOr(opt_val, fn) {
 }
 
 /**
- * 
+ * @template T
  * @param {T[]} left 
  * @param {T[]} right 
  * @returns {boolean}
@@ -146,17 +137,170 @@ export function isArrayEqual(left, right) {
 }
 
 // =============================== Classes ===============================
-export class MintAccount {
+
+class ExtensionType {
+    // u16 discriminated type for an extension
+    // https://github.com/solana-labs/solana-program-library/blob/master/token/program-2022/src/extension/mod.rs#L1042-L1115
+    static Uninitialized = 0;
+    static TransferFeeConfig = 1;
+    static TransferFeeAmount = 2;
+    static MintCloseAuthority = 3
+    static ConfidentialTransferMint = 4;
+    static ConfidentialTransferAccount = 5;
+    static DefaultAccountState = 6;
+    static ImmutableOwner = 7;
+    static MemoTransfer = 8;
+    static NonTransferable = 9;
+    static InterestBearingConfig = 10;
+    static CpiGuard = 11;
+    static PermanentDelegate = 12;
+    static NonTransferableAccount = 13;
+    static TransferHook = 14;
+    static TransferHookAccount = 15;
+    static MetadataPointer = 18;
+    static TokenMetadata = 19;
+    static GroupPointer = 20;
+    static TokenGroup = 21;
+    static GroupMemberPointer = 22;
+    static TokenGroupMember = 23;
+}
+
+export class TLV {
+    // structure derived from
+    // https://github.com/solana-labs/solana-program-library/blob/master/token/program-2022/src/extension/mod.rs#L106-L114
+    type; // u16
+    length; // u16
+    value; // [u8; length]
+
+    /**
+     * @param {number} type
+     * @param {number} length
+     * @param {Uint8Array} value
+     */
+    constructor(type, length, value) {
+        this.type = type;
+        this.length = length;
+        this.value = value;
+    }
+
+    static Uninitialized() {
+        return new TLV(ExtensionType.Uninitialized, 0, new Uint8Array(0));
+    }
+
+    /**
+     * @param {PublicKey} programId
+     * @param {PublicKey | null} authority
+     * @returns {TLV}
+     */
+    static transferHook(programId, authority = null) {
+        authority = getOptionOr(toOption(authority), () => PublicKey.default).val;
+        let value = Uint8Array.from([...authority.toBytes(), ...programId.toBytes()]);
+        return new TLV(ExtensionType.TransferHook, 64, value);
+    }
+
+    /**
+     * @returns {TLV}
+     */
+    static TransferHookAccount() {
+        let value = new Uint8Array(1);
+        return new TLV(ExtensionType.TransferHookAccount, 1, value);
+    }
+
+    /**
+     * @returns {Uint8Array}
+     */
+    toBytes() {
+        let bytes = Uint8Array.from([...numAsU16ToLEBytes(this.type), ...numAsU16ToLEBytes(this.length), ...this.value]);
+        return bytes;
+    }
+
+    /**
+     * @param {Uint8Array} bytes 
+     * @returns {TLV}
+     */
+    static fromBytes(bytes) {
+        let buffer = new DataView(bytes.buffer.slice(bytes.byteOffset));
+        return new TLV(buffer.getUint16(0, true), buffer.getUint16(2, true), bytes.subarray(4, 4 + buffer.getUint16(2, true)));
+    }
+}
+
+class AccountWithExtensions {
+    extensions; // [TLV]
+    static extensions_start_index = 165; // comes from https://github.com/solana-labs/solana-program-library/blob/master/token/program-2022/src/extension/mod.rs#L273-L291
+    constructor() {
+        this.extensions = [];
+    }
+
+    /**
+     * @param {TLV} tlv
+     * @returns {MintAccount}
+     */
+    addExtension(tlv) {
+        this.extensions.push(tlv);
+        return this;
+    }
+
+    /**
+     * @returns {number}
+     */
+    getSize() {
+        if (this.extensions.length === 0) {
+            return this.constructor.SIZE;
+        }
+        let size = this.extensions.reduce((pv, cv, i) => pv + cv.length + 4, 166);
+        // solana code says they pad with uninitialized ExtensionType if size is 355
+        // https://github.com/solana-labs/solana-program-library/blob/master/token/program-2022/src/extension/mod.rs#L1047-L1049
+        if (size == 355) {
+            return size + 4;
+        }
+        return size;
+    }
+
+    /**
+     * @param {Uint8Array} buffer
+     */
+    encodeExtensions(buffer) {
+        let index = AccountWithExtensions.extensions_start_index;
+        buffer[index++] = this.constructor.ACCOUNT_TYPE;
+        for (let extension of this.extensions) {
+            let bytes = extension.toBytes();
+            buffer.set(bytes, index);
+            index += bytes.length;
+        }
+    }
+
+    /**
+     * @param {Uint8Array} buffer 
+     */
+    static decodeExtensions(buffer) {
+        let index = AccountWithExtensions.extensions_start_index;
+        if (buffer[index++] !== this.ACCOUNT_TYPE) {
+            throw Error("invalid account type");
+        }
+        let extensions = [];
+        while (index + 4 < buffer.length) {
+            let extension = TLV.fromBytes(buffer.subarray(index));
+            extensions.push(extension);
+            index += extension.length + 4;
+        }
+        return extensions;
+    }
+}
+
+export class MintAccount extends AccountWithExtensions {
     address; //  PublicKey
     lamports; //  u64
     owner; // PublicKey
+
     supply; //  u64
     decimals; //  u8
     mintAuthority; //  optional PublicKey
     freezeAuthority; //  optional PublicKey
 
+    static SIZE = MINT_SIZE;
+    static ACCOUNT_TYPE = 1;
+
     /**
-     *
      * @param {PublicKey} address
      * @param {number} lamports
      * @param {bigint} supply
@@ -165,6 +309,7 @@ export class MintAccount {
      * @param {PublicKey | null} freezeAuthority
      */
     constructor(address, lamports, supply, decimals, mintAuthority = null, freezeAuthority = null) {
+        super()
         this.address = address;
         this.lamports = lamports;
         this.owner = TOKEN_2022_PROGRAM_ID
@@ -175,14 +320,13 @@ export class MintAccount {
     }
 
     /**
-     *
      * @returns {AddedAccount}
      */
     toAccount() {
         const { option: freezeAuthorityOption, val: freezeAuthority } = getOptionOr(this.freezeAuthority, () => PublicKey.default);
         const { option: mintAuthorityOption, val: mintAuthority } = getOptionOr(this.mintAuthority, () => PublicKey.default);
 
-        let buffer = new Uint8Array(MINT_SIZE);
+        let buffer = new Uint8Array(this.getSize());
         MintLayout.encode(
             {
                 mintAuthorityOption,
@@ -196,6 +340,8 @@ export class MintAccount {
             buffer,
         );
 
+        this.encodeExtensions(buffer);
+
         return {
             address: this.address,
             info: {
@@ -208,14 +354,13 @@ export class MintAccount {
     }
 
     /**
-     *
      * @param {PublicKey} address
      * @param {AccountInfoBytes} accountInfo
      * @returns {MintAccount}
      */
     static fromAccountInfoBytes(address, accountInfo) {
         let rawMint = MintLayout.decode(accountInfo.data);
-        return new MintAccount(
+        let mintAccount = new MintAccount(
             address,
             accountInfo.lamports,
             rawMint.supply,
@@ -223,6 +368,8 @@ export class MintAccount {
             rawMint.mintAuthorityOption === 1 ? rawMint.mintAuthority : null,
             rawMint.freezeAuthorityOption === 1 ? rawMint.freezeAuthority : null,
         );
+        mintAccount.extensions = this.decodeExtensions(accountInfo.data);
+        return mintAccount;
     }
 }
 export class ValidBlockhashes {
@@ -232,7 +379,6 @@ export class ValidBlockhashes {
     validBlockhashTime; //  i64
 
     /**
-     *
      * @param {{ blockhash: Uint8Array; time: bigint }} announced
      * @param {{ blockhash: Uint8Array; time: bigint }} valid
      */
@@ -244,7 +390,6 @@ export class ValidBlockhashes {
     }
 
     /**
-     *
      * @returns {Uint8Array}
      */
     toBytes() {
@@ -257,7 +402,6 @@ export class ValidBlockhashes {
     }
 
     /**
-     *
      * @param {Uint8Array} bytes
      * @returns {ValidBlockhashes}
      */
@@ -280,7 +424,6 @@ export class DailyDistributionData {
     static HISTORY_SIZE = 365; //   remain consistent with rust
 
     /**
-     *
      * @param {bigint} yesterdaySupply
      * @param {bigint} highWaterMark
      * @param {bigint} lastDailyDistributionTime
@@ -299,7 +442,6 @@ export class DailyDistributionData {
     }
 
     /**
-     *
      * @returns {Uint8Array}
      */
     toBytes() {
@@ -313,7 +455,6 @@ export class DailyDistributionData {
     }
 
     /**
-     *
      * @param {Uint8Array} bytes
      * @returns {DailyDistributionData}
      */
@@ -336,7 +477,6 @@ export class GlobalDataAccount {
     dailyDistributionData;
 
     /**
-     *
      * @param {ValidBlockhashes} validBlockhashes
      * @param {DailyDistributionData} dailyDistributionData
      */
@@ -348,7 +488,6 @@ export class GlobalDataAccount {
     }
 
     /**
-     *
      * @returns {AddedAccount}
      */
     toAccount() {
@@ -364,7 +503,6 @@ export class GlobalDataAccount {
     }
 
     /**
-     *
      * @param {PublicKey} address unused; for API consistency with other accounts
      * @param {import("solana-bankrun").AccountInfoBytes} accountInfo
      * @returns {GlobalDataAccount}
@@ -377,10 +515,11 @@ export class GlobalDataAccount {
     }
 }
 
-export class TokenAccount {
+export class TokenAccount extends AccountWithExtensions {
     address; //  PublicKey
     lamports; //  u64
     owner; // PublicKey
+
     mint; //  PublicKey
     nominalOwner; //  PublicKey
     amount; //  u64
@@ -390,8 +529,10 @@ export class TokenAccount {
     delegatedAmount; //  u64
     closeAuthority; //  optional PublicKey
 
+    static SIZE = ACCOUNT_SIZE;
+    static ACCOUNT_TYPE = 2;
+
     /**
-     *
      * @param {PublicKey} address
      * @param {number} lamports
      * @param {PublicKey} mint
@@ -404,6 +545,7 @@ export class TokenAccount {
      * @param {PublicKey | null} closeAuthority
      */
     constructor(address, lamports, mint, nominalOwner, amount, state, delegatedAmount, delegate = null, isNative = null, closeAuthority = null) {
+        super()
         this.address = address;
         this.lamports = lamports;
         this.owner = TOKEN_2022_PROGRAM_ID;
@@ -418,7 +560,6 @@ export class TokenAccount {
     }
 
     /**
-     *
      * @returns {AddedAccount}
      */
     toAccount() {
@@ -426,23 +567,25 @@ export class TokenAccount {
         const { option: isNativeOption, val: isNative } = getOptionOr(this.isNative, () => 0n);
         const { option: closeAuthorityOption, val: closeAuthority } = getOptionOr(this.closeAuthority, () => PublicKey.default);
 
-        let buffer = new Uint8Array(ACCOUNT_SIZE);
+        let buffer = new Uint8Array(this.getSize());
         AccountLayout.encode(
             {
                 mint: this.mint,
                 owner: this.nominalOwner,
-                amount: this.amount,
+                amount: BigInt(this.amount),
                 delegateOption: delegateOption,
                 delegate: delegate,
-                delegatedAmount: this.delegatedAmount,
+                delegatedAmount: BigInt(this.delegatedAmount),
                 state: this.state,
                 isNativeOption: isNativeOption,
-                isNative: isNative,
+                isNative: BigInt(isNative),
                 closeAuthorityOption: closeAuthorityOption,
                 closeAuthority: closeAuthority,
             },
             buffer,
         );
+
+        this.encodeExtensions(buffer);
 
         return {
             address: this.address,
@@ -456,14 +599,13 @@ export class TokenAccount {
     }
 
     /**
-     *
      * @param {PublicKey} address
      * @param {AccountInfoBytes} accountInfo
      * @returns {TokenAccount}
      */
     static fromAccountInfoBytes(address, accountInfo) {
         let rawAccount = AccountLayout.decode(accountInfo.data);
-        return new TokenAccount(
+        let tokenAccount = new TokenAccount(
             address,
             accountInfo.lamports,
             rawAccount.mint,
@@ -475,6 +617,8 @@ export class TokenAccount {
             rawAccount.isNativeOption === 1 ? rawAccount.isNative : null,
             rawAccount.closeAuthorityOption === 1 ? rawAccount.closeAuthority : null,
         );
+        tokenAccount.extensions = TokenAccount.decodeExtensions(accountInfo.data);
+        return tokenAccount;
     }
 }
 
@@ -489,7 +633,6 @@ export class UserDataAccount {
     proofs; // [Hash]
 
     /**
-     *
      * @param {PublicKey} address
      * @param {bigint} lamports
      * @param {bigint} lastInterestPayoutDate
@@ -510,7 +653,6 @@ export class UserDataAccount {
     }
 
     /**
-     *
      * @returns {AddedAccount}
      */
     toAccount() {
@@ -534,7 +676,6 @@ export class UserDataAccount {
     }
 
     /**
-     *
      * @param {PublicKey} address
      * @param {AccountInfoBytes} accountInfo
      * @returns {UserDataAccount}
@@ -593,7 +734,7 @@ export class AddressConfig {
 
     /**
      * @param {number} type 
-     * @param {PublicKey | seeds: Seed[]} configData 
+     * @param {PublicKey | Seed[]} configData 
      */
     constructor(type, configData, other = -1) {
         if (type === AddressConfig.Types.PDA_OTHER_PROGRAM) {
@@ -640,7 +781,9 @@ export class ExtraAccountMeta {
      * @returns {Uint8Array}
      */
     toBytes() {
-        return ExtraAccountMetaLayout.encode(this);
+        let buffer = new Uint8Array(35);
+        ExtraAccountMetaLayout.encode(this, buffer);
+        return buffer;
     }
 
     /**
@@ -668,7 +811,6 @@ export class ExtraAccountMetaAccount {
     extraAccountMetas; // [accountMeta]
 
     /**
-     * 
      * @param {PublicKey} address 
      * @param {number} lamports 
      * @param {PublicKey} owner 
@@ -681,16 +823,19 @@ export class ExtraAccountMetaAccount {
         this.extraAccountMetas = extraAccountMetas;
     }
 
+    /**
+     * @returns {AddedAccount}
+     */
     toAccount() {
-        let extraAccountMetasSize = ExtraAccountMeta.SIZE * this.extraAccountMetas.length;
-        let buffer = new Uint8Array(16 + extraAccountMetasSize);
+        let extraAccountMetasSize = 4 + ExtraAccountMeta.SIZE * this.extraAccountMetas.length;
+        let buffer = new Uint8Array(12 + extraAccountMetasSize);
         // value is solanas transfer hook execute instruction discriminator
         // https://github.com/solana-labs/solana-program-library/blob/token-2022-v3.0/token/js/src/extensions/transferHook/instructions.ts#L168
         buffer.set(Uint8Array.from([105, 37, 101, 197, 75, 251, 102, 26]), 0);
-        buffer.set(numAsU32ToLEBytes(extraAccountMetasSize));
+        buffer.set(numAsU32ToLEBytes(extraAccountMetasSize), 8);
         buffer.set(numAsU32ToLEBytes(this.extraAccountMetas.length), 12);
         let i = 16;
-        for (accountMeta of this.extraAccountMetas) {
+        for (let accountMeta of this.extraAccountMetas) {
             buffer.set(accountMeta.toBytes(), i);
             i += ExtraAccountMeta.SIZE;
         }
@@ -707,7 +852,6 @@ export class ExtraAccountMetaAccount {
     }
 
     /**
-     *
      * @param {PublicKey} address
      * @param {import("solana-bankrun").AccountInfoBytes} accountInfo
      * @returns {ExtraAccountMetaAccount}
@@ -725,15 +869,14 @@ export class ExtraAccountMetaAccount {
 // =============================== Default Account Factories ===============================
 
 /**
- *
  * @returns {MintAccount}
  */
 export function get_default_comptoken_mint() {
-    return new MintAccount(comptoken_mint_pubkey, BIG_NUMBER, 1n, COMPTOKEN_DECIMALS, global_data_account_pubkey);
+    return new MintAccount(comptoken_mint_pubkey, BIG_NUMBER, 1n, COMPTOKEN_DECIMALS, global_data_account_pubkey)
+        .addExtension(TLV.transferHook(compto_transfer_hook_id_pubkey));
 }
 
 /**
- *
  * @returns {GlobalDataAccount}
  */
 export function get_default_global_data() {
@@ -747,17 +890,16 @@ export function get_default_global_data() {
 }
 
 /**
- *
  * @param {PublicKey} address
  * @param {PublicKey} owner
  * @returns {TokenAccount}
  */
 export function get_default_comptoken_wallet(address, owner) {
-    return new TokenAccount(address, BIG_NUMBER, comptoken_mint_pubkey, owner, 0n, AccountState.Initialized, 0n);
+    return new TokenAccount(address, BIG_NUMBER, comptoken_mint_pubkey, owner, 0n, AccountState.Initialized, 0n)
+        .addExtension(TLV.TransferHookAccount());
 }
 
 /**
- *
  * @returns {TokenAccount}
  */
 export function get_default_unpaid_interest_bank() {
@@ -765,7 +907,6 @@ export function get_default_unpaid_interest_bank() {
 }
 
 /**
- *
  * @returns {TokenAccount}
  */
 export function get_default_unpaid_ubi_bank() {
@@ -773,7 +914,6 @@ export function get_default_unpaid_ubi_bank() {
 }
 
 /**
- * 
  * @param {PublicKey} address 
  * @returns {UserDataAccount}
  */

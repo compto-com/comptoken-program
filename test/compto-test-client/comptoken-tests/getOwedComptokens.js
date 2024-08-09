@@ -3,11 +3,26 @@ import { PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js"
 import { Clock, start } from "solana-bankrun";
 
 import {
-    get_default_comptoken_mint, get_default_comptoken_wallet, get_default_global_data, get_default_unpaid_interest_bank,
-    get_default_unpaid_ubi_bank, get_default_user_data_account, TokenAccount, UserDataAccount
+    get_default_comptoken_mint,
+    get_default_comptoken_wallet,
+    get_default_extra_account_metas_account,
+    get_default_global_data,
+    get_default_unpaid_interest_bank,
+    get_default_unpaid_ubi_bank,
+    get_default_user_data_account,
+    TokenAccount,
+    UserDataAccount
 } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_program_id_pubkey, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME, Instruction, SEC_PER_DAY, testuser_comptoken_wallet_pubkey } from "../common.js";
+import {
+    compto_program_id_pubkey,
+    compto_transfer_hook_id_pubkey,
+    DEFAULT_DISTRIBUTION_TIME,
+    DEFAULT_START_TIME,
+    Instruction,
+    SEC_PER_DAY,
+    testuser_comptoken_wallet_pubkey
+} from "../common.js";
 
 async function test_getOwedComptokens() {
     let comptoken_mint = get_default_comptoken_mint();
@@ -25,9 +40,13 @@ async function test_getOwedComptokens() {
     interest_bank.amount = 146_000n;
     let ubi_bank = get_default_unpaid_ubi_bank();
     ubi_bank.amount = 146_000n;
+    let extra_account_metas_account = get_default_extra_account_metas_account();
 
     const context = await start(
-        [{ name: "comptoken", programId: compto_program_id_pubkey }],
+        [
+            { name: "comptoken", programId: compto_program_id_pubkey },
+            { name: "comptoken_transfer_hook", programId: compto_transfer_hook_id_pubkey },
+        ],
         [
             user_data.toAccount(),
             user_wallet.toAccount(),
@@ -35,12 +54,12 @@ async function test_getOwedComptokens() {
             global_data.toAccount(),
             interest_bank.toAccount(),
             ubi_bank.toAccount(),
+            extra_account_metas_account.toAccount(),
         ]
     );
     const client = context.banksClient;
     const payer = context.payer;
     const blockhash = context.lastBlockhash;
-    const rent = await client.getRent();
     const keys = [
         //  User's Data Account stores how long it's been since they received owed comptokens
         { pubkey: user_data.address, isSigner: false, isWritable: true },
@@ -56,6 +75,16 @@ async function test_getOwedComptokens() {
         { pubkey: ubi_bank.address, isSigner: false, isWritable: true },
         //  Token 2022 Program moves the tokens
         { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+        //  stores account metas to add to transfer instructions
+        { pubkey: extra_account_metas_account.address, isSigner: false, isWritable: false },
+        //  compto transfer hook program is called by the transfer that gives the owed comptokens
+        { pubkey: compto_transfer_hook_id_pubkey, isSigner: false, isWritable: false },
+        //  needed by the transfer hook program
+        { pubkey: compto_program_id_pubkey, isSigner: false, isWritable: false },
+        //  needed by the transfer hook program (doesn't really exist)
+        { pubkey: PublicKey.findProgramAddressSync([interest_bank.address.toBytes()], compto_program_id_pubkey)[0], isSigner: false, isWritable: false },
+        //  needed by the transfer hook program (doesn't really exist)
+        { pubkey: PublicKey.findProgramAddressSync([ubi_bank.address.toBytes()], compto_program_id_pubkey)[0], isSigner: false, isWritable: false },
     ];
 
     let data = Buffer.from([Instruction.GET_OWED_COMPTOKENS]);
@@ -67,6 +96,10 @@ async function test_getOwedComptokens() {
     tx.sign(payer);
     context.setClock(new Clock(0n, 0n, 0n, 0n, DEFAULT_START_TIME));
     const meta = await client.processTransaction(tx);
+
+    console.log("logMessages: %s", meta.logMessages);
+    console.log("computeUnitsConsumed: %d", meta.computeUnitsConsumed);
+    console.log("returnData: %s", meta.returnData)
 
     let account = await client.getAccount(user_wallet.address);
     Assert.assertNotNull(account);

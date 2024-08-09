@@ -34,13 +34,19 @@ impl<'a> From<&VerifiedAccountInfo<'a>> for &'a mut GlobalData {
         let mut data = account.try_borrow_mut_data().unwrap();
         let data = data.as_mut();
 
+        data.into()
+    }
+}
+
+impl From<&mut [u8]> for &mut GlobalData {
+    fn from(value: &mut [u8]) -> Self {
         assert!(
-            data.len() >= std::mem::size_of::<GlobalData>(),
+            value.len() >= std::mem::size_of::<GlobalData>(),
             "\n    note: left = `{}`\n    note: right = `{}`",
-            data.len(),
+            value.len(),
             std::mem::size_of::<GlobalData>()
         );
 
-        unsafe { &mut *(data as *mut _ as *mut GlobalData) }
+        unsafe { &mut *(value as *mut _ as *mut GlobalData) }
     }
 }

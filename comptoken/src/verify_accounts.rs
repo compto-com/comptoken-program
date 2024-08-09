@@ -2,7 +2,7 @@ use spl_token_2022::solana_program::{account_info::AccountInfo, pubkey::Pubkey};
 
 use crate::generated::{
     COMPTOKEN_MINT_ADDRESS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS, COMPTO_INTEREST_BANK_ACCOUNT_SEEDS,
-    COMPTO_UBI_BANK_ACCOUNT_SEEDS,
+    COMPTO_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
 };
 
 pub use comptoken_utils::verify_accounts::VerifiedAccountInfo;
@@ -68,4 +68,21 @@ pub fn verify_user_data_account<'a>(
 pub fn verify_slothashes_account<'a>(account: &AccountInfo<'a>) -> VerifiedAccountInfo<'a> {
     assert!(solana_program::sysvar::slot_hashes::check_id(account.key));
     VerifiedAccountInfo::verify_sysvar::<solana_program::sysvar::slot_hashes::SlotHashes>(account)
+}
+
+pub fn verify_validation_account<'a>(
+    account: &AccountInfo<'a>, mint: &VerifiedAccountInfo<'a>, transfer_hook_program: &VerifiedAccountInfo<'a>,
+) -> VerifiedAccountInfo<'a> {
+    VerifiedAccountInfo::verify_pda(
+        account,
+        transfer_hook_program.key,
+        &[b"extra-account-metas", mint.key.as_ref()],
+        false,
+        false,
+    )
+    .0
+}
+
+pub fn verify_transfer_hook_program<'a>(account: &AccountInfo<'a>) -> VerifiedAccountInfo<'a> {
+    VerifiedAccountInfo::verify_specific_address(account, &TRANSFER_HOOK_ID, false, false)
 }

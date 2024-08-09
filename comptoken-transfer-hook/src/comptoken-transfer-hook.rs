@@ -45,7 +45,7 @@ fn process_execute(program_id: &Pubkey, accounts: &[AccountInfo], _amount: u64) 
     //      []: Mint
     //      []: Destination token account
     //      []: Source token account authority
-    //      []: Validation account
+    //      []: account meta storage account
     //      []: Comptoken Program
     //      []: Source Data Account
     //      []: Destination Data Account
@@ -68,10 +68,10 @@ fn process_execute(program_id: &Pubkey, accounts: &[AccountInfo], _amount: u64) 
 
     // Account must either be a bank account or have no unpaid interest or UBI amounts to do a transfer
     if !is_bank(source_account.key) {
-        let source_user_data: &mut UserData = (&source_data_account).into();
+        let source_user_data: &UserData = (&source_data_account).into();
         assert!(source_user_data.is_current());
         if !is_bank(destination_account.key) {
-            let destination_user_data: &mut UserData = (&destination_data_account).into();
+            let destination_user_data: &UserData = (&destination_data_account).into();
             assert!(destination_user_data.is_current());
         }
     }

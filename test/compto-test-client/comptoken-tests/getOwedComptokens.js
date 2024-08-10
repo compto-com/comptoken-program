@@ -26,20 +26,20 @@ import {
 
 async function test_getOwedComptokens() {
     let comptoken_mint = get_default_comptoken_mint();
-    comptoken_mint.supply = 292_004n
+    comptoken_mint.data.supply = 292_004n
     let user_wallet = get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, PublicKey.unique());
-    user_wallet.amount = 2n;
+    user_wallet.data.amount = 2n;
     let user_data_account_address = PublicKey.findProgramAddressSync([user_wallet.address.toBytes()], compto_program_id_pubkey)[0];
     let user_data = get_default_user_data_account(user_data_account_address);
-    user_data.lastInterestPayoutDate = DEFAULT_DISTRIBUTION_TIME - SEC_PER_DAY;
+    user_data.data.lastInterestPayoutDate = DEFAULT_DISTRIBUTION_TIME - SEC_PER_DAY;
     let global_data = get_default_global_data();
-    global_data.dailyDistributionData.historicInterests[0] = 0.5;
-    global_data.dailyDistributionData.oldestInterest = 1n;
-    global_data.dailyDistributionData.yesterdaySupply = 292_004n;
+    global_data.data.dailyDistributionData.historicInterests[0] = 0.5;
+    global_data.data.dailyDistributionData.oldestInterest = 1n;
+    global_data.data.dailyDistributionData.yesterdaySupply = 292_004n;
     let interest_bank = get_default_unpaid_interest_bank();
-    interest_bank.amount = 146_000n;
+    interest_bank.data.amount = 146_000n;
     let ubi_bank = get_default_unpaid_ubi_bank();
-    ubi_bank.amount = 146_000n;
+    ubi_bank.data.amount = 146_000n;
     let extra_account_metas_account = get_default_extra_account_metas_account();
 
     const context = await start(
@@ -104,12 +104,12 @@ async function test_getOwedComptokens() {
     let account = await client.getAccount(user_wallet.address);
     Assert.assertNotNull(account);
     let finalUserWallet = TokenAccount.fromAccountInfoBytes(user_wallet.address, account);
-    Assert.assertEqual(finalUserWallet.amount, 3n, "interest amount");
+    Assert.assertEqual(finalUserWallet.data.amount, 3n, "interest amount");
 
     account = await client.getAccount(user_data.address);
     Assert.assertNotNull(account);
     let finalUserData = UserDataAccount.fromAccountInfoBytes(user_data.address, account);
-    Assert.assertEqual(finalUserData.lastInterestPayoutDate, DEFAULT_DISTRIBUTION_TIME, "last interest payout date updated");
+    Assert.assertEqual(finalUserData.data.lastInterestPayoutDate, DEFAULT_DISTRIBUTION_TIME, "last interest payout date updated");
 }
 
 (async () => { await test_getOwedComptokens(); })();

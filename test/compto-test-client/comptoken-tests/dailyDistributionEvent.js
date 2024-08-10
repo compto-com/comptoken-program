@@ -8,7 +8,7 @@ import { compto_program_id_pubkey, DEFAULT_ANNOUNCE_TIME, DEFAULT_DISTRIBUTION_T
 
 async function test_dailyDistributionEvent() {
     let comptoken_mint = get_default_comptoken_mint();
-    comptoken_mint.supply += 1n;
+    comptoken_mint.data.supply += 1n;
     let global_data = get_default_global_data();
     let interest_bank = get_default_unpaid_interest_bank();
     let ubi_bank = get_default_unpaid_ubi_bank();
@@ -56,7 +56,8 @@ async function test_dailyDistributionEvent() {
     let account = await client.getAccount(comptoken_mint.address);
     Assert.assertNotNull(account);
     const failMint = MintAccount.fromAccountInfoBytes(comptoken_mint.address, account);
-    Assert.assertEqual(failMint.supply, comptoken_mint.supply, "interest has not been issued");
+    // no new distribution because it is the same day 
+    Assert.assertEqual(failMint.data.supply, comptoken_mint.data.supply, "interest has not been issued");
 
     context.setClock(new Clock(0n, 0n, 0n, 0n, DEFAULT_START_TIME + SEC_PER_DAY));
     const meta = await client.processTransaction(tx);
@@ -64,32 +65,32 @@ async function test_dailyDistributionEvent() {
     account = await client.getAccount(comptoken_mint.address);
     Assert.assertNotNull(account);
     const finalMint = MintAccount.fromAccountInfoBytes(comptoken_mint.address, account);
-    Assert.assert(finalMint.supply > comptoken_mint.supply, "interest has been applied");
+    Assert.assert(finalMint.data.supply > comptoken_mint.data.supply, "interest has been applied");
 
     account = await client.getAccount(global_data.address);
     Assert.assertNotNull(account);
-    const finalGlobalData = GlobalDataAccount.fromAccountInfoBytes(global_data.address, account);
-    const validBlockhash = finalGlobalData.validBlockhashes;
-    const dailyDistributionData = finalGlobalData.dailyDistributionData;
+    const finalGlobalDataAcct = GlobalDataAccount.fromAccountInfoBytes(global_data.address, account);
+    const validBlockhash = finalGlobalDataAcct.data.validBlockhashes;
+    const dailyDistributionData = finalGlobalDataAcct.data.dailyDistributionData;
     Assert.assertEqual(validBlockhash.announcedBlockhashTime, DEFAULT_ANNOUNCE_TIME + SEC_PER_DAY, "the announced blockhash time has been updated");
-    Assert.assertNotEqual(validBlockhash.announcedBlockhash, global_data.validBlockhashes.announcedBlockhash, "announced blockhash has changed"); // TODO: can the actual blockhash be predicted/gotten?
+    Assert.assertNotEqual(validBlockhash.announcedBlockhash, global_data.data.validBlockhashes.announcedBlockhash, "announced blockhash has changed"); // TODO: can the actual blockhash be predicted/gotten?
     Assert.assertEqual(validBlockhash.validBlockhashTime, DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY, "the valid blockhash time has been updated");
-    Assert.assertNotEqual(validBlockhash.validBlockhash, global_data.validBlockhashes.validBlockhash, "valid blockhash has changed");
+    Assert.assertNotEqual(validBlockhash.validBlockhash, global_data.data.validBlockhashes.validBlockhash, "valid blockhash has changed");
 
     Assert.assertEqual(dailyDistributionData.highWaterMark, 2n, "highwater mark has increased"); // TODO: find a better way to get oracle value
     Assert.assertEqual(dailyDistributionData.lastDailyDistributionTime, DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY, "last daily distribution time has updated");
-    Assert.assertEqual(dailyDistributionData.yesterdaySupply, finalMint.supply, "yesterdays supply is where the mint is after");
-    Assert.assertEqual(dailyDistributionData.oldestInterest, global_data.dailyDistributionData.oldestInterest + 1n, "oldest interests has increased");
+    Assert.assertEqual(dailyDistributionData.yesterdaySupply, finalMint.data.supply, "yesterdays supply is where the mint is after");
+    Assert.assertEqual(dailyDistributionData.oldestInterest, global_data.data.dailyDistributionData.oldestInterest + 1n, "oldest interests has increased");
 
     account = await client.getAccount(interest_bank.address);
     Assert.assertNotNull(account);
-    const finalInterestBank = TokenAccount.fromAccountInfoBytes(interest_bank.address, account);
-    Assert.assert(finalInterestBank.amount > interest_bank.amount, "interest bank has increased");
+    const finalInterestBankAcct = TokenAccount.fromAccountInfoBytes(interest_bank.address, account);
+    Assert.assert(finalInterestBankAcct.data.amount > interest_bank.data.amount, "interest bank has increased");
 
     account = await client.getAccount(ubi_bank.address);
     Assert.assertNotNull(account);
-    const finalUbiBank = TokenAccount.fromAccountInfoBytes(ubi_bank.address, account);
-    Assert.assert(finalUbiBank.amount > ubi_bank.amount, "interest bank has increased");
+    const finalUbiBankAcct = TokenAccount.fromAccountInfoBytes(ubi_bank.address, account);
+    Assert.assert(finalUbiBankAcct.data.amount > ubi_bank.data.amount, "interest bank has increased");
 }
 
 (async () => { await test_dailyDistributionEvent(); })();

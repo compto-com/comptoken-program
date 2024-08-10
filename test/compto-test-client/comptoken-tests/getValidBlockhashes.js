@@ -19,7 +19,6 @@ async function test_getValidBlockhashes() {
     const client = context.banksClient;
     const payer = context.payer;
     const blockhash = context.lastBlockhash;
-    const rent = await client.getRent();
     const keys = [
         // stores valid blockhashes, but may be out of date
         { pubkey: global_data_account_pubkey, isSigner: false, isWritable: true },
@@ -35,8 +34,8 @@ async function test_getValidBlockhashes() {
     context.setClock(new Clock(0n, 0n, 0n, 0n, DEFAULT_START_TIME));
     const meta = await client.processTransaction(tx);
     const validBlockHashes = { current_block: meta.returnData.data.slice(0, 32), announced_block: meta.returnData.data.slice(32, 64), };
-    Assert.assert(validBlockHashes.announced_block.every((v, i) => v === globalData.validBlockhashes.announcedBlockhash[i]), "announced blockhash is globalData default");
-    Assert.assert(validBlockHashes.current_block.every((v, i) => v === globalData.validBlockhashes.validBlockhash[i]), "valid blockhash is globalData default");
+    Assert.assert(validBlockHashes.announced_block.every((v, i) => v === globalData.data.validBlockhashes.announcedBlockhash[i]), "announced blockhash is globalData default");
+    Assert.assert(validBlockHashes.current_block.every((v, i) => v === globalData.data.validBlockhashes.validBlockhash[i]), "valid blockhash is globalData default");
 }
 
 (async () => { await test_getValidBlockhashes(); })();

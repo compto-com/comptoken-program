@@ -48,8 +48,8 @@ async function test_createUserDataAccount() {
     context.setClock(new Clock(0n, 0n, 0n, 0n, 1_721_940_656n));
     const meta = await client.processTransaction(tx);
     const finalUserData = UserDataAccount.fromAccountInfoBytes(user_data_account, await client.getAccount(user_data_account));
-    Assert.assertEqual(finalUserData.lastInterestPayoutDate, 1_721_865_600n, "user data lastInterestPayoutDate");
-    Assert.assert(!finalUserData.isVerifiedHuman, "user data isVerifiedHuman");
+    Assert.assertEqual(finalUserData.data.lastInterestPayoutDate, 1_721_865_600n, "user data lastInterestPayoutDate");
+    Assert.assert(!finalUserData.data.isVerifiedHuman, "user data isVerifiedHuman");
 }
 
 (async () => { await test_createUserDataAccount(); })();

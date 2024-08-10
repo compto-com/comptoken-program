@@ -10,14 +10,14 @@ import {
     TokenAccount
 } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_program_id_pubkey, compto_transfer_hook_id_pubkey, DEFAULT_START_TIME, MINT_DECIMALS } from "../common.js";
+import { compto_program_id_pubkey, compto_transfer_hook_id_pubkey, COMPTOKEN_DECIMALS, DEFAULT_START_TIME } from "../common.js";
 
 async function test_execute() {
     console.log("test execute")
     let comptoken_mint = get_default_comptoken_mint();
     const user1_owner = Keypair.generate()
     let user1 = get_default_comptoken_wallet(PublicKey.unique(), user1_owner.publicKey);
-    user1.amount = 1n;
+    user1.data.amount = 1n;
     let user2 = get_default_comptoken_wallet(PublicKey.unique(), PublicKey.unique());
     let user1_data = get_default_user_data_account(PublicKey.findProgramAddressSync([user1.address.toBytes()], compto_program_id_pubkey)[0]);
     let user2_data = get_default_user_data_account(PublicKey.findProgramAddressSync([user2.address.toBytes()], compto_program_id_pubkey)[0]);
@@ -29,12 +29,12 @@ async function test_execute() {
             { name: "comptoken_transfer_hook", programId: compto_transfer_hook_id_pubkey },
         ],
         [
-            user1.toAccount(),
-            comptoken_mint.toAccount(),
-            user2.toAccount(),
-            extraAccountMetaAccount.toAccount(),
-            user1_data.toAccount(),
-            user2_data.toAccount(),
+            user1.toAddedAccount(),
+            comptoken_mint.toAddedAccount(),
+            user2.toAddedAccount(),
+            extraAccountMetaAccount.toAddedAccount(),
+            user1_data.toAddedAccount(),
+            user2_data.toAddedAccount(),
         ]
     );
 
@@ -64,7 +64,7 @@ async function test_execute() {
         {
             instruction: TokenInstruction.TransferChecked,
             amount: 1n,
-            MINT_DECIMALS,
+            MINT_DECIMALS: COMPTOKEN_DECIMALS,
         },
         data
     );
@@ -86,7 +86,7 @@ async function test_execute() {
     let account = await client.getAccount(user2.address);
     Assert.assertNotNull(account);
     let finalUser2 = TokenAccount.fromAccountInfoBytes(user2.address, account);
-    Assert.assertEqual(finalUser2.amount, 1n);
+    Assert.assertEqual(finalUser2.data.amount, 1n);
 
 }
 

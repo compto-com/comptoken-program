@@ -2,7 +2,7 @@ import { AccountLayout, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey, Transaction, TransactionInstruction, } from "@solana/web3.js";
 import { start } from "solana-bankrun";
 
-import { get_default_comptoken_mint, get_default_comptoken_wallet, get_default_global_data } from "../accounts.js";
+import { get_default_comptoken_mint, get_default_comptoken_wallet, get_default_global_data, TokenAccount } from "../accounts.js";
 import { Assert } from "../assert.js";
 import { compto_program_id_pubkey, comptoken_mint_pubkey, global_data_account_pubkey, Instruction } from "../common.js";
 
@@ -38,10 +38,10 @@ async function test_mint() {
     const meta = await client.processTransaction(tx);
     const rawAccount = await client.getAccount(user_wallet_before.address);
     Assert.assertNotNull(rawAccount);
-    const user_wallet_after = AccountLayout.decode(rawAccount?.data);
+    const user_wallet_after = TokenAccount.fromAccountInfoBytes(user_wallet_before.address, rawAccount);
     Assert.assertEqual(
-        user_wallet_before.amount + 2n, // MAGIC NUMBER: ensure it remains consistent with comptoken.rs
-        user_wallet_after.amount
+        user_wallet_before.data.amount + 2n, // MAGIC NUMBER: ensure it remains consistent with comptoken.rs
+        user_wallet_after.data.amount
     );
 }
 

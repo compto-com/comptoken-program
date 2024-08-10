@@ -8,7 +8,7 @@ import { compto_extra_account_metas_account_pubkey, compto_transfer_hook_id_pubk
 async function test_initializeExtraAccountMetaList() {
     let comptoken_mint = get_default_comptoken_mint();
     const mint_authority = Keypair.generate();
-    comptoken_mint.mintAuthority = mint_authority.publicKey;
+    comptoken_mint.data.mintAuthority = mint_authority.publicKey;
 
     const context = await start(
         [{ name: "comptoken_transfer_hook", programId: compto_transfer_hook_id_pubkey }],
@@ -58,8 +58,8 @@ async function test_initializeExtraAccountMetaList() {
     // comptoken program id
     const accountMetaList = get_default_extra_account_metas_account()
     Assert.assert(finalMetaListAccount.address.equals(accountMetaList.address), "address isn't correct");
-    Assert.assertEqual(finalMetaListAccount.extraAccountMetas.length, accountMetaList.extraAccountMetas.length, "length isn't correct");
-    let zipped = finalMetaListAccount.extraAccountMetas.map((v, i) => [v, accountMetaList.extraAccountMetas[i]]);
+    Assert.assertEqual(finalMetaListAccount.data.extraAccountsList.length, accountMetaList.data.extraAccountsList.length, "length isn't correct");
+    let zipped = finalMetaListAccount.data.extraAccountsList.extraAccounts.map((v, i) => [v, accountMetaList.data.extraAccountsList.extraAccounts[i]]);
     for (const [final, oracle] of zipped) {
         Assert.assertEqual(final.discriminator, oracle.discriminator, "discriminators aren't the same");
         Assert.assertEqual(final.isSigner, oracle.isSigner, "isSigner isn't the same");

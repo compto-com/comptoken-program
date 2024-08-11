@@ -83,11 +83,23 @@ class PDA(dict[str, Any]):
 
         super().__init__(json.loads(run(f"solana find-program-derived-address {programId} {seeds_str} --output json")))
 
-def run(command: str | list[str], cwd: Path | None = None, env: Mapping[str, str] | None = None) -> str:
-    result = subprocess.run(command, shell=True, cwd=cwd, capture_output=True, text=True, env=env)
+def run(
+    command: str | list[str],
+    cwd: Path | None = None,
+    env: Mapping[str, str] | None = None,
+    timeout: float | None = None
+) -> str:
+    while True:
+        try:
+            result = subprocess.run(
+                command, shell=True, cwd=cwd, capture_output=True, text=True, env=env, timeout=timeout
+            )
+            break
+        except subprocess.TimeoutExpired:
+            raise SubprocessFailedException(f"Failed to run command! command: '{command}' timed out")
     if result.returncode != 0:
         raise SubprocessFailedException(
-            f"Failed to run command! command: {command} stdout: {result.stdout} stderr: {result.stderr}"
+            f"Failed to run command! command: '{command}' stdout: {result.stdout} stderr: {result.stderr}"
         )
     return result.stdout.rstrip()
 

@@ -1,5 +1,5 @@
 import { AccountLayout, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
-import { PublicKey, Transaction, TransactionInstruction, } from "@solana/web3.js";
+import { Keypair, PublicKey, Transaction, TransactionInstruction, } from "@solana/web3.js";
 import { start } from "solana-bankrun";
 
 import { get_default_comptoken_mint, get_default_comptoken_wallet, get_default_global_data, TokenAccount } from "../accounts.js";
@@ -7,7 +7,8 @@ import { Assert } from "../assert.js";
 import { compto_program_id_pubkey, comptoken_mint_pubkey, global_data_account_pubkey, Instruction } from "../common.js";
 
 async function test_mint() {
-    const user_wallet_before = get_default_comptoken_wallet(PublicKey.unique(), PublicKey.unique());
+    const testuser = Keypair.generate();
+    const user_wallet_before = get_default_comptoken_wallet(PublicKey.unique(), testuser.publicKey);
     const context = await start(
         [{ name: "comptoken", programId: compto_program_id_pubkey }],
         [
@@ -29,12 +30,14 @@ async function test_mint() {
         { pubkey: global_data_account_pubkey, isSigner: false, isWritable: false },
         // the token program that will mint the tokens when instructed by the mint authority
         { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+        // the owner of the comptoken wallet
+        { pubkey: testuser.publicKey, isSigner: true, isWritable: false },
     ];
     const ixs = [new TransactionInstruction({ programId: compto_program_id_pubkey, keys, data: Buffer.from([Instruction.TEST]) })];
     const tx = new Transaction();
     tx.recentBlockhash = blockhash;
     tx.add(...ixs);
-    tx.sign(payer);
+    tx.sign(payer, testuser);
     const meta = await client.processTransaction(tx);
     const rawAccount = await client.getAccount(user_wallet_before.address);
     Assert.assertNotNull(rawAccount);

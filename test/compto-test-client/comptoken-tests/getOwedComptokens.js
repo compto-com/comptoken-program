@@ -1,5 +1,5 @@
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
-import { PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { Keypair, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { Clock, start } from "solana-bankrun";
 
 import {
@@ -25,9 +25,10 @@ import {
 } from "../common.js";
 
 async function test_getOwedComptokens() {
+    const testuser = Keypair.generate();
     let comptoken_mint = get_default_comptoken_mint();
     comptoken_mint.data.supply = 292_004n
-    let user_wallet = get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, PublicKey.unique());
+    let user_wallet = get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, testuser.publicKey);
     user_wallet.data.amount = 2n;
     let user_data_account_address = PublicKey.findProgramAddressSync([user_wallet.address.toBytes()], compto_program_id_pubkey)[0];
     let user_data = get_default_user_data_account(user_data_account_address);
@@ -85,6 +86,8 @@ async function test_getOwedComptokens() {
         { pubkey: PublicKey.findProgramAddressSync([interest_bank.address.toBytes()], compto_program_id_pubkey)[0], isSigner: false, isWritable: false },
         //  needed by the transfer hook program (doesn't really exist)
         { pubkey: PublicKey.findProgramAddressSync([ubi_bank.address.toBytes()], compto_program_id_pubkey)[0], isSigner: false, isWritable: false },
+        // the owner of the comptoken wallet
+        { pubkey: testuser.publicKey, isSigner: true, isWritable: false },
     ];
 
     let data = Buffer.from([Instruction.GET_OWED_COMPTOKENS]);
@@ -93,7 +96,7 @@ async function test_getOwedComptokens() {
     const tx = new Transaction();
     tx.recentBlockhash = blockhash;
     tx.add(...ixs);
-    tx.sign(payer);
+    tx.sign(payer, testuser);
     context.setClock(new Clock(0n, 0n, 0n, 0n, DEFAULT_START_TIME));
     const meta = await client.processTransaction(tx);
 

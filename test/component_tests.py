@@ -67,7 +67,7 @@ def runTest(args: Namespace, file: str) -> bool:
     env["SBF_OUT_DIR"] = str(PROJECT_PATH / "target/deploy/")
     node = ("node --trace-warnings" if args.verbose >= 2 else "node")
     try:
-        stdout = run(f"{node} {TEST_PATH / f'compto-test-client/{file}'}", env=env)
+        stdout = run(f"{node} {TEST_PATH / f'compto-test-client/{file}'}", env=env, timeout=20)
         if args.verbose >= 1:
             print(stdout)
         print(f"✅ \033[92m{file}\033[0m passed")
@@ -97,7 +97,7 @@ def parseArgs():
 if __name__ == "__main__":
     comptoken_tests: list[str] = [
         "mint", "initializeComptokenProgram", "createUserDataAccount", "proofSubmission", "getValidBlockhashes",
-        "getOwedComptokens", "dailyDistributionEvent"
+        "getOwedComptokens", "dailyDistributionEvent", "growUserDataAccount"
     ]
     transfer_hook_tests: list[str] = [
         "initialize_extra_account_meta_list", "execute"

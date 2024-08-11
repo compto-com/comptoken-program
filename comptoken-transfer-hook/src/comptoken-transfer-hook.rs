@@ -6,7 +6,7 @@ use spl_token_2022::solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint,
     entrypoint::ProgramResult,
-    msg, pubkey,
+    msg,
     pubkey::Pubkey,
     rent::Rent,
     sysvar::Sysvar,

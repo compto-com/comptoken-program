@@ -10,9 +10,9 @@ pub struct UserDataBase<T: ?Sized> {
     pub last_interest_payout_date: i64,
     pub is_verified_human: bool,
     // padding: [u8; 7],
-    length: usize,
-    recent_blockhash: Hash,
-    proofs: T,
+    pub length: usize,
+    pub recent_blockhash: Hash,
+    pub proofs: T,
 }
 
 pub const USER_DATA_MIN_SIZE: usize = std::mem::size_of::<UserDataBase<Hash>>();
@@ -20,12 +20,16 @@ pub const USER_DATA_MIN_SIZE: usize = std::mem::size_of::<UserDataBase<Hash>>();
 pub type UserData = UserDataBase<[Hash]>;
 
 impl UserData {
-    pub fn insert(&mut self, new_proof: &Hash, new_blockhash: &Hash) {
-        // new_proof and new_blockhash have already been verified
+    pub fn update(&mut self, new_blockhash: &Hash) {
         if self.recent_blockhash != *new_blockhash {
             self.recent_blockhash = *new_blockhash;
             self.length = 0;
         }
+    }
+
+    pub fn insert(&mut self, new_proof: &Hash, new_blockhash: &Hash) {
+        // new_proof and new_blockhash have already been verified
+        self.update(new_blockhash);
         assert!(!self.contains(new_proof), "proof should be new");
 
         match self.proofs.get_mut(self.length) {

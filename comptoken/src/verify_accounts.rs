@@ -1,4 +1,8 @@
-use spl_token_2022::solana_program::{account_info::AccountInfo, pubkey::Pubkey};
+use spl_token_2022::{
+    extension::StateWithExtensions,
+    solana_program::{account_info::AccountInfo, pubkey::Pubkey},
+    state::Account,
+};
 
 use crate::generated::{
     COMPTOKEN_MINT_ADDRESS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS, COMPTO_INTEREST_BANK_ACCOUNT_SEEDS,
@@ -46,9 +50,12 @@ pub fn verify_ubi_bank_account<'a>(
 }
 
 pub fn verify_user_comptoken_wallet_account<'a>(
-    account: &AccountInfo<'a>, needs_signer: bool, needs_writable: bool,
+    account: &AccountInfo<'a>, wallet_owner: &VerifiedAccountInfo<'a>, needs_signer: bool, needs_writable: bool,
 ) -> VerifiedAccountInfo<'a> {
-    // TODO: verify comptoken user wallet accounts
+    let account_data = &account.data.borrow();
+    let wallet = StateWithExtensions::<Account>::unpack(account_data).expect("valid account state");
+    assert!(*wallet_owner.key == wallet.base.owner);
+    assert_eq!(wallet.base.mint, COMPTOKEN_MINT_ADDRESS);
     VerifiedAccountInfo::verify_account_signer_or_writable(account, needs_signer, needs_writable)
 }
 
@@ -56,6 +63,7 @@ pub fn verify_user_data_account<'a>(
     user_data_account: &AccountInfo<'a>, user_comptoken_wallet_account: &VerifiedAccountInfo, program_id: &Pubkey,
     needs_writable: bool,
 ) -> (VerifiedAccountInfo<'a>, u8) {
+    assert_eq!(user_data_account.owner, program_id);
     VerifiedAccountInfo::verify_pda(
         user_data_account,
         program_id,
@@ -66,11 +74,10 @@ pub fn verify_user_data_account<'a>(
 }
 
 pub fn verify_slothashes_account<'a>(account: &AccountInfo<'a>) -> VerifiedAccountInfo<'a> {
-    assert!(solana_program::sysvar::slot_hashes::check_id(account.key));
     VerifiedAccountInfo::verify_sysvar::<solana_program::sysvar::slot_hashes::SlotHashes>(account)
 }
 
-pub fn verify_validation_account<'a>(
+pub fn verify_extra_account_metas_account<'a>(
     account: &AccountInfo<'a>, mint: &VerifiedAccountInfo<'a>, transfer_hook_program: &VerifiedAccountInfo<'a>,
 ) -> VerifiedAccountInfo<'a> {
     VerifiedAccountInfo::verify_pda(

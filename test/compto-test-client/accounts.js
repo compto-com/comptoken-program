@@ -7,7 +7,8 @@ import {
     ExtraAccountMetaAccountDataLayout,
     ExtraAccountMetaLayout,
     MINT_SIZE,
-    MintLayout, TOKEN_2022_PROGRAM_ID
+    MintLayout,
+    TOKEN_2022_PROGRAM_ID
 } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
 
@@ -22,6 +23,7 @@ import {
     DEFAULT_DISTRIBUTION_TIME,
     global_data_account_pubkey,
     interest_bank_account_pubkey,
+    testuser_comptoken_wallet_pubkey,
     ubi_bank_account_pubkey,
 } from "./common.js";
 import { getOptionOr, numAsU16ToLEBytes, toOption } from "./utils.js";
@@ -487,11 +489,19 @@ export function get_default_unpaid_ubi_bank() {
 }
 
 /**
+ * @param {PublicKey} owner 
+ * @returns {TokenAccount}
+ */
+export function get_default_testuser_comptoken_wallet(owner) {
+    return get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, owner);
+}
+
+/**
  * @param {PublicKey} address 
  * @returns {UserDataAccount}
  */
 export function get_default_user_data_account(address) {
-    let acct = new UserDataAccount(address, BIG_NUMBER, compto_program_id_pubkey,
+    return new UserDataAccount(address, BIG_NUMBER, compto_program_id_pubkey,
         new UserData({
             lastInterestPayoutDate: DEFAULT_DISTRIBUTION_TIME,
             isVerifiedHuman: false,
@@ -499,8 +509,6 @@ export function get_default_user_data_account(address) {
             recentBlockhash: new Uint8Array(32),
             proofs: Array.from({ length: 8 }, (v, i) => new Uint8Array(32))
         }));
-    console.log(acct);
-    return acct;
 }
 
 /**

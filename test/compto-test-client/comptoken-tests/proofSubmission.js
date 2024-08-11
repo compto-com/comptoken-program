@@ -1,5 +1,5 @@
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
-import { PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { Keypair, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { Clock, start } from "solana-bankrun";
 
 import {
@@ -17,9 +17,10 @@ import { ComptokenProof } from "../comptoken_proof.js";
 import { isArrayEqual } from "../utils.js";
 
 async function test_proofSubmission() {
+    const testuser = Keypair.generate();
     let global_data_account = get_default_global_data();
     let mint_account = get_default_comptoken_mint();
-    let destination_comptoken_wallet = get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, PublicKey.unique());
+    let destination_comptoken_wallet = get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, testuser.publicKey);
     const user_data_pda = PublicKey.findProgramAddressSync([destination_comptoken_wallet.address.toBytes()], compto_program_id_pubkey)[0];
     let user_data_account = get_default_user_data_account(user_data_pda);
 
@@ -47,6 +48,8 @@ async function test_proofSubmission() {
         { pubkey: user_data_account.address, isSigner: false, isWritable: true },
         // for the actual minting
         { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+        // the owner of the comptoken wallet
+        { pubkey: testuser.publicKey, isSigner: true, isWritable: false },
     ];
 
     let proof = new ComptokenProof(destination_comptoken_wallet.address, global_data_account.data.validBlockhashes.validBlockhash);
@@ -60,7 +63,7 @@ async function test_proofSubmission() {
     const tx = new Transaction();
     tx.recentBlockhash = blockhash;
     tx.add(...ixs);
-    tx.sign(payer);
+    tx.sign(payer, testuser);
     context.setClock(new Clock(0n, 0n, 0n, 0n, DEFAULT_START_TIME));
     const meta = await client.processTransaction(tx);
 

@@ -1,10 +1,11 @@
+import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { SYSVAR_SLOT_HASHES_PUBKEY, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { Clock, start } from "solana-bankrun";
 
-import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { get_default_comptoken_mint, get_default_global_data, get_default_unpaid_interest_bank, get_default_unpaid_ubi_bank, GlobalDataAccount, MintAccount, TokenAccount } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_program_id_pubkey, DEFAULT_ANNOUNCE_TIME, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME, Instruction, SEC_PER_DAY } from "../common.js";
+import { compto_program_id_pubkey, DEFAULT_ANNOUNCE_TIME, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME, SEC_PER_DAY } from "../common.js";
+import { Instruction } from "../instruction.js";
 
 async function test_dailyDistributionEvent() {
     let comptoken_mint = get_default_comptoken_mint();

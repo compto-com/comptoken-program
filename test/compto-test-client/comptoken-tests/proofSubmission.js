@@ -12,8 +12,9 @@ import {
     UserDataAccount,
 } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_program_id_pubkey, DEFAULT_START_TIME, Instruction, testuser_comptoken_wallet_pubkey } from "../common.js";
+import { compto_program_id_pubkey, DEFAULT_START_TIME, testuser_comptoken_wallet_pubkey } from "../common.js";
 import { ComptokenProof } from "../comptoken_proof.js";
+import { Instruction } from "../instruction.js";
 import { isArrayEqual } from "../utils.js";
 
 async function test_proofSubmission() {
@@ -55,7 +56,7 @@ async function test_proofSubmission() {
     let proof = new ComptokenProof(destination_comptoken_wallet.address, global_data_account.data.validBlockhashes.validBlockhash);
     proof.mine();
     let data = Buffer.concat([
-        Buffer.from([Instruction.COMPTOKEN_MINT]),
+        Buffer.from([Instruction.PROOF_SUBMISSION]),
         proof.serializeData(),
     ]);
 

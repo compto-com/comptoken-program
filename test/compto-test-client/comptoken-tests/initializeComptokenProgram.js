@@ -2,12 +2,13 @@ import { AccountState, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { SystemProgram, SYSVAR_SLOT_HASHES_PUBKEY, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { Clock, start } from "solana-bankrun";
 
-import { get_default_comptoken_mint, GlobalDataAccount, TokenAccount, } from "../accounts.js";
+import { get_default_comptoken_mint, GlobalData, GlobalDataAccount, TokenAccount, } from "../accounts.js";
 import { Assert } from "../assert.js";
 import {
     compto_program_id_pubkey, comptoken_mint_pubkey, DEFAULT_ANNOUNCE_TIME, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME,
-    global_data_account_pubkey, Instruction, interest_bank_account_pubkey, ubi_bank_account_pubkey
+    global_data_account_pubkey, interest_bank_account_pubkey, ubi_bank_account_pubkey
 } from "../common.js";
+import { Instruction } from "../instruction.js";
 
 async function initialize_comptoken_program() {
     const context = await start(
@@ -38,15 +39,14 @@ async function initialize_comptoken_program() {
         { pubkey: SYSVAR_SLOT_HASHES_PUBKEY, isSigner: false, isWritable: false },
     ];
 
-    // MAGIC NUMBER: CHANGE NEEDS TO BE REFLECTED IN comptoken.rs
-    const GLOBAL_DATA_SIZE = 3032n;
-    const globalDataRentExemptAmount = await rent.minimumBalance(GLOBAL_DATA_SIZE);
+
+    const globalDataRentExemptAmount = await rent.minimumBalance(BigInt(GlobalData.LAYOUT.span));
     const interestBankRentExemptAmount = await rent.minimumBalance(256n);
     const ubiBankRentExemptAmount = await rent.minimumBalance(256n);
     console.log("Rent exempt amount: ", globalDataRentExemptAmount);
     // 1 byte for instruction 3 x 8 bytes for rent exemptions
     let data = Buffer.alloc(25);
-    data.writeUInt8(Instruction.INITIALIZE_STATIC_ACCOUNT, 0);
+    data.writeUInt8(Instruction.INITIALIZE_COMPTOKEN_PROGRAM, 0);
     data.writeBigInt64LE(globalDataRentExemptAmount, 1);
     data.writeBigInt64LE(interestBankRentExemptAmount, 9);
     data.writeBigInt64LE(ubiBankRentExemptAmount, 17);

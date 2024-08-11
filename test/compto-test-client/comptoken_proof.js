@@ -3,7 +3,8 @@ import { PublicKey, Transaction, TransactionInstruction, sendAndConfirmTransacti
 import { assert } from "console";
 import { createHash } from "crypto";
 
-import { Instruction, bs58, compto_program_id_pubkey, comptoken_mint_pubkey, global_data_account_pubkey } from "./common.js";
+import { bs58, compto_program_id_pubkey, comptoken_mint_pubkey, global_data_account_pubkey } from "./common.js";
+import { Instruction } from "./instruction.js";
 
 const MIN_NUM_ZEROED_BITS = 3;
 
@@ -89,7 +90,7 @@ export async function mintComptokens(connection, destination_pubkey, temp_keypai
     let proof = new ComptokenProof(destination_pubkey, bs58.decode(current_block));
     proof.mine();
     let data = Buffer.concat([
-        Buffer.from([Instruction.COMPTOKEN_MINT]),
+        Buffer.from([Instruction.PROOF_SUBMISSION]),
         proof.serializeData(),
     ]);
     let user_data_pda = PublicKey.findProgramAddressSync([destination_pubkey.toBytes()], compto_program_id_pubkey)[0];

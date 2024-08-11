@@ -3,7 +3,8 @@ import { Clock, start } from "solana-bankrun";
 
 import { get_default_comptoken_mint, get_default_global_data, get_default_testuser_comptoken_wallet, get_default_user_data_account, UserDataAccount } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_program_id_pubkey, DEFAULT_START_TIME, Instruction } from "../common.js";
+import { compto_program_id_pubkey, DEFAULT_START_TIME } from "../common.js";
+import { Instruction } from "../instruction.js";
 
 async function test_growUserDataAccount() {
     const testuser = Keypair.generate();
@@ -44,14 +45,14 @@ async function test_growUserDataAccount() {
     const USER_DATA_MIN_SIZE = 88n;
 
     const test_grow_ix_data = Buffer.alloc(17);
-    test_grow_ix_data.writeUInt8(Instruction.REALLOC_USER_DATA_ACCOUNT, 0);
+    test_grow_ix_data.writeUInt8(Instruction.GROW_USER_DATA_ACCOUNT, 0);
     const USER_DATA_SIZE1 = USER_DATA_MIN_SIZE + 32n * 10n;
     const rentExemptAmount1 = await rent.minimumBalance(USER_DATA_SIZE1);
     test_grow_ix_data.writeBigInt64LE(rentExemptAmount1, 1);
     test_grow_ix_data.writeBigInt64LE(USER_DATA_SIZE1, 9);
 
     const test_shrink_ix_data = Buffer.alloc(17);
-    test_shrink_ix_data.writeUInt8(Instruction.REALLOC_USER_DATA_ACCOUNT, 0);
+    test_shrink_ix_data.writeUInt8(Instruction.GROW_USER_DATA_ACCOUNT, 0);
     const USER_DATA_SIZE2 = USER_DATA_MIN_SIZE + 32n * 4n;
     const rentExemptAmount2 = await rent.minimumBalance(USER_DATA_SIZE2);
     test_shrink_ix_data.writeBigInt64LE(rentExemptAmount2, 1);

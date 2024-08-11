@@ -4,7 +4,8 @@ import { start } from "solana-bankrun";
 
 import { get_default_comptoken_mint, get_default_comptoken_wallet, get_default_global_data, TokenAccount } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_program_id_pubkey, comptoken_mint_pubkey, global_data_account_pubkey, Instruction } from "../common.js";
+import { compto_program_id_pubkey, comptoken_mint_pubkey, global_data_account_pubkey } from "../common.js";
+import { Instruction } from "../instruction.js";
 
 async function test_mint() {
     const testuser = Keypair.generate();

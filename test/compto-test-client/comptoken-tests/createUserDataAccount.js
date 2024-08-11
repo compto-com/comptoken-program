@@ -3,7 +3,8 @@ import { Clock, start } from "solana-bankrun";
 
 import { get_default_comptoken_mint, get_default_global_data, get_default_testuser_comptoken_wallet, UserDataAccount } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_program_id_pubkey, Instruction } from "../common.js";
+import { compto_program_id_pubkey } from "../common.js";
+import { Instruction } from "../instruction.js";
 
 async function test_createUserDataAccount() {
     const testuser = Keypair.generate();

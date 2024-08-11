@@ -19,10 +19,10 @@ import {
     compto_transfer_hook_id_pubkey,
     DEFAULT_DISTRIBUTION_TIME,
     DEFAULT_START_TIME,
-    Instruction,
     SEC_PER_DAY,
     testuser_comptoken_wallet_pubkey
 } from "../common.js";
+import { Instruction } from "../instruction.js";
 
 async function test_getOwedComptokens() {
     const testuser = Keypair.generate();

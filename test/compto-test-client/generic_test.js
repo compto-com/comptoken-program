@@ -13,7 +13,7 @@ import { compto_program_id_pubkey, compto_transfer_hook_id_pubkey, DEFAULT_START
  * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => null} assert_fn 
  * @returns {[ProgramTestContext, BanksTransactionResultWithMeta]}
  */
-export async function run_test(name, context, instructions, signers, assert_fn) {
+async function _run_test(name, context, instructions, signers, assert_fn, simulate) {
     console.log("test " + name)
     console.log(context);
     console.log(instructions);
@@ -28,17 +28,46 @@ export async function run_test(name, context, instructions, signers, assert_fn) 
     tx.feePayer = payer.publicKey;
     tx.sign(payer, ...signers);
 
-    const result = await client.tryProcessTransaction(tx);
+    const result = (simulate)
+        ? await client.simulateTransaction(tx)
+        : await client.tryProcessTransaction(tx);
 
     console.log("result: %s", result.result);
-    console.log("logMessages: %s", result.meta.logMessages);
-    console.log("computeUnitsConsumed: %d", result.meta.computeUnitsConsumed);
-    console.log("returnData: %s", result.meta.returnData);
+    if (result.meta !== null) {
+        console.log("logMessages: %s", result.meta.logMessages);
+        console.log("computeUnitsConsumed: %d", result.meta.computeUnitsConsumed);
+        console.log("returnData: %s", result.meta.returnData);
+    }
+
 
     await assert_fn(context, result);
 
     console.log("test passed");
     return [context, result];
+}
+
+/**
+ * @param {string} name 
+ * @param {ProgramTestContext} context
+ * @param {TransactionInstruction[]} instruction
+ * @param {Keypair[]} signers
+ * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => null} assert_fn 
+ * @returns {[ProgramTestContext, BanksTransactionResultWithMeta]}
+ */
+export async function run_test(name, context, instructions, signers, assert_fn) {
+    return _run_test(name, context, instructions, signers, assert_fn, false);
+}
+
+/**
+ * @param {string} name 
+ * @param {ProgramTestContext} context
+ * @param {TransactionInstruction[]} instruction
+ * @param {Keypair[]} signers
+ * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => null} assert_fn 
+ * @returns {[ProgramTestContext, BanksTransactionResultWithMeta]}
+ */
+export async function simulate_test(name, context, instructions, signers, assert_fn) {
+    return _run_test(name, context, instructions, signers, assert_fn, true);
 }
 
 /**

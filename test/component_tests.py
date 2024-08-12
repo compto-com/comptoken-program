@@ -99,7 +99,7 @@ if __name__ == "__main__":
         "mint", "initializeComptokenProgram", "createUserDataAccount",
         "proofSubmission", "getValidBlockhashes", "getOwedComptokens",
         "earlyDailyDistributionEvent", "dailyDistributionEvent",
-        "growUserDataAccount"
+        "growUserDataAccount", "shrinkUserDataAccount"
     ]
     transfer_hook_tests: list[str] = [
         "initialize_extra_account_meta_list", "execute"

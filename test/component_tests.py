@@ -96,8 +96,10 @@ def parseArgs():
 
 if __name__ == "__main__":
     comptoken_tests: list[str] = [
-        "mint", "initializeComptokenProgram", "createUserDataAccount", "proofSubmission", "getValidBlockhashes",
-        "getOwedComptokens", "dailyDistributionEvent", "growUserDataAccount"
+        "mint", "initializeComptokenProgram", "createUserDataAccount",
+        "proofSubmission", "getValidBlockhashes", "getOwedComptokens",
+        "earlyDailyDistributionEvent", "dailyDistributionEvent",
+        "growUserDataAccount"
     ]
     transfer_hook_tests: list[str] = [
         "initialize_extra_account_meta_list", "execute"

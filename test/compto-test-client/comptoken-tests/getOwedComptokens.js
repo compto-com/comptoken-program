@@ -1,6 +1,4 @@
-import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
-import { Keypair, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
-import { Clock, start } from "solana-bankrun";
+import { Keypair, PublicKey, } from "@solana/web3.js";
 
 import {
     get_default_comptoken_mint,
@@ -16,103 +14,59 @@ import {
 import { Assert } from "../assert.js";
 import {
     compto_program_id_pubkey,
-    compto_transfer_hook_id_pubkey,
     DEFAULT_DISTRIBUTION_TIME,
-    DEFAULT_START_TIME,
     SEC_PER_DAY,
     testuser_comptoken_wallet_pubkey
 } from "../common.js";
-import { Instruction } from "../instruction.js";
+import { get_account, run_test, setup_test } from "../generic_test.js";
+import { createGetOwedComptokensInstruction } from "../instruction.js";
 
 async function test_getOwedComptokens() {
     const testuser = Keypair.generate();
+
     let comptoken_mint = get_default_comptoken_mint();
     comptoken_mint.data.supply = 292_004n
+
     let user_wallet = get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, testuser.publicKey);
     user_wallet.data.amount = 2n;
+
     let user_data_account_address = PublicKey.findProgramAddressSync([user_wallet.address.toBytes()], compto_program_id_pubkey)[0];
     let user_data = get_default_user_data_account(user_data_account_address);
     user_data.data.lastInterestPayoutDate = DEFAULT_DISTRIBUTION_TIME - SEC_PER_DAY;
+
     let global_data = get_default_global_data();
     global_data.data.dailyDistributionData.historicInterests[0] = 0.5;
     global_data.data.dailyDistributionData.oldestInterest = 1n;
     global_data.data.dailyDistributionData.yesterdaySupply = 292_004n;
+
     let interest_bank = get_default_unpaid_interest_bank();
     interest_bank.data.amount = 146_000n;
+
     let ubi_bank = get_default_unpaid_ubi_bank();
     ubi_bank.data.amount = 146_000n;
-    let extra_account_metas_account = get_default_extra_account_metas_account();
 
-    const context = await start(
-        [
-            { name: "comptoken", programId: compto_program_id_pubkey },
-            { name: "comptoken_transfer_hook", programId: compto_transfer_hook_id_pubkey },
-        ],
-        [
-            user_data.toAccount(),
-            user_wallet.toAccount(),
-            comptoken_mint.toAccount(),
-            global_data.toAccount(),
-            interest_bank.toAccount(),
-            ubi_bank.toAccount(),
-            extra_account_metas_account.toAccount(),
-        ]
-    );
-    const client = context.banksClient;
-    const payer = context.payer;
-    const blockhash = context.lastBlockhash;
-    const keys = [
-        //  User's Data Account stores how long it's been since they received owed comptokens
-        { pubkey: user_data.address, isSigner: false, isWritable: true },
-        //  User's Comptoken Wallet is the account to send the comptokens to
-        { pubkey: user_wallet.address, isSigner: false, isWritable: true },
-        //  Comptoken Mint lets the token program know what kind of token to move
-        { pubkey: comptoken_mint.address, isSigner: false, isWritable: false },
-        //  Comptoken Global Data (also mint authority) stores interest data
-        { pubkey: global_data.address, isSigner: false, isWritable: false },
-        //  Comptoken Interest Bank stores comptokens owed for interest
-        { pubkey: interest_bank.address, isSigner: false, isWritable: true },
-        //  Comptoken UBI Bank stores comptokens owed for UBI
-        { pubkey: ubi_bank.address, isSigner: false, isWritable: true },
-        //  Token 2022 Program moves the tokens
-        { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
-        //  stores account metas to add to transfer instructions
-        { pubkey: extra_account_metas_account.address, isSigner: false, isWritable: false },
-        //  compto transfer hook program is called by the transfer that gives the owed comptokens
-        { pubkey: compto_transfer_hook_id_pubkey, isSigner: false, isWritable: false },
-        //  needed by the transfer hook program
-        { pubkey: compto_program_id_pubkey, isSigner: false, isWritable: false },
-        //  needed by the transfer hook program (doesn't really exist)
-        { pubkey: PublicKey.findProgramAddressSync([interest_bank.address.toBytes()], compto_program_id_pubkey)[0], isSigner: false, isWritable: false },
-        //  needed by the transfer hook program (doesn't really exist)
-        { pubkey: PublicKey.findProgramAddressSync([ubi_bank.address.toBytes()], compto_program_id_pubkey)[0], isSigner: false, isWritable: false },
-        // the owner of the comptoken wallet
-        { pubkey: testuser.publicKey, isSigner: true, isWritable: false },
+    let accounts = [
+        comptoken_mint,
+        global_data,
+        interest_bank,
+        ubi_bank,
+        get_default_extra_account_metas_account(),
+        user_wallet,
+        user_data,
     ];
 
-    let data = Buffer.from([Instruction.GET_OWED_COMPTOKENS]);
+    let context = await setup_test(accounts);
 
-    const ixs = [new TransactionInstruction({ programId: compto_program_id_pubkey, keys, data })];
-    const tx = new Transaction();
-    tx.recentBlockhash = blockhash;
-    tx.add(...ixs);
-    tx.sign(payer, testuser);
-    context.setClock(new Clock(0n, 0n, 0n, 0n, DEFAULT_START_TIME));
-    const meta = await client.processTransaction(tx);
+    let instructions = [await createGetOwedComptokensInstruction(testuser.publicKey, user_wallet.address)];
+    let result;
 
-    console.log("logMessages: %s", meta.logMessages);
-    console.log("computeUnitsConsumed: %d", meta.computeUnitsConsumed);
-    console.log("returnData: %s", meta.returnData)
+    [context, result] = await run_test("getOwedComptokens", context, instructions, [context.payer, testuser], async (context, result) => {
+        const finalUserWallet = await get_account(context, user_wallet.address, TokenAccount);
+        Assert.assertEqual(finalUserWallet.data.amount, 3n, "interest amount");
 
-    let account = await client.getAccount(user_wallet.address);
-    Assert.assertNotNull(account);
-    let finalUserWallet = TokenAccount.fromAccountInfoBytes(user_wallet.address, account);
-    Assert.assertEqual(finalUserWallet.data.amount, 3n, "interest amount");
-
-    account = await client.getAccount(user_data.address);
-    Assert.assertNotNull(account);
-    let finalUserData = UserDataAccount.fromAccountInfoBytes(user_data.address, account);
-    Assert.assertEqual(finalUserData.data.lastInterestPayoutDate, DEFAULT_DISTRIBUTION_TIME, "last interest payout date updated");
+        const finalUserData = await get_account(context, user_data.address, UserDataAccount);
+        Assert.assertEqual(finalUserData.data.lastInterestPayoutDate, DEFAULT_DISTRIBUTION_TIME, "last interest payout date updated");
+    });
 }
 
 (async () => { await test_getOwedComptokens(); })();

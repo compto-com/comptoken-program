@@ -18,7 +18,7 @@ import {
     SEC_PER_DAY,
     ubi_bank_account_pubkey
 } from "../common.js";
-import { get_account, run_test, setup_test, simulate_test } from "../generic_test.js";
+import { get_account, run_test, setup_test } from "../generic_test.js";
 import { createDailyDistributionEventInstruction } from "../instruction.js";
 
 async function test_dailyDistributionEvent() {
@@ -36,7 +36,7 @@ async function test_dailyDistributionEvent() {
     let instructions = [await createDailyDistributionEventInstruction()];
     let result;
     
-    [context, result] = await simulate_test("dailyDistributionEvent", context, instructions, [context.payer], async (context, result) => {
+    [context, result] = await run_test("dailyDistributionEvent", context, instructions, [context.payer], async (context, result) => {
         Assert.assert(result.meta.logMessages.some((msg, i) => msg.includes("daily distribution already called today")), "daily distribution already called");
         
         const failMint = await get_account(context, comptoken_mint_pubkey, MintAccount);
@@ -44,7 +44,8 @@ async function test_dailyDistributionEvent() {
         Assert.assertEqual(failMint.data.supply, comptoken_mint.data.supply, "interest has not been issued");
     });
 
-    context.setClock(new Clock(1n, 0n, 0n, 0n, DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY + 1n));
+    // 216_000 is mostly arbitrary, but it should roughly correspond to a days worth of slots
+    context.setClock(new Clock(216_000n, 0n, 0n, 0n, DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY + 1n));
     
     [context, result] = await run_test("dailyDistributionEvent", context, instructions, [context.payer], async (context, result) => {
         const finalMint = await get_account(context, comptoken_mint_pubkey, MintAccount);

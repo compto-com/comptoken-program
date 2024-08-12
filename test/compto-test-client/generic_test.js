@@ -13,7 +13,7 @@ import { compto_program_id_pubkey, compto_transfer_hook_id_pubkey, DEFAULT_START
  * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => null} assert_fn 
  * @returns {[ProgramTestContext, BanksTransactionResultWithMeta]}
  */
-async function _run_test(name, context, instructions, signers, assert_fn, simulate) {
+export async function run_test(name, context, instructions, signers, assert_fn) {
     console.log("test " + name)
     console.log(context);
     console.log(instructions);
@@ -23,14 +23,12 @@ async function _run_test(name, context, instructions, signers, assert_fn, simula
     const payer = context.payer;
 
     const tx = new Transaction();
-    tx.recentBlockhash = context.lastBlockhash;
+    [tx.recentBlockhash,] = await client.getLatestBlockhash();
     tx.add(...instructions);
     tx.feePayer = payer.publicKey;
     tx.sign(payer, ...signers);
 
-    const result = (simulate)
-        ? await client.simulateTransaction(tx)
-        : await client.tryProcessTransaction(tx);
+    const result = await client.tryProcessTransaction(tx);
 
     console.log("result: %s", result.result);
     if (result.meta !== null) {
@@ -44,30 +42,6 @@ async function _run_test(name, context, instructions, signers, assert_fn, simula
 
     console.log("test passed");
     return [context, result];
-}
-
-/**
- * @param {string} name 
- * @param {ProgramTestContext} context
- * @param {TransactionInstruction[]} instruction
- * @param {Keypair[]} signers
- * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => null} assert_fn 
- * @returns {[ProgramTestContext, BanksTransactionResultWithMeta]}
- */
-export async function run_test(name, context, instructions, signers, assert_fn) {
-    return _run_test(name, context, instructions, signers, assert_fn, false);
-}
-
-/**
- * @param {string} name 
- * @param {ProgramTestContext} context
- * @param {TransactionInstruction[]} instruction
- * @param {Keypair[]} signers
- * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => null} assert_fn 
- * @returns {[ProgramTestContext, BanksTransactionResultWithMeta]}
- */
-export async function simulate_test(name, context, instructions, signers, assert_fn) {
-    return _run_test(name, context, instructions, signers, assert_fn, true);
 }
 
 /**

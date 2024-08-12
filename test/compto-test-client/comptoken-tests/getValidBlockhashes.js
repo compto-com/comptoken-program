@@ -2,23 +2,32 @@ import { get_default_comptoken_mint, get_default_global_data } from "../accounts
 import { Assert } from "../assert.js";
 import { run_test, setup_test } from "../generic_test.js";
 import { createGetValidBlockhashesInstruction } from "../instruction.js";
+import { isArrayEqual } from "../utils.js";
 
 async function test_getValidBlockhashes() {
-    let accounts = [
-        get_default_comptoken_mint(),
-        get_default_global_data(),
-    ]
+    const original_global_data_account = get_default_global_data()
 
-    let context = await setup_test(accounts);
+    const existing_accounts = [get_default_comptoken_mint(), original_global_data_account];
+
+    let context = await setup_test(existing_accounts);
 
     let instructions = [await createGetValidBlockhashesInstruction()];
     let result;
 
     [context, result] = await run_test("getValidBlockhashes", context, instructions, [context.payer], async (context, result) => {
-        let global_data = get_default_global_data();
-        const validBlockHashes = { current_block: result.meta.returnData.data.slice(0, 32), announced_block: result.meta.returnData.data.slice(32, 64), };
-        Assert.assert(validBlockHashes.announced_block.every((v, i) => v === global_data.data.validBlockhashes.announcedBlockhash[i]), "announced blockhash is globalData default");
-        Assert.assert(validBlockHashes.current_block.every((v, i) => v === global_data.data.validBlockhashes.validBlockhash[i]), "valid blockhash is globalData default");
+        const final_valid_blockhashes = {
+            current_block: result.meta.returnData.data.slice(0, 32),
+            announced_block: result.meta.returnData.data.slice(32, 64)
+        };
+        const original_valid_blockhashes = original_global_data_account.data.validBlockhashes;
+        Assert.assert(
+            isArrayEqual(final_valid_blockhashes.announced_block, original_valid_blockhashes.announcedBlockhash),
+            "announced blockhash is globalData default"
+        );
+        Assert.assert(
+            isArrayEqual(final_valid_blockhashes.current_block, original_valid_blockhashes.validBlockhash),
+            "valid blockhash is globalData default"
+        );
     });
 }
 

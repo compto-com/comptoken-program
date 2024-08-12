@@ -12,9 +12,7 @@ async function test_initializeExtraAccountMetaList() {
     let comptoken_mint = get_default_comptoken_mint();
     comptoken_mint.data.mintAuthority = mint_authority.publicKey;
 
-    const accounts = [
-        comptoken_mint,
-    ];
+    const accounts = [comptoken_mint];
 
     let context = await setup_test(accounts);
 
@@ -35,23 +33,27 @@ async function test_initializeExtraAccountMetaList() {
     // first 8 bytes of sha256 of "spl-transfer-hook-interface:execute"
     // see https://spl.solana.com/transfer-hook-interface/specification
     let instruction_data = Buffer.from([43, 34, 13, 49, 167, 88, 235, 235]);
-    let extraAccountMetaList_data = Buffer.alloc(4); // empty ExtraAccountMetaList size
+    let extra_account_meta_list_data = Buffer.alloc(4); // empty ExtraAccountMetaList size
     ExtraAccountMetaListLayout.encode({
         count: 0,
         extraAccounts: [],
-    }, extraAccountMetaList_data);
-    let data = Buffer.concat([instruction_data, extraAccountMetaList_data]);
+    }, extra_account_meta_list_data);
+    let data = Buffer.concat([instruction_data, extra_account_meta_list_data]);
 
     let instructions = [new TransactionInstruction({ programId: compto_transfer_hook_id_pubkey, keys, data })];
     let result;
 
     [context, result] = await run_test("initializeExtraAccountMetaList", context, instructions, [context.payer, mint_authority], async (context, result) => {
-        const finalMetaListAccount = await get_account(context, compto_extra_account_metas_account_pubkey, ExtraAccountMetaAccount);
-        // comptoken program id
-        const accountMetaList = get_default_extra_account_metas_account()
-        Assert.assert(finalMetaListAccount.address.equals(accountMetaList.address), "address isn't correct");
-        Assert.assertEqual(finalMetaListAccount.data.extraAccountsList.length, accountMetaList.data.extraAccountsList.length, "length isn't correct");
-        let zipped = finalMetaListAccount.data.extraAccountsList.extraAccounts.map((v, i) => [v, accountMetaList.data.extraAccountsList.extraAccounts[i]]);
+        const final_extra_account_meta_list_account = await get_account(context, compto_extra_account_metas_account_pubkey, ExtraAccountMetaAccount);
+        const default_account_meta_list = get_default_extra_account_metas_account()
+        Assert.assert(final_extra_account_meta_list_account.address.equals(default_account_meta_list.address), "address isn't correct");
+        Assert.assertEqual(
+            final_extra_account_meta_list_account.data.extraAccountsList.length,
+            default_account_meta_list.data.extraAccountsList.length,
+            "length isn't correct");
+        let zipped = final_extra_account_meta_list_account.data.extraAccountsList.extraAccounts.map(
+            (v, i) => [v, default_account_meta_list.data.extraAccountsList.extraAccounts[i]]
+        );
         for (const [final, oracle] of zipped) {
             Assert.assertEqual(final.discriminator, oracle.discriminator, "discriminators aren't the same");
             Assert.assertEqual(final.isSigner, oracle.isSigner, "isSigner isn't the same");

@@ -10,59 +10,75 @@ import {
 } from "../accounts.js";
 import { Assert } from "../assert.js";
 import {
-    comptoken_mint_pubkey,
     DEFAULT_ANNOUNCE_TIME,
     DEFAULT_DISTRIBUTION_TIME,
-    global_data_account_pubkey,
-    interest_bank_account_pubkey,
     SEC_PER_DAY,
-    ubi_bank_account_pubkey
 } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 import { createDailyDistributionEventInstruction } from "../instruction.js";
 
 async function test_dailyDistributionEvent() {
-    let comptoken_mint = get_default_comptoken_mint();
-    comptoken_mint.data.supply += 1n;
-    let accounts = [
-        comptoken_mint,
-        get_default_global_data(),
-        get_default_unpaid_interest_bank(),
-        get_default_unpaid_ubi_bank(),
-    ];
+    let original_comptoken_mint = get_default_comptoken_mint();
+    original_comptoken_mint.data.supply += 1n;
+    const original_global_data_account = get_default_global_data();
+    const original_unpaid_interest_bank = get_default_unpaid_interest_bank();
+    const original_unpaid_ubi_bank = get_default_unpaid_ubi_bank();
+
+    const existing_accounts = [original_comptoken_mint, original_global_data_account, original_unpaid_interest_bank, original_unpaid_ubi_bank];
 
     // 216_000 is mostly arbitrary, but it should roughly correspond to a days worth of slots
-    let context = await setup_test(accounts, new Clock(216_000n, 0n, 0n, 0n, DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY + 1n));
+    let context = await setup_test(existing_accounts, new Clock(216_000n, 0n, 0n, 0n, DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY + 1n));
 
     let instructions = [await createDailyDistributionEventInstruction()];
     let result;
 
     [context, result] = await run_test("dailyDistributionEvent", context, instructions, [context.payer], async (context, result) => {
-        const finalMint = await get_account(context, comptoken_mint_pubkey, MintAccount);
-        Assert.assert(finalMint.data.supply > comptoken_mint.data.supply, "interest has been applied");
+        const final_comptoken_mint = await get_account(context, original_comptoken_mint.address, MintAccount);
+        Assert.assert(final_comptoken_mint.data.supply > original_comptoken_mint.data.supply, "interest has been applied");
 
-        const finalGlobalDataAcct = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
-        const default_global_data = get_default_global_data();
+        const final_global_data_account = await get_account(context, original_global_data_account.address, GlobalDataAccount);
 
-        const finalValidBlockhash = finalGlobalDataAcct.data.validBlockhashes;
-        const defaultValidBlockhash = default_global_data.data.validBlockhashes;
-        Assert.assertEqual(finalValidBlockhash.announcedBlockhashTime, DEFAULT_ANNOUNCE_TIME + SEC_PER_DAY, "the announced blockhash time has been updated");
-        Assert.assertNotEqual(finalValidBlockhash.announcedBlockhash, defaultValidBlockhash.announcedBlockhash, "announced blockhash has changed"); // TODO: can the actual blockhash be predicted/gotten?
-        Assert.assertEqual(finalValidBlockhash.validBlockhashTime, DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY, "the valid blockhash time has been updated");
-        Assert.assertNotEqual(finalValidBlockhash.validBlockhash, defaultValidBlockhash.validBlockhash, "valid blockhash has changed");
+        const final_valid_blockhash = final_global_data_account.data.validBlockhashes;
+        const original_valid_blockhash = original_global_data_account.data.validBlockhashes;
+        Assert.assertEqual(
+            final_valid_blockhash.announcedBlockhashTime,
+            DEFAULT_ANNOUNCE_TIME + SEC_PER_DAY,
+            "the announced blockhash time has been updated"
+        );
+        Assert.assertNotEqual(
+            final_valid_blockhash.announcedBlockhash,
+            original_valid_blockhash.announcedBlockhash,
+            "announced blockhash has changed"
+        ); // TODO: can the actual blockhash be predicted/gotten?
+        Assert.assertEqual(
+            final_valid_blockhash.validBlockhashTime, DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY, "the valid blockhash time has been updated"
+        );
+        Assert.assertNotEqual(final_valid_blockhash.validBlockhash, original_valid_blockhash.validBlockhash, "valid blockhash has changed");
 
-        const finalDailyDistributionData = finalGlobalDataAcct.data.dailyDistributionData;
-        const defaultDailyDistributionData = default_global_data.data.dailyDistributionData;
-        Assert.assertEqual(finalDailyDistributionData.highWaterMark, 2n, "highwater mark has increased"); // TODO: find a better way to get oracle value
-        Assert.assertEqual(finalDailyDistributionData.lastDailyDistributionTime, DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY, "last daily distribution time has updated");
-        Assert.assertEqual(finalDailyDistributionData.yesterdaySupply, finalMint.data.supply, "yesterdays supply is where the mint is after");
-        Assert.assertEqual(finalDailyDistributionData.oldestInterest, defaultDailyDistributionData.oldestInterest + 1n, "oldest interests has increased");
+        const final_daily_distribution_data = final_global_data_account.data.dailyDistributionData;
+        const original_daily_distribution_data = original_global_data_account.data.dailyDistributionData;
+        Assert.assertEqual(final_daily_distribution_data.highWaterMark, 2n, "highwater mark has increased"); // TODO: find a better way to get oracle value
+        Assert.assertEqual(
+            final_daily_distribution_data.lastDailyDistributionTime,
+            DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY,
+            "last daily distribution time has updated"
+        );
+        Assert.assertEqual(
+            final_daily_distribution_data.yesterdaySupply,
+            final_comptoken_mint.data.supply,
+            "yesterdays supply is where the mint is after"
+        );
+        Assert.assertEqual(
+            final_daily_distribution_data.oldestInterest,
+            original_daily_distribution_data.oldestInterest + 1n,
+            "oldest interests has increased"
+        );
 
-        const finalInterestBankAcct = await get_account(context, interest_bank_account_pubkey, TokenAccount);
-        Assert.assert(finalInterestBankAcct.data.amount > get_default_unpaid_interest_bank().data.amount, "interest bank has increased");
+        const final_interest_bank_account = await get_account(context, original_unpaid_interest_bank.address, TokenAccount);
+        Assert.assert(final_interest_bank_account.data.amount > original_unpaid_interest_bank.data.amount, "interest bank has increased");
 
-        const finalUbiBankAcct = await get_account(context, ubi_bank_account_pubkey, TokenAccount);
-        Assert.assert(finalUbiBankAcct.data.amount > get_default_unpaid_ubi_bank().data.amount, "interest bank has increased");
+        const final_Ubi_bank_account = await get_account(context, original_unpaid_ubi_bank.address, TokenAccount);
+        Assert.assert(final_Ubi_bank_account.data.amount > original_unpaid_ubi_bank.data.amount, "interest bank has increased");
     });
 }
 

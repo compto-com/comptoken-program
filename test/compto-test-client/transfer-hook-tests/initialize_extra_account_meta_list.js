@@ -1,26 +1,24 @@
-import { Keypair, SystemProgram, Transaction, TransactionInstruction, } from "@solana/web3.js";
-import { Clock, start } from "solana-bankrun";
+import { Keypair, SystemProgram, TransactionInstruction, } from "@solana/web3.js";
 
+import { ExtraAccountMetaListLayout } from "@solana/spl-token";
 import { ExtraAccountMetaAccount, get_default_comptoken_mint, get_default_extra_account_metas_account } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_extra_account_metas_account_pubkey, compto_transfer_hook_id_pubkey, DEFAULT_START_TIME, } from "../common.js";
+import { compto_extra_account_metas_account_pubkey, compto_transfer_hook_id_pubkey, } from "../common.js";
+import { get_account, run_test, setup_test } from "../generic_test.js";
+import { isArrayEqual } from "../utils.js";
 
 async function test_initializeExtraAccountMetaList() {
-    let comptoken_mint = get_default_comptoken_mint();
     const mint_authority = Keypair.generate();
+    let comptoken_mint = get_default_comptoken_mint();
     comptoken_mint.data.mintAuthority = mint_authority.publicKey;
 
-    const context = await start(
-        [{ name: "comptoken_transfer_hook", programId: compto_transfer_hook_id_pubkey }],
-        [
-            comptoken_mint.toAccount(),
-        ]
-    );
+    const accounts = [
+        comptoken_mint,
+    ];
 
-    const client = context.banksClient;
-    const payer = context.payer;
-    const blockhash = context.lastBlockhash;
+    let context = await setup_test(accounts);
 
+    // solana/web3.js doesn't have a createInitializeExtraAccountMetas function, so we'll create the instruction manually.
     const keys = [
         // the account that stores the extra account metas
         { pubkey: compto_extra_account_metas_account_pubkey, isSigner: false, isWritable: true },
@@ -31,41 +29,36 @@ async function test_initializeExtraAccountMetaList() {
         // system account is used to create the account
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
         // the account who pays for the creation
-        { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+        { pubkey: context.payer.publicKey, isSigner: true, isWritable: true },
     ];
 
     // first 8 bytes of sha256 of "spl-transfer-hook-interface:execute"
     // see https://spl.solana.com/transfer-hook-interface/specification
     let instruction_data = Buffer.from([43, 34, 13, 49, 167, 88, 235, 235]);
-    let empty_account_meta_data = Buffer.from([0, 0, 0, 0]);
-    let data = Buffer.concat([instruction_data, empty_account_meta_data]);
+    let extraAccountMetaList_data = Buffer.alloc(4); // empty ExtraAccountMetaList size
+    ExtraAccountMetaListLayout.encode({
+        count: 0,
+        extraAccounts: [],
+    }, extraAccountMetaList_data);
+    let data = Buffer.concat([instruction_data, extraAccountMetaList_data]);
 
-    const ixs = [new TransactionInstruction({ programId: compto_transfer_hook_id_pubkey, keys, data })];
-    const tx = new Transaction();
-    tx.recentBlockhash = blockhash;
-    tx.add(...ixs);
-    tx.sign(payer, mint_authority);
-    context.setClock(new Clock(0n, 0n, 0n, 0n, DEFAULT_START_TIME));
-    const meta = await client.processTransaction(tx);
+    let instructions = [new TransactionInstruction({ programId: compto_transfer_hook_id_pubkey, keys, data })];
+    let result;
 
-    console.log("logMessages: %s", meta.logMessages);
-    console.log("computeUnitsConsumed: %d", meta.computeUnitsConsumed);
-    console.log("returnData: %s", meta.returnData);
-
-    let account = await client.getAccount(compto_extra_account_metas_account_pubkey);
-    Assert.assertNotNull(account);
-    const finalMetaListAccount = ExtraAccountMetaAccount.fromAccountInfoBytes(compto_extra_account_metas_account_pubkey, account);
-    // comptoken program id
-    const accountMetaList = get_default_extra_account_metas_account()
-    Assert.assert(finalMetaListAccount.address.equals(accountMetaList.address), "address isn't correct");
-    Assert.assertEqual(finalMetaListAccount.data.extraAccountsList.length, accountMetaList.data.extraAccountsList.length, "length isn't correct");
-    let zipped = finalMetaListAccount.data.extraAccountsList.extraAccounts.map((v, i) => [v, accountMetaList.data.extraAccountsList.extraAccounts[i]]);
-    for (const [final, oracle] of zipped) {
-        Assert.assertEqual(final.discriminator, oracle.discriminator, "discriminators aren't the same");
-        Assert.assertEqual(final.isSigner, oracle.isSigner, "isSigner isn't the same");
-        Assert.assertEqual(final.isWritable, oracle.isWritable, "isWritable isn't the same");
-        Assert.assert(final.addressConfig.reduce((pv, cv, i) => pv && cv === oracle.addressConfig[i], true), "address configs aren't the same");
-    }
+    [context, result] = await run_test("initializeExtraAccountMetaList", context, instructions, [context.payer, mint_authority], async (context, result) => {
+        const finalMetaListAccount = await get_account(context, compto_extra_account_metas_account_pubkey, ExtraAccountMetaAccount);
+        // comptoken program id
+        const accountMetaList = get_default_extra_account_metas_account()
+        Assert.assert(finalMetaListAccount.address.equals(accountMetaList.address), "address isn't correct");
+        Assert.assertEqual(finalMetaListAccount.data.extraAccountsList.length, accountMetaList.data.extraAccountsList.length, "length isn't correct");
+        let zipped = finalMetaListAccount.data.extraAccountsList.extraAccounts.map((v, i) => [v, accountMetaList.data.extraAccountsList.extraAccounts[i]]);
+        for (const [final, oracle] of zipped) {
+            Assert.assertEqual(final.discriminator, oracle.discriminator, "discriminators aren't the same");
+            Assert.assertEqual(final.isSigner, oracle.isSigner, "isSigner isn't the same");
+            Assert.assertEqual(final.isWritable, oracle.isWritable, "isWritable isn't the same");
+            Assert.assert(isArrayEqual(final.addressConfig, oracle.addressConfig), "address configs aren't the same");
+        }
+    });
 }
 
 (async () => { await test_initializeExtraAccountMetaList(); })();

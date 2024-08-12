@@ -79,13 +79,14 @@ pub fn verify_slothashes_account<'a>(account: &AccountInfo<'a>) -> VerifiedAccou
 
 pub fn verify_extra_account_metas_account<'a>(
     account: &AccountInfo<'a>, mint: &VerifiedAccountInfo<'a>, transfer_hook_program: &VerifiedAccountInfo<'a>,
+    needs_writable: bool,
 ) -> VerifiedAccountInfo<'a> {
     VerifiedAccountInfo::verify_pda(
         account,
         transfer_hook_program.key,
         &[b"extra-account-metas", mint.key.as_ref()],
         false,
-        false,
+        needs_writable,
     )
     .0
 }

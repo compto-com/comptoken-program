@@ -5,6 +5,7 @@ mod verify_accounts;
 
 extern crate bs58;
 
+use solana_program::instruction::AccountMeta;
 use spl_token_2022::{
     extension::StateWithExtensions,
     instruction::mint_to,
@@ -44,7 +45,7 @@ const GLOBAL_DATA_ACCOUNT_SPACE: u64 = std::mem::size_of::<GlobalData>() as u64;
 mod generated;
 use generated::{
     COMPTOKEN_MINT_ADDRESS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS, COMPTO_INTEREST_BANK_ACCOUNT_SEEDS,
-    COMPTO_UBI_BANK_ACCOUNT_SEEDS,
+    COMPTO_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
 };
 
 const INTEREST_BANK_SPACE: u64 = 256; // TODO get actual size
@@ -194,6 +195,8 @@ pub fn initialize_comptoken_program(
     //      [] Solana Program
     //      [] Solana Token 2022 Program
     //      [] Solana SlotHashes Sysvar
+    //      [] Transfer Hook Program
+    //      [w] Extra Account Metas Account
 
     msg!("instruction_data: {:?}", instruction_data);
 
@@ -203,16 +206,23 @@ pub fn initialize_comptoken_program(
     let unpaid_interest_bank = next_account_info(account_info_iter)?;
     let unpaid_ubi_bank = next_account_info(account_info_iter)?;
     let comptoken_mint = next_account_info(account_info_iter)?;
-    let _solana_program = next_account_info(account_info_iter)?;
+    let solana_program = next_account_info(account_info_iter)?;
     let _token_2022_program = next_account_info(account_info_iter)?;
     let slot_hashes_account = next_account_info(account_info_iter)?;
+    let transfer_hook_program = next_account_info(account_info_iter)?;
+    let extra_account_metas_account = next_account_info(account_info_iter)?;
 
     let payer_account = verify_payer_account(payer_account);
     let global_data_account = verify_global_data_account(global_data_account, program_id, true);
     let unpaid_interest_bank = verify_interest_bank_account(unpaid_interest_bank, program_id, true);
     let unpaid_ubi_bank = verify_ubi_bank_account(unpaid_ubi_bank, program_id, true);
     let comptoken_mint = verify_comptoken_mint(comptoken_mint, false);
+    let solana_program =
+        VerifiedAccountInfo::verify_specific_address(solana_program, &solana_program::system_program::ID, false, false);
     let slot_hashes_account = verify_slothashes_account(slot_hashes_account);
+    let transfer_hook_program = verify_transfer_hook_program(transfer_hook_program);
+    let extra_account_metas_account =
+        verify_extra_account_metas_account(extra_account_metas_account, &comptoken_mint, &transfer_hook_program, true);
 
     let first_8_bytes: [u8; 8] = instruction_data[0..8].try_into().unwrap();
     let lamports_global_data = u64::from_le_bytes(first_8_bytes);
@@ -257,7 +267,27 @@ pub fn initialize_comptoken_program(
     let global_data: &mut GlobalData = (&global_data_account).into();
     global_data.initialize(&slot_hashes_account);
 
-    Ok(())
+    let mut init_transfer_hook_instruction =
+        spl_transfer_hook_interface::instruction::initialize_extra_account_meta_list(
+            &TRANSFER_HOOK_ID,
+            extra_account_metas_account.key,
+            comptoken_mint.key,
+            global_data_account.key,
+            &[],
+        );
+    init_transfer_hook_instruction.accounts.push(AccountMeta::new(*payer_account.key, true));
+
+    invoke_signed_verified(
+        &init_transfer_hook_instruction,
+        &[
+            &extra_account_metas_account,
+            &comptoken_mint,
+            &global_data_account,
+            &solana_program,
+            &payer_account,
+        ],
+        &[COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS],
+    )
 }
 
 pub fn create_user_data_account(
@@ -443,6 +473,7 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
         extra_account_metas_account,
         &comptoken_mint_account,
         &transfer_hook_program,
+        false,
     );
     let compto_program = VerifiedAccountInfo::verify_specific_address(compto_program, program_id, false, false);
     let interest_data_pda = VerifiedAccountInfo::verify_pda(
@@ -547,8 +578,6 @@ pub fn realloc_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instruct
     // find space and minimum rent required for account
     let rent_lamports = u64::from_le_bytes(instruction_data[0..8].try_into().expect("correct size"));
     let new_size = usize::from_le_bytes(instruction_data[8..16].try_into().expect("correct size"));
-
-    let user_data: &mut UserData = (&user_data_account).into();
 
     // SAFETY: user_data_account is passed in from the runtime and is guaranteed to uphold the invariants original_data_len() and realloc assumes
     assert!(new_size <= unsafe { user_data_account.original_data_len() } + MAX_PERMITTED_DATA_INCREASE);

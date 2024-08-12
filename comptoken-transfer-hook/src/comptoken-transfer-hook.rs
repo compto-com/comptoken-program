@@ -82,7 +82,7 @@ fn process_initialize_extra_account_meta_list(
     program_id: &Pubkey, accounts: &[AccountInfo], _extra_account_metas: Vec<ExtraAccountMeta>,
 ) -> ProgramResult {
     //  Accounts
-    //      [w]: Validation account
+    //      [w]: account meta storage account
     //      []: Mint
     //      [s]: Mint authority
     //      []: System program

@@ -9,3 +9,4 @@ members = [
 [workspace.dependencies]
 solana-program = "*"
 spl-token-2022 = { version="4.0.0", features=["no-entrypoint"] }
+spl-transfer-hook-interface = "0.7.0"

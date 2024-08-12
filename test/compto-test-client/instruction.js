@@ -108,6 +108,10 @@ export async function createInitializeComptokenProgramInstruction(context) {
             { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
             // program will pull a recent hash from slothashes sysvar if a new valid blockhash is needed.
             { pubkey: SYSVAR_SLOT_HASHES_PUBKEY, isSigner: false, isWritable: false },
+            // compto transfer hook program also needs to be initialized
+            { pubkey: compto_transfer_hook_id_pubkey, isSigner: false, isWritable: false },
+            // the transfer hook program initialization sets the extra account metas in this account
+            { pubkey: compto_extra_account_metas_account_pubkey, isSigner: false, isWritable: true },
         ],
         data: Buffer.from([
             Instruction.INITIALIZE_COMPTOKEN_PROGRAM,

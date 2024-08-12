@@ -1,8 +1,9 @@
 import { AccountState } from "@solana/spl-token";
 
-import { get_default_comptoken_mint, GlobalDataAccount, TokenAccount } from "../accounts.js";
+import { ExtraAccountMetaAccount, get_default_comptoken_mint, get_default_extra_account_metas_account, GlobalDataAccount, TokenAccount } from "../accounts.js";
 import { Assert } from "../assert.js";
 import {
+    compto_extra_account_metas_account_pubkey,
     comptoken_mint_pubkey,
     DEFAULT_ANNOUNCE_TIME,
     DEFAULT_DISTRIBUTION_TIME,
@@ -12,6 +13,7 @@ import {
 } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 import { createInitializeComptokenProgramInstruction } from "../instruction.js";
+import { isArrayEqual } from "../utils.js";
 
 async function initialize_comptoken_program() {
     const accounts = [
@@ -39,6 +41,19 @@ async function initialize_comptoken_program() {
         Assert.assert(finalUBIBank.data.mint.equals(comptoken_mint_pubkey), "ubi mint");
         Assert.assert(finalUBIBank.data.owner.equals(global_data_account_pubkey), "ubi owner");
         Assert.assertEqual(finalUBIBank.data.state, AccountState.Initialized, "ubi state");
+
+        const finalMetaListAccount = await get_account(context, compto_extra_account_metas_account_pubkey, ExtraAccountMetaAccount);
+        // comptoken program id
+        const accountMetaList = get_default_extra_account_metas_account()
+        Assert.assert(finalMetaListAccount.address.equals(accountMetaList.address), "address isn't correct");
+        Assert.assertEqual(finalMetaListAccount.data.extraAccountsList.length, accountMetaList.data.extraAccountsList.length, "length isn't correct");
+        let zipped = finalMetaListAccount.data.extraAccountsList.extraAccounts.map((v, i) => [v, accountMetaList.data.extraAccountsList.extraAccounts[i]]);
+        for (const [final, oracle] of zipped) {
+            Assert.assertEqual(final.discriminator, oracle.discriminator, "discriminators aren't the same");
+            Assert.assertEqual(final.isSigner, oracle.isSigner, "isSigner isn't the same");
+            Assert.assertEqual(final.isWritable, oracle.isWritable, "isWritable isn't the same");
+            Assert.assert(isArrayEqual(final.addressConfig, oracle.addressConfig), "address configs aren't the same");
+        }
     });
 }
 

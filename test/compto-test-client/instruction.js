@@ -231,7 +231,15 @@ export async function createGetOwedComptokensInstruction(user_wallet_address, us
     })
 }
 
-export async function createGrowUserDataAccountInstruction(context, user_data_size, payer_address, user_wallet_address, user_comptoken_wallet_address) {
+/**
+ * @param {ProgramTestContext} context 
+ * @param {BigInt} new_user_data_size 
+ * @param {PublicKey} payer_address 
+ * @param {PublicKey} user_wallet_address 
+ * @param {PublicKey} user_comptoken_wallet_address 
+ * @returns {TransactionInstruction}
+ */
+export async function createGrowUserDataAccountInstruction(context, new_user_data_size, payer_address, user_wallet_address, user_comptoken_wallet_address) {
     const rent = await context.banksClient.getRent();
     const user_data_account_address = PublicKey.findProgramAddressSync([user_comptoken_wallet_address.toBytes()], compto_program_id_pubkey)[0];
     return new TransactionInstruction({
@@ -242,7 +250,7 @@ export async function createGrowUserDataAccountInstruction(context, user_data_si
             // the data account tied to the comptoken wallet
             { pubkey: user_data_account_address, isSigner: false, isWritable: true },
             // the payers comptoken wallet (comptoken token acct)
-            { pubkey: testuser_comptoken_wallet_address, isSigner: false, isWritable: false },
+            { pubkey: user_comptoken_wallet_address, isSigner: false, isWritable: false },
             // system account is used to create the account
             { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
             // the owner of the comptoken wallet
@@ -251,7 +259,7 @@ export async function createGrowUserDataAccountInstruction(context, user_data_si
         data: Buffer.from([
             Instruction.GROW_USER_DATA_ACCOUNT,
             ...bigintAsU64ToBytes(await rent.minimumBalance(new_user_data_size)),
-            ...bigintAsU64ToBytes(user_data_size),
+            ...bigintAsU64ToBytes(new_user_data_size),
         ]),
     })
 }

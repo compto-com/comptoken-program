@@ -59,7 +59,7 @@ export function createTestInstruction(user_wallet_address, user_comptoken_wallet
  * @param {PublicKey} destination_data_account_address
  * @returns {TransactionInstruction}
  */
-export async function createComptokenMintInstruction(comptoken_proof, user_wallet_address, user_comptoken_wallet_address) {
+export async function createProofSubmissionInstruction(comptoken_proof, user_wallet_address, user_comptoken_wallet_address) {
     const destination_data_account_address = PublicKey.findProgramAddressSync([user_comptoken_wallet_address.toBytes()], compto_program_id_pubkey)[0];
     return new TransactionInstruction({
         programId: compto_program_id_pubkey,

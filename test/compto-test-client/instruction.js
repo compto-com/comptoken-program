@@ -8,6 +8,7 @@ import {
     compto_program_id_pubkey,
     compto_transfer_hook_id_pubkey,
     comptoken_mint_pubkey,
+    COMPTOKEN_WALLET_SIZE,
     global_data_account_pubkey,
     interest_bank_account_pubkey,
     ubi_bank_account_pubkey,
@@ -110,9 +111,9 @@ export async function createInitializeComptokenProgramInstruction(context) {
         ],
         data: Buffer.from([
             Instruction.INITIALIZE_COMPTOKEN_PROGRAM,
-            ...bigintAsU64ToBytes(await rent.minimumBalance(GlobalData.LAYOUT.span)),
-            ...bigintAsU64ToBytes(await rent.minimumBalance(COMPTOKEN_WALLET_SIZE)),
-            ...bigintAsU64ToBytes(await rent.minimumBalance(COMPTOKEN_WALLET_SIZE)),
+            ...bigintAsU64ToBytes(await rent.minimumBalance(BigInt(GlobalData.LAYOUT.span))),
+            ...bigintAsU64ToBytes(await rent.minimumBalance(BigInt(COMPTOKEN_WALLET_SIZE))),
+            ...bigintAsU64ToBytes(await rent.minimumBalance(BigInt(COMPTOKEN_WALLET_SIZE))),
         ]),
     });
 }

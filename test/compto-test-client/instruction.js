@@ -48,7 +48,7 @@ export function createTestInstruction(user_wallet_address, user_comptoken_wallet
             { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
             // the owner of the comptoken wallet
             { pubkey: user_wallet_address, isSigner: true, isWritable: false },
-        ], data: Buffer.from(Instruction.TEST),
+        ], data: Buffer.from([Instruction.TEST]),
     });
 }
 

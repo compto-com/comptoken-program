@@ -28,6 +28,8 @@ import {
 } from "./common.js";
 import { getOptionOr, numAsU16ToLEBytes, toOption } from "./utils.js";
 
+export const COMPTOKEN_WALLET_SIZE = 256; // TODO: get actual value
+
 
 class ExtensionType {
     // u16 discriminated type for an extension

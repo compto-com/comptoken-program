@@ -2,13 +2,12 @@ import { PublicKey, SystemProgram, SYSVAR_SLOT_HASHES_PUBKEY, TransactionInstruc
 import { ProgramTestContext } from "solana-bankrun";
 
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
-import { GlobalData } from "./accounts.js";
+import { COMPTOKEN_WALLET_SIZE, GlobalData } from "./accounts.js";
 import {
     compto_extra_account_metas_account_pubkey,
     compto_program_id_pubkey,
     compto_transfer_hook_id_pubkey,
     comptoken_mint_pubkey,
-    COMPTOKEN_WALLET_SIZE,
     global_data_account_pubkey,
     interest_bank_account_pubkey,
     ubi_bank_account_pubkey,

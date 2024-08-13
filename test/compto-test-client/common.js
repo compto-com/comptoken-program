@@ -12,7 +12,6 @@ export const DEFAULT_ANNOUNCE_TIME = 1_721_865_300n; // DEFAULT_DISTRIBUTION_TIM
 export const SEC_PER_DAY = 86_400n;
 export const BIG_NUMBER = 1_000_000_000;
 export const COMPTOKEN_DECIMALS = 0; // MAGIC NUMBER: remain consistent with comptoken.rs and full_deploy_test.py
-export const COMPTOKEN_WALLET_SIZE = 256; // TODO: get actual value
 
 // Read Cache Files
 import global_data_account from "../.cache/compto_global_data_account.json" assert { type: "json" };

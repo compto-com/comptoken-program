@@ -67,7 +67,7 @@ def runTest(args: Namespace, file: str) -> bool:
     env["SBF_OUT_DIR"] = str(PROJECT_PATH / "target/deploy/")
     node = ("node --trace-warnings" if args.verbose >= 2 else "node")
     try:
-        stdout = run(f"{node} {TEST_PATH / f'compto-test-client/{file}'}", env=env, timeout=20)
+        stdout = run(f"{node} {TEST_PATH / f'compto-test-client/{file}'}", env=env, timeout=5)
         if args.verbose >= 1:
             print(stdout)
         print(f"✅ \033[92m{file}\033[0m passed")

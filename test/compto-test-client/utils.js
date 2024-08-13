@@ -9,6 +9,7 @@ export function toOption(val) {
     }
     return val;
 }
+
 /**
  * @template T
  * @param {T | null} opt_val
@@ -21,6 +22,7 @@ export function getOptionOr(opt_val, fn) {
     }
     return { option: 1, val: opt_val };
 }
+
 export function bigintAsU64ToBytes(int) {
     let arr = new Array(8);
     for (let i = 0; int > 0n; ++i) {
@@ -29,6 +31,7 @@ export function bigintAsU64ToBytes(int) {
     }
     return arr;
 }
+
 /**
  * @param {number} num
  * @returns {number[]}
@@ -38,6 +41,7 @@ export function numAsU16ToLEBytes(num) {
     buffer.writeUInt16LE(num);
     return Array.from({ length: 2 }, (v, i) => buffer.readUint8(i));
 }
+
 /**
  * @param {number} num
  * @returns {number[]}
@@ -47,6 +51,7 @@ export function numAsDoubleToLEBytes(num) {
     buffer.writeDoubleLE(num);
     return Array.from({ length: 8 }, (v, i) => buffer.readUint8(i));
 }
+
 /**
  * @template T
  * @param {T[]} bytes
@@ -61,6 +66,7 @@ function chunkArray(bytes, chunk_size) {
     }
     return arr;
 }
+
 /**
  * @param {Uint8Array} bytes
  * @returns {number[]}
@@ -68,6 +74,7 @@ function chunkArray(bytes, chunk_size) {
 export function LEBytesToDoubleArray(bytes) {
     return chunkArray(bytes, 8).map((elem) => new DataView(elem.buffer.slice(elem.byteOffset)).getFloat64(0, true));
 }
+
 /**
  * @param {Uint8Array} bytes
  * @returns {Uint8Array[]}

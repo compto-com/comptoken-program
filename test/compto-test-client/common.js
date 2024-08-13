@@ -6,17 +6,6 @@ import os from "os";
 import * as bs58_ from "bs58";
 export const bs58 = bs58_.default;
 
-export const Instruction = {
-    TEST: 0,
-    COMPTOKEN_MINT: 1,
-    INITIALIZE_STATIC_ACCOUNT: 2,
-    CREATE_USER_DATA_ACCOUNT: 3,
-    DAILY_DISTRIBUTION_EVENT: 4,
-    GET_VALID_BLOCKHASHES: 5,
-    GET_OWED_COMPTOKENS: 6,
-    REALLOC_USER_DATA_ACCOUNT: 7,
-};
-
 export const DEFAULT_START_TIME = 1_721_940_656n;
 export const DEFAULT_DISTRIBUTION_TIME = 1_721_865_600n; // DEFAULT_START_TIME - DEFAULT_START_TIME % SEC_PER_DAY
 export const DEFAULT_ANNOUNCE_TIME = 1_721_865_300n; // DEFAULT_DISTRIBUTION_TIME - (5 * 60) <-- 5 minutes before distribution

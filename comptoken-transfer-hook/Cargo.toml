@@ -8,7 +8,7 @@ comptoken-utils = { version = "0.1.0", path = "../comptoken-utils" }
 solana-program = { workspace = true }
 spl-tlv-account-resolution = "0.7.0"
 spl-token-2022 = { workspace = true }
-spl-transfer-hook-interface = "0.7.0"
+spl-transfer-hook-interface = { workspace = true }
 
 [lib]
 path = "src/comptoken-transfer-hook.rs"

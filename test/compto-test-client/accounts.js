@@ -28,6 +28,8 @@ import {
 } from "./common.js";
 import { getOptionOr, numAsU16ToLEBytes, toOption } from "./utils.js";
 
+export const COMPTOKEN_WALLET_SIZE = 256; // TODO: get actual value
+
 
 class ExtensionType {
     // u16 discriminated type for an extension
@@ -212,7 +214,7 @@ export class DataTypeWithExtensions extends DataType {
     }
 }
 
-class Account {
+export class Account {
     address;
     lamports;
     owner;
@@ -321,6 +323,8 @@ export const UserDataLayout = struct([
 export class UserData extends DataType {
     static LAYOUT = UserDataLayout;
 
+    static MIN_SIZE = 88; // MAGIC NUMBER: CHANGE NEEDS TO BE REFLECTED IN user_data.rs
+
     lastInterestPayoutDate_; // i64
     isVerifiedHuman_; // bool
     length_; // usize
@@ -328,7 +332,7 @@ export class UserData extends DataType {
     proofs_; // [Hash]
 
     getSize() {
-        return 56 + 32 * this.proofs.length;
+        return this.constructor.MIN_SIZE + 32 * (this.proofs.length - 1);
     }
 }
 
@@ -338,6 +342,7 @@ export class UserDataAccount extends Account {
 
 export class GlobalData extends DataType {
     // LAYOUT defined later to avoid circular dependency
+
     validBlockhashes_;
     dailyDistributionData_;
 
@@ -422,7 +427,7 @@ export function get_default_comptoken_mint() {
     return new MintAccount(comptoken_mint_pubkey, BIG_NUMBER, TOKEN_2022_PROGRAM_ID, new Mint({
         mintAuthorityOption: 1,
         mintAuthority: global_data_account_pubkey,
-        supply: 1n,
+        supply: 0n,
         decimals: COMPTOKEN_DECIMALS,
         isInitialized: true,
         freezeAuthorityOption: 0,

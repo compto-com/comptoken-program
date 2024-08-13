@@ -20,14 +20,14 @@ sudo apt install pre-commit
 pre-commit install
 ```
 
-## Test Dependencies
-
-python ^3.11.6  
-navigate to `test/compt-test-client` and run `npm install`  
-
 # Testing
 
 `pip install -r test/requirements.txt`  
+
+## Test Dependencies
+
+python ^3.11.6  
+navigate to `test/compto-test-client` and run `npm install`  
 
 ## Unit Tests
 

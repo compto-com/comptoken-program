@@ -26,7 +26,11 @@ impl DailyDistributionData {
         self.last_daily_distribution_time = normalize_time(get_current_time());
 
         let daily_mining_total = mint.supply - self.yesterday_supply;
+        if daily_mining_total == 0 {
+            return DailyDistributionValues { interest_distributed: 0, ubi_distributed: 0 };
+        }
         let high_water_mark_increase = self.calculate_high_water_mark_increase(daily_mining_total);
+        msg!("High water mark increase: {}", high_water_mark_increase);
         self.high_water_mark += high_water_mark_increase;
 
         let total_daily_distribution = high_water_mark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER;
@@ -34,12 +38,12 @@ impl DailyDistributionData {
             interest_distributed: total_daily_distribution / 2,
             ubi_distributed: total_daily_distribution / 2,
         };
-        self.yesterday_supply =
-            mint.supply + distribution_values.interest_distributed + distribution_values.ubi_distributed;
-
-        let interest = distribution_values.interest_distributed as f64 / self.yesterday_supply as f64; // TODO: interest is NaN if yesterday supply is 0
+        let interest = distribution_values.interest_distributed as f64 / mint.supply as f64;
         msg!("Interest: {}", interest);
         self.insert(interest);
+
+        self.yesterday_supply =
+            mint.supply + distribution_values.interest_distributed + distribution_values.ubi_distributed;
 
         distribution_values
     }

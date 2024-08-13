@@ -4,7 +4,7 @@ use crate::VerifiedAccountInfo;
 
 #[repr(C)]
 #[derive(Debug)]
-// CHANGES TO THE SIZE OF THIS STRUCT NEED TO BE REFLECTED IN test_client.js
+// CHANGES TO THE SIZE OF THIS STRUCT NEED TO BE REFLECTED IN test_client.js and accounts.js
 pub struct UserDataBase<T: ?Sized> {
     // capacity is stored in the fat pointer
     pub last_interest_payout_date: i64,

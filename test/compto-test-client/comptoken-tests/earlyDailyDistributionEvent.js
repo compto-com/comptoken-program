@@ -23,7 +23,7 @@ async function test_earlyDailyDistributionEvent() {
     let instructions = [await createDailyDistributionEventInstruction()];
     let result;
 
-    [context, result] = await run_test("dailyDistributionEvent", context, instructions, [context.payer], async (context, result) => {
+    [context, result] = await run_test("earlyDailyDistributionEvent", context, instructions, [context.payer], async (context, result) => {
         Assert.assert(
             result.meta.logMessages.some((msg, i) => msg.includes("daily distribution already called today")),
             "daily distribution already called"

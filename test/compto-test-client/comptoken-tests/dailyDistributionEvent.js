@@ -19,7 +19,7 @@ import { createDailyDistributionEventInstruction } from "../instruction.js";
 
 async function test_dailyDistributionEvent() {
     let original_comptoken_mint = get_default_comptoken_mint();
-    original_comptoken_mint.data.supply += 1n;
+    original_comptoken_mint.data.supply = 1n;
     const original_global_data_account = get_default_global_data();
     const original_unpaid_interest_bank = get_default_unpaid_interest_bank();
     const original_unpaid_ubi_bank = get_default_unpaid_ubi_bank();
@@ -57,7 +57,7 @@ async function test_dailyDistributionEvent() {
 
         const final_daily_distribution_data = final_global_data_account.data.dailyDistributionData;
         const original_daily_distribution_data = original_global_data_account.data.dailyDistributionData;
-        Assert.assertEqual(final_daily_distribution_data.highWaterMark, 2n, "highwater mark has increased"); // TODO: find a better way to get oracle value
+        Assert.assertEqual(final_daily_distribution_data.highWaterMark, 1n, "highwater mark has increased"); // TODO: find a better way to get oracle value
         Assert.assertEqual(
             final_daily_distribution_data.lastDailyDistributionTime,
             DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY,

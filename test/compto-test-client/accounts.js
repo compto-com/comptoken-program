@@ -427,7 +427,7 @@ export function get_default_comptoken_mint() {
     return new MintAccount(comptoken_mint_pubkey, BIG_NUMBER, TOKEN_2022_PROGRAM_ID, new Mint({
         mintAuthorityOption: 1,
         mintAuthority: global_data_account_pubkey,
-        supply: 1n,
+        supply: 0n,
         decimals: COMPTOKEN_DECIMALS,
         isInitialized: true,
         freezeAuthorityOption: 0,

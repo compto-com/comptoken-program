@@ -6,7 +6,6 @@ import { isArrayEqual } from "../utils.js";
 
 async function test_getValidBlockhashes() {
     const original_global_data_account = get_default_global_data()
-
     const existing_accounts = [get_default_comptoken_mint(), original_global_data_account];
 
     let context = await setup_test(existing_accounts);

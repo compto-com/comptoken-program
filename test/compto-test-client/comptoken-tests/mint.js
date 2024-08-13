@@ -7,7 +7,6 @@ import { createTestInstruction } from "../instruction.js";
 
 async function test_mint() {
     const testuser = Keypair.generate();
-
     const user_comptoken_wallet = get_default_comptoken_wallet(PublicKey.unique(), testuser.publicKey);
     const accounts = [get_default_comptoken_mint(), get_default_global_data(), user_comptoken_wallet];
 

@@ -14,7 +14,6 @@ import { get_account, run_test, setup_test } from "../generic_test.js";
 
 async function test_execute() {
     const user1 = Keypair.generate();
-
     const comptoken_mint = get_default_comptoken_mint();
     let original_user1_comptoken_wallet = get_default_comptoken_wallet(PublicKey.unique(), user1.publicKey);
     original_user1_comptoken_wallet.data.amount = 1n;

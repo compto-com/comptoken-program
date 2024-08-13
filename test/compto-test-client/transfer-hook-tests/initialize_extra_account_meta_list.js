@@ -11,7 +11,6 @@ async function test_initializeExtraAccountMetaList() {
     const mint_authority = Keypair.generate();
     let comptoken_mint = get_default_comptoken_mint();
     comptoken_mint.data.mintAuthority = mint_authority.publicKey;
-
     const accounts = [comptoken_mint];
 
     let context = await setup_test(accounts);

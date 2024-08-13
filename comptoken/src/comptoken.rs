@@ -44,12 +44,9 @@ const GLOBAL_DATA_ACCOUNT_SPACE: u64 = std::mem::size_of::<GlobalData>() as u64;
 
 mod generated;
 use generated::{
-    COMPTOKEN_MINT_ADDRESS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS, COMPTO_INTEREST_BANK_ACCOUNT_SEEDS,
-    COMPTO_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
+    COMPTOKEN_MINT_ADDRESS, COMPTO_EARLY_ADOPTER_BANK_ACCOUNT_SEEDS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS,
+    COMPTO_INTEREST_BANK_ACCOUNT_SEEDS, COMPTO_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
 };
-
-const INTEREST_BANK_SPACE: u64 = 256; // TODO get actual size
-const UBI_BANK_SPACE: u64 = 256; // TODO get actual size
 
 // program entrypoint's implementation
 pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
@@ -211,6 +208,7 @@ pub fn initialize_comptoken_program(
     let slot_hashes_account = next_account_info(account_info_iter)?;
     let transfer_hook_program = next_account_info(account_info_iter)?;
     let extra_account_metas_account = next_account_info(account_info_iter)?;
+    let unpaid_early_adopter_bank = next_account_info(account_info_iter)?;
 
     let payer_account = verify_payer_account(payer_account);
     let global_data_account = verify_global_data_account(global_data_account, program_id, true);
@@ -223,14 +221,17 @@ pub fn initialize_comptoken_program(
     let transfer_hook_program = verify_transfer_hook_program(transfer_hook_program);
     let extra_account_metas_account =
         verify_extra_account_metas_account(extra_account_metas_account, &comptoken_mint, &transfer_hook_program, true);
+    let unpaid_early_adopter_bank = verify_early_adopter_bank_account(unpaid_early_adopter_bank, program_id, true);
 
     let first_8_bytes: [u8; 8] = instruction_data[0..8].try_into().unwrap();
     let lamports_global_data = u64::from_le_bytes(first_8_bytes);
     let lamports_interest_bank = u64::from_le_bytes(instruction_data[8..16].try_into().unwrap());
     let lamports_ubi_bank = u64::from_le_bytes(instruction_data[16..24].try_into().unwrap());
+    let lamports_early_adopter_bank = u64::from_le_bytes(instruction_data[24..32].try_into().unwrap());
     msg!("Lamports global data: {:?}", lamports_global_data);
     msg!("Lamports interest bank: {:?}", lamports_interest_bank);
     msg!("Lamports ubi bank: {:?}", lamports_ubi_bank);
+    msg!("Lamports early adopter bank: {:?}", lamports_early_adopter_bank);
 
     create_pda(
         &payer_account,
@@ -245,24 +246,36 @@ pub fn initialize_comptoken_program(
         &payer_account,
         &unpaid_interest_bank,
         lamports_interest_bank,
-        INTEREST_BANK_SPACE,
+        COMPTOKEN_ACCOUNT_SPACE,
         &spl_token_2022::ID,
         &[COMPTO_INTEREST_BANK_ACCOUNT_SEEDS],
     )?;
     msg!("created interest bank account");
     init_comptoken_account(&unpaid_interest_bank, &global_data_account, &[], &comptoken_mint)?;
     msg!("initialized interest bank account");
+
     create_pda(
         &payer_account,
         &unpaid_ubi_bank,
         lamports_interest_bank,
-        UBI_BANK_SPACE,
+        COMPTOKEN_ACCOUNT_SPACE,
         &spl_token_2022::ID,
         &[COMPTO_UBI_BANK_ACCOUNT_SEEDS],
     )?;
     msg!("created ubi bank account");
     init_comptoken_account(&unpaid_ubi_bank, &global_data_account, &[], &comptoken_mint)?;
     msg!("initialized ubi bank account");
+
+    create_pda(
+        &payer_account,
+        &unpaid_early_adopter_bank,
+        lamports_early_adopter_bank,
+        COMPTOKEN_ACCOUNT_SPACE,
+        &spl_token_2022::ID,
+        &[COMPTO_EARLY_ADOPTER_BANK_ACCOUNT_SEEDS],
+    )?;
+    msg!("created early adopter bank account");
+    init_comptoken_account(&unpaid_early_adopter_bank, &global_data_account, &[], &comptoken_mint)?;
 
     let global_data: &mut GlobalData = (&global_data_account).into();
     global_data.initialize(&slot_hashes_account);

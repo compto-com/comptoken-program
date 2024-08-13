@@ -27,12 +27,17 @@ def generateFiles():
     UBIBankPDA = setUBIBankPDA(comptokenProgramId)
     UBIBankSeed = UBIBankPDA["bumpSeed"]
     UBIBankAddress = UBIBankPDA["address"]
+    earlyAdopterBankPDA = setEarlyAdopterBankPDA(comptokenProgramId)
+    earlyAdopterBankSeed = earlyAdopterBankPDA["bumpSeed"]
 
-    extraAccountMetasSeed = setExtraAccountMetasPDA(transferHookId, Pubkey(mint_address))["bumpSeed"]
+    extraAccountMetasSeed = setExtraAccountMetasPDA(
+        transferHookId, Pubkey(mint_address))["bumpSeed"]
     # test user
     generateTestUser()
     # rust file
-    generateComptokenAddressFile(globalDataSeed, interestBankSeed, UBIBankSeed, mint_address, transferHookId)
+    generateComptokenAddressFile(globalDataSeed, interestBankSeed, UBIBankSeed,
+                                 earlyAdopterBankSeed, mint_address,
+                                 transferHookId)
     generateTransferHookAddressFile(
         comptokenProgramId, extraAccountMetasSeed, mint_address, interestBankAddress, UBIBankAddress
     )

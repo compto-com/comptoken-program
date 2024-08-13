@@ -15,38 +15,44 @@ export const COMPTOKEN_DECIMALS = 0; // MAGIC NUMBER: remain consistent with com
 
 // Read Cache Files
 import global_data_account from "../.cache/compto_global_data_account.json" assert { type: "json" };
-export const global_data_account_str = global_data_account["address"];
+const global_data_account_str = global_data_account["address"];
 
 import interest_bank_account from "../.cache/compto_interest_bank_account.json" assert { type: "json" };
-export const interest_bank_account_str = interest_bank_account["address"];
+const interest_bank_account_str = interest_bank_account["address"];
 
 import ubi_bank_account from "../.cache/compto_ubi_bank_account.json" assert { type: "json" };
-export const ubi_bank_account_str = ubi_bank_account["address"];
+const ubi_bank_account_str = ubi_bank_account["address"];
+
+import early_adopter_bank_account from "../.cache/compto_early_adopter_bank_account.json" assert { type: "json" };
+const early_adopter_bank_account_str = early_adopter_bank_account["address"];
 
 import comptoken_id from "../.cache/comptoken_mint.json" assert { type: "json" };
-export const comptoken_mint_str = comptoken_id["commandOutput"]["address"];
+const comptoken_mint_str = comptoken_id["commandOutput"]["address"];
 
 import compto_program_id from "../.cache/compto_program_id.json" assert { type: "json" };
-export const compto_program_id_str = compto_program_id["programId"];
+const compto_program_id_str = compto_program_id["programId"];
 
 import compto_transfer_hook_id from "../.cache/compto_transfer_hook_id.json" assert { type: "json" };
-export const compto_transfer_hook_id_str = compto_transfer_hook_id["programId"];
+const compto_transfer_hook_id_str = compto_transfer_hook_id["programId"];
 
 import compto_extra_account_metas_account from "../.cache/compto_extra_account_metas_account.json" assert { type: "json" };
-export const compto_extra_account_metas_account_str = compto_extra_account_metas_account["address"];
+const compto_extra_account_metas_account_str = compto_extra_account_metas_account["address"];
 
-import testuser_comptoken_wallet_ from "../.cache/test_user_account.json" assert { type: "json" };
-export const testuser_comptoken_wallet_num_arr = testuser_comptoken_wallet_;
+//import testuser_comptoken_wallet_ from "../.cache/test_user_account.json" assert { type: "json" };
+//const testuser_comptoken_wallet_num_arr = testuser_comptoken_wallet_;
 
 // Pubkeys
-export const testuser_comptoken_wallet_pubkey = Keypair.fromSecretKey(new Uint8Array(testuser_comptoken_wallet_num_arr)).publicKey;
+//export const testuser_comptoken_wallet_pubkey = Keypair.fromSecretKey(new Uint8Array(testuser_comptoken_wallet_num_arr)).publicKey;
+export const compto_program_id_pubkey = new PublicKey(bs58.decode(compto_program_id_str));
+export const comptoken_mint_pubkey = new PublicKey(bs58.decode(comptoken_mint_str));
 export const global_data_account_pubkey = new PublicKey(bs58.decode(global_data_account_str));
+
 export const interest_bank_account_pubkey = new PublicKey(bs58.decode(interest_bank_account_str));
 export const ubi_bank_account_pubkey = new PublicKey(bs58.decode(ubi_bank_account_str));
-export const comptoken_mint_pubkey = new PublicKey(bs58.decode(comptoken_mint_str));
-export const compto_program_id_pubkey = new PublicKey(bs58.decode(compto_program_id_str));
-export const compto_extra_account_metas_account_pubkey = new PublicKey(bs58.decode(compto_extra_account_metas_account_str));
+export const early_adopter_bank_account_pubkey = new PublicKey(bs58.decode(early_adopter_bank_account_str));
+
 export const compto_transfer_hook_id_pubkey = new PublicKey(bs58.decode(compto_transfer_hook_id_str));
+export const compto_extra_account_metas_account_pubkey = new PublicKey(bs58.decode(compto_extra_account_metas_account_str));
 
 // KeyPair
 let solana_id = JSON.parse(fs.readFileSync(os.homedir() + "/.config/solana/id.json").toString());

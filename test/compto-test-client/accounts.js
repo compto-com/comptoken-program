@@ -23,7 +23,6 @@ import {
     DEFAULT_DISTRIBUTION_TIME,
     global_data_account_pubkey,
     interest_bank_account_pubkey,
-    testuser_comptoken_wallet_pubkey,
     ubi_bank_account_pubkey,
 } from "./common.js";
 import { getOptionOr, numAsU16ToLEBytes, toOption } from "./utils.js";
@@ -497,9 +496,9 @@ export function get_default_unpaid_ubi_bank() {
  * @param {PublicKey} owner 
  * @returns {TokenAccount}
  */
-export function get_default_testuser_comptoken_wallet(owner) {
-    return get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, owner);
-}
+//export function get_default_testuser_comptoken_wallet(owner) {
+//    return get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, owner);
+//}
 
 /**
  * @param {PublicKey} address 

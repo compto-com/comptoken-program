@@ -8,6 +8,7 @@ import {
     compto_program_id_pubkey,
     compto_transfer_hook_id_pubkey,
     comptoken_mint_pubkey,
+    early_adopter_bank_account_pubkey,
     global_data_account_pubkey,
     interest_bank_account_pubkey,
     ubi_bank_account_pubkey,
@@ -111,10 +112,13 @@ export async function createInitializeComptokenProgramInstruction(context) {
             { pubkey: compto_transfer_hook_id_pubkey, isSigner: false, isWritable: false },
             // the transfer hook program initialization sets the extra account metas in this account
             { pubkey: compto_extra_account_metas_account_pubkey, isSigner: false, isWritable: true },
+            // the early adopter bank account
+            { pubkey: early_adopter_bank_account_pubkey, isSigner: false, isWritable: true },
         ],
         data: Buffer.from([
             Instruction.INITIALIZE_COMPTOKEN_PROGRAM,
             ...bigintAsU64ToBytes(await rent.minimumBalance(BigInt(GlobalData.LAYOUT.span))),
+            ...bigintAsU64ToBytes(await rent.minimumBalance(BigInt(COMPTOKEN_WALLET_SIZE))),
             ...bigintAsU64ToBytes(await rent.minimumBalance(BigInt(COMPTOKEN_WALLET_SIZE))),
             ...bigintAsU64ToBytes(await rent.minimumBalance(BigInt(COMPTOKEN_WALLET_SIZE))),
         ]),

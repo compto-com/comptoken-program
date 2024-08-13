@@ -17,3 +17,6 @@ pub const ANNOUNCEMENT_INTERVAL: i64 = 60 * 5;
 
 // MAGIC NUMBER: ensure this remains consistent with full_deploy_test.py
 pub const MINT_DECIMALS: u8 = 0;
+
+// the bytes a comptoken account takes up
+pub const COMPTOKEN_ACCOUNT_SPACE: u64 = 256; // TODO: get actual size

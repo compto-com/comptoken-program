@@ -5,8 +5,8 @@ use spl_token_2022::{
 };
 
 use crate::generated::{
-    COMPTOKEN_MINT_ADDRESS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS, COMPTO_INTEREST_BANK_ACCOUNT_SEEDS,
-    COMPTO_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
+    COMPTOKEN_MINT_ADDRESS, COMPTO_EARLY_ADOPTER_BANK_ACCOUNT_SEEDS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS,
+    COMPTO_INTEREST_BANK_ACCOUNT_SEEDS, COMPTO_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
 };
 
 pub use comptoken_utils::verify_accounts::VerifiedAccountInfo;
@@ -47,6 +47,18 @@ pub fn verify_ubi_bank_account<'a>(
     account: &AccountInfo<'a>, program_id: &Pubkey, needs_writable: bool,
 ) -> VerifiedAccountInfo<'a> {
     VerifiedAccountInfo::verify_pda_with_bump(account, program_id, COMPTO_UBI_BANK_ACCOUNT_SEEDS, false, needs_writable)
+}
+
+pub fn verify_early_adopter_bank_account<'a>(
+    account: &AccountInfo<'a>, program_id: &Pubkey, needs_writable: bool,
+) -> VerifiedAccountInfo<'a> {
+    VerifiedAccountInfo::verify_pda_with_bump(
+        account,
+        program_id,
+        COMPTO_EARLY_ADOPTER_BANK_ACCOUNT_SEEDS,
+        false,
+        needs_writable,
+    )
 }
 
 pub fn verify_user_comptoken_wallet_account<'a>(

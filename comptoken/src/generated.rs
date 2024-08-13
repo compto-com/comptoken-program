@@ -13,9 +13,12 @@ mod comptoken_generated {
     pub const COMPTO_GLOBAL_DATA_ACCOUNT_BUMP: u8 = 255;
     pub const COMPTO_INTEREST_BANK_ACCOUNT_BUMP: u8 = 255;
     pub const COMPTO_UBI_BANK_ACCOUNT_BUMP: u8 = 255;
+    pub const COMPTO_EARLY_ADOPTER_BANK_ACCOUNT_BUMP: u8 = 255;
 }
 pub use comptoken_generated::*;
 
 pub const COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS: &[&[u8]] = &[b"Global Data", &[COMPTO_GLOBAL_DATA_ACCOUNT_BUMP]];
 pub const COMPTO_INTEREST_BANK_ACCOUNT_SEEDS: &[&[u8]] = &[b"Interest Bank", &[COMPTO_INTEREST_BANK_ACCOUNT_BUMP]];
 pub const COMPTO_UBI_BANK_ACCOUNT_SEEDS: &[&[u8]] = &[b"UBI Bank", &[COMPTO_UBI_BANK_ACCOUNT_BUMP]];
+pub const COMPTO_EARLY_ADOPTER_BANK_ACCOUNT_SEEDS: &[&[u8]] =
+    &[b"Early Adopter Bank", &[COMPTO_EARLY_ADOPTER_BANK_ACCOUNT_BUMP]];

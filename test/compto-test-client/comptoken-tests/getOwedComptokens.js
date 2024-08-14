@@ -6,7 +6,7 @@ import {
     get_default_extra_account_metas_account,
     get_default_global_data,
     get_default_unpaid_interest_bank,
-    get_default_unpaid_ubi_bank,
+    get_default_unpaid_verified_human_ubi_bank,
     get_default_user_data_account,
     TokenAccount,
     UserDataAccount
@@ -41,7 +41,7 @@ async function test_getOwedComptokens() {
     let interest_bank = get_default_unpaid_interest_bank();
     interest_bank.data.amount = 146_000n;
 
-    let ubi_bank = get_default_unpaid_ubi_bank();
+    let ubi_bank = get_default_unpaid_verified_human_ubi_bank();
     ubi_bank.data.amount = 146_000n;
 
     const existing_accounts = [

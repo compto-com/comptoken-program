@@ -21,10 +21,10 @@ import {
     comptoken_mint_pubkey,
     DEFAULT_ANNOUNCE_TIME,
     DEFAULT_DISTRIBUTION_TIME,
-    early_adopter_bank_account_pubkey,
+    future_ubi_bank_account_pubkey,
     global_data_account_pubkey,
     interest_bank_account_pubkey,
-    ubi_bank_account_pubkey,
+    verified_human_ubi_bank_account_pubkey,
 } from "./common.js";
 import { getOptionOr, numAsU16ToLEBytes, toOption } from "./utils.js";
 
@@ -493,15 +493,15 @@ export function get_default_unpaid_interest_bank() {
 /**
  * @returns {TokenAccount}
  */
-export function get_default_unpaid_ubi_bank() {
-    return get_default_comptoken_wallet(ubi_bank_account_pubkey, global_data_account_pubkey);
+export function get_default_unpaid_verified_human_ubi_bank() {
+    return get_default_comptoken_wallet(verified_human_ubi_bank_account_pubkey, global_data_account_pubkey);
 }
 
 /**
  * @returns {TokenAccount}
  */
-export function get_default_unpaid_early_adopter_bank() {
-    return get_default_comptoken_wallet(early_adopter_bank_account_pubkey, global_data_account_pubkey);
+export function get_default_unpaid_future_ubi_bank() {
+    return get_default_comptoken_wallet(future_ubi_bank_account_pubkey, global_data_account_pubkey);
 }
 
 /**

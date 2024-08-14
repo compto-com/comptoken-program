@@ -2,9 +2,9 @@ import { Clock } from "solana-bankrun";
 import {
     get_default_comptoken_mint,
     get_default_global_data,
-    get_default_unpaid_early_adopter_bank,
+    get_default_unpaid_future_ubi_bank,
     get_default_unpaid_interest_bank,
-    get_default_unpaid_ubi_bank,
+    get_default_unpaid_verified_human_ubi_bank,
     GlobalDataAccount,
     MintAccount,
     TokenAccount
@@ -24,11 +24,11 @@ async function test_dailyDistributionEvent() {
     let original_global_data_account = get_default_global_data();
     original_global_data_account.data.dailyDistributionData.verifiedHumans = 1n;
     const original_unpaid_interest_bank = get_default_unpaid_interest_bank();
-    const original_unpaid_ubi_bank = get_default_unpaid_ubi_bank();
-    const original_early_adopter_bank = get_default_unpaid_early_adopter_bank();
+    const original_unpaid_verified_human_ubi_bank = get_default_unpaid_verified_human_ubi_bank();
+    const original_unpaid_future_ubi_bank = get_default_unpaid_future_ubi_bank();
 
     const existing_accounts = [
-        original_comptoken_mint, original_global_data_account, original_unpaid_interest_bank, original_unpaid_ubi_bank, original_early_adopter_bank,
+        original_comptoken_mint, original_global_data_account, original_unpaid_interest_bank, original_unpaid_verified_human_ubi_bank, original_unpaid_future_ubi_bank,
     ];
 
     // 216_000 is mostly arbitrary, but it should roughly correspond to a days worth of slots
@@ -82,11 +82,11 @@ async function test_dailyDistributionEvent() {
         const final_interest_bank_account = await get_account(context, original_unpaid_interest_bank.address, TokenAccount);
         Assert.assert(final_interest_bank_account.data.amount > original_unpaid_interest_bank.data.amount, "interest bank has increased");
 
-        const final_Ubi_bank_account = await get_account(context, original_unpaid_ubi_bank.address, TokenAccount);
-        Assert.assert(final_Ubi_bank_account.data.amount > original_unpaid_ubi_bank.data.amount, "UBI bank has increased");
+        const final_unpaid_verified_human_ubi_bank_account = await get_account(context, original_unpaid_verified_human_ubi_bank.address, TokenAccount);
+        Assert.assert(final_unpaid_verified_human_ubi_bank_account.data.amount > original_unpaid_verified_human_ubi_bank.data.amount, "Verified Human UBI bank has increased");
 
-        const final_early_adopter_bank_account = await get_account(context, original_early_adopter_bank.address, TokenAccount);
-        Assert.assert(final_early_adopter_bank_account.data.amount > original_early_adopter_bank.data.amount, "Early Adopter bank has increased");
+        const final_unpaid_future_ubi_bank_account = await get_account(context, original_unpaid_future_ubi_bank.address, TokenAccount);
+        Assert.assert(final_unpaid_future_ubi_bank_account.data.amount > original_unpaid_future_ubi_bank.data.amount, "Future UBI bank has increased");
     });
 }
 

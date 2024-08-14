@@ -25,8 +25,8 @@ COMPTOKEN_MINT_JSON = CACHE_PATH / "comptoken_mint.json"
 TEST_USER_ACCOUNT_JSON = CACHE_PATH / "test_user_account.json"
 COMPTO_GLOBAL_DATA_ACCOUNT_JSON = CACHE_PATH / "compto_global_data_account.json"
 COMPTO_INTEREST_BANK_ACCOUNT_JSON = CACHE_PATH / "compto_interest_bank_account.json"
-COMPTO_UBI_BANK_ACCOUNT_JSON = CACHE_PATH / "compto_ubi_bank_account.json"
-COMPTO_EARLY_ADOPTER_BANK_ACCOUNT_JSON = CACHE_PATH / "compto_early_adopter_bank_account.json"
+COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_JSON = CACHE_PATH / "compto_verified_human_ubi_bank_account.json"
+COMPTO_FUTURE_UBI_BANK_ACCOUNT_JSON = CACHE_PATH / "compto_future_ubi_bank_account.json"
 EXTRA_ACCOUNT_METAS_ACCOUNT_JSON = CACHE_PATH / "compto_extra_account_metas_account.json"
 COMPTO_MD5_JSON = CACHE_PATH / "compto_md5sum.json"
 
@@ -114,8 +114,8 @@ def write(path: Path, data: str):
         file.write(data)
 
 def generateComptokenAddressFile(
-    globalDataSeed: int, interestBankSeed: int, UBIBankSeed: int, earlyAdopterBankSeed: int, mint_address: str,
-    transfer_hook_address: str
+    globalDataSeed: int, interestBankSeed: int, verifiedHumanUBIBankSeed: int, futureUBIBankSeed: int,
+    mint_address: str, transfer_hook_address: str
 ):
     print(f"Generating {COMPTO_GENERATED_RS_FILE}...")
     file_data = f"""\
@@ -139,8 +139,8 @@ pub const TRANSFER_HOOK_ID: Pubkey = pubkey!("{transfer_hook_address}");
 
 pub const COMPTO_GLOBAL_DATA_ACCOUNT_BUMP: u8 = {globalDataSeed};
 pub const COMPTO_INTEREST_BANK_ACCOUNT_BUMP: u8 = {interestBankSeed};
-pub const COMPTO_UBI_BANK_ACCOUNT_BUMP: u8 = {UBIBankSeed};
-pub const COMPTO_EARLY_ADOPTER_BANK_ACCOUNT_BUMP: u8 = {earlyAdopterBankSeed};\
+pub const COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_BUMP: u8 = {verifiedHumanUBIBankSeed};
+pub const COMPTO_FUTURE_UBI_BANK_ACCOUNT_BUMP: u8 = {futureUBIBankSeed};\
 """
     write(COMPTO_GENERATED_RS_FILE, file_data)
 
@@ -183,14 +183,14 @@ def setInterestBankPDA(programId: str) -> PDA:
     write(COMPTO_INTEREST_BANK_ACCOUNT_JSON, json.dumps(pda))
     return pda
 
-def setUBIBankPDA(programId: str) -> PDA:
-    pda = PDA(programId, "UBI Bank")
-    write(COMPTO_UBI_BANK_ACCOUNT_JSON, json.dumps(pda))
+def setVerifiedHumanUBIBankPDA(programId: str) -> PDA:
+    pda = PDA(programId, "Verified Human UBI Bank")
+    write(COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_JSON, json.dumps(pda))
     return pda
 
-def setEarlyAdopterBankPDA(programId: str) -> PDA:
-    pda = PDA(programId, "Early Adopter Bank")
-    write(COMPTO_EARLY_ADOPTER_BANK_ACCOUNT_JSON, json.dumps(pda))
+def setFutureUBIBankPDA(programId: str) -> PDA:
+    pda = PDA(programId, "Future UBI Bank")
+    write(COMPTO_FUTURE_UBI_BANK_ACCOUNT_JSON, json.dumps(pda))
     return pda
 
 def setExtraAccountMetasPDA(programId: str, mint_pubkey: Pubkey) -> PDA:

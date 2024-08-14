@@ -22,11 +22,12 @@ impl GlobalData {
     }
 
     pub fn daily_distribution_event(
-        &mut self, mint: &Mint, ubi_bank: &Account, early_adopter_bank: &Account,
+        &mut self, mint: &Mint, unpaid_verified_human_ubi_bank: &Account, unpaid_future_ubi_bank: &Account,
         slot_hash_account: &VerifiedAccountInfo,
     ) -> DailyDistributionValues {
         self.valid_blockhashes.update(slot_hash_account);
-        self.daily_distribution_data.daily_distribution(mint, ubi_bank, early_adopter_bank)
+        self.daily_distribution_data
+            .daily_distribution(mint, unpaid_verified_human_ubi_bank, unpaid_future_ubi_bank)
     }
 }
 

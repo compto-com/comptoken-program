@@ -44,8 +44,8 @@ const GLOBAL_DATA_ACCOUNT_SPACE: u64 = std::mem::size_of::<GlobalData>() as u64;
 
 mod generated;
 use generated::{
-    COMPTOKEN_MINT_ADDRESS, COMPTO_EARLY_ADOPTER_BANK_ACCOUNT_SEEDS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS,
-    COMPTO_INTEREST_BANK_ACCOUNT_SEEDS, COMPTO_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
+    COMPTOKEN_MINT_ADDRESS, COMPTO_FUTURE_UBI_BANK_ACCOUNT_SEEDS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS,
+    COMPTO_INTEREST_BANK_ACCOUNT_SEEDS, COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
 };
 
 // program entrypoint's implementation
@@ -187,14 +187,14 @@ pub fn initialize_comptoken_program(
     //      [s, w] Payer (probably COMPTO's account)
     //      [w] Global Data Account (also mint authority)
     //      [w] Comptoken Interest Bank
-    //      [w] Comptoken UBI Bank
+    //      [w] Comptoken Verified Human UBI Bank
     //      [] Comptoken Mint
     //      [] Solana Program
     //      [] Solana Token 2022 Program
     //      [] Solana SlotHashes Sysvar
     //      [] Transfer Hook Program
     //      [w] Extra Account Metas Account
-    //      [w] Comptoken Early Adopter Bank
+    //      [w] Comptoken Future UBI Bank
 
     msg!("instruction_data: {:?}", instruction_data);
 
@@ -202,19 +202,20 @@ pub fn initialize_comptoken_program(
     let payer_account = next_account_info(account_info_iter)?;
     let global_data_account = next_account_info(account_info_iter)?;
     let unpaid_interest_bank = next_account_info(account_info_iter)?;
-    let unpaid_ubi_bank = next_account_info(account_info_iter)?;
+    let unpaid_verified_human_ubi_bank = next_account_info(account_info_iter)?;
     let comptoken_mint = next_account_info(account_info_iter)?;
     let solana_program = next_account_info(account_info_iter)?;
     let _token_2022_program = next_account_info(account_info_iter)?;
     let slot_hashes_account = next_account_info(account_info_iter)?;
     let transfer_hook_program = next_account_info(account_info_iter)?;
     let extra_account_metas_account = next_account_info(account_info_iter)?;
-    let unpaid_early_adopter_bank = next_account_info(account_info_iter)?;
+    let unpaid_future_ubi_bank = next_account_info(account_info_iter)?;
 
     let payer_account = verify_payer_account(payer_account);
     let global_data_account = verify_global_data_account(global_data_account, program_id, true);
     let unpaid_interest_bank = verify_interest_bank_account(unpaid_interest_bank, program_id, true);
-    let unpaid_ubi_bank = verify_ubi_bank_account(unpaid_ubi_bank, program_id, true);
+    let unpaid_verified_human_ubi_bank =
+        verify_verified_human_ubi_bank_account(unpaid_verified_human_ubi_bank, program_id, true);
     let comptoken_mint = verify_comptoken_mint(comptoken_mint, false);
     let solana_program =
         VerifiedAccountInfo::verify_specific_address(solana_program, &solana_program::system_program::ID, false, false);
@@ -222,17 +223,17 @@ pub fn initialize_comptoken_program(
     let transfer_hook_program = verify_transfer_hook_program(transfer_hook_program);
     let extra_account_metas_account =
         verify_extra_account_metas_account(extra_account_metas_account, &comptoken_mint, &transfer_hook_program, true);
-    let unpaid_early_adopter_bank = verify_early_adopter_bank_account(unpaid_early_adopter_bank, program_id, true);
+    let unpaid_future_ubi_bank = verify_future_ubi_bank_account(unpaid_future_ubi_bank, program_id, true);
 
     let first_8_bytes: [u8; 8] = instruction_data[0..8].try_into().unwrap();
     let lamports_global_data = u64::from_le_bytes(first_8_bytes);
     let lamports_interest_bank = u64::from_le_bytes(instruction_data[8..16].try_into().unwrap());
-    let lamports_ubi_bank = u64::from_le_bytes(instruction_data[16..24].try_into().unwrap());
-    let lamports_early_adopter_bank = u64::from_le_bytes(instruction_data[24..32].try_into().unwrap());
+    let lamports_verified_human_ubi_bank = u64::from_le_bytes(instruction_data[16..24].try_into().unwrap());
+    let lamports_future_ubi_bank = u64::from_le_bytes(instruction_data[24..32].try_into().unwrap());
     msg!("Lamports global data: {:?}", lamports_global_data);
     msg!("Lamports interest bank: {:?}", lamports_interest_bank);
-    msg!("Lamports ubi bank: {:?}", lamports_ubi_bank);
-    msg!("Lamports early adopter bank: {:?}", lamports_early_adopter_bank);
+    msg!("Lamports verified human ubi bank: {:?}", lamports_verified_human_ubi_bank);
+    msg!("Lamports future ubi bank: {:?}", lamports_future_ubi_bank);
 
     create_pda(
         &payer_account,
@@ -257,26 +258,27 @@ pub fn initialize_comptoken_program(
 
     create_pda(
         &payer_account,
-        &unpaid_ubi_bank,
+        &unpaid_verified_human_ubi_bank,
         lamports_interest_bank,
         COMPTOKEN_ACCOUNT_SPACE,
         &spl_token_2022::ID,
-        &[COMPTO_UBI_BANK_ACCOUNT_SEEDS],
+        &[COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_SEEDS],
     )?;
-    msg!("created ubi bank account");
-    init_comptoken_account(&unpaid_ubi_bank, &global_data_account, &[], &comptoken_mint)?;
-    msg!("initialized ubi bank account");
+    msg!("created verified human ubi bank account");
+    init_comptoken_account(&unpaid_verified_human_ubi_bank, &global_data_account, &[], &comptoken_mint)?;
+    msg!("initialized verified human ubi bank account");
 
     create_pda(
         &payer_account,
-        &unpaid_early_adopter_bank,
-        lamports_early_adopter_bank,
+        &unpaid_future_ubi_bank,
+        lamports_future_ubi_bank,
         COMPTOKEN_ACCOUNT_SPACE,
         &spl_token_2022::ID,
-        &[COMPTO_EARLY_ADOPTER_BANK_ACCOUNT_SEEDS],
+        &[COMPTO_FUTURE_UBI_BANK_ACCOUNT_SEEDS],
     )?;
-    msg!("created early adopter bank account");
-    init_comptoken_account(&unpaid_early_adopter_bank, &global_data_account, &[], &comptoken_mint)?;
+    msg!("created future ubi bank account");
+    init_comptoken_account(&unpaid_future_ubi_bank, &global_data_account, &[], &comptoken_mint)?;
+    msg!("initialized future ubi bank account");
 
     let global_data: &mut GlobalData = (&global_data_account).into();
     global_data.initialize(&slot_hashes_account);
@@ -364,40 +366,41 @@ pub fn daily_distribution_event(
     //      [] Comptoken Mint
     //      [w] Comptoken Global Data (also mint authority)
     //      [w] Comptoken Interest Bank
-    //      [w] Comptoken UBI Bank
+    //      [w] Comptoken Verified Human UBI Bank
     //      [] Solana Token Program
     //      [] Solana SlotHashes Sysvar
-    //      [w] Comptoken Early Adopter Bank
+    //      [w] Comptoken Future UBI Bank
 
     let account_info_iter = &mut accounts.iter();
     let comptoken_mint_account = next_account_info(account_info_iter)?;
     let global_data_account = next_account_info(account_info_iter)?;
     let unpaid_interest_bank = next_account_info(account_info_iter)?;
-    let unpaid_ubi_bank = next_account_info(account_info_iter)?;
+    let unpaid_verified_human_ubi_bank = next_account_info(account_info_iter)?;
     let _solana_token_account = next_account_info(account_info_iter)?;
     let slot_hashes_account = next_account_info(account_info_iter)?;
-    let unpaid_early_adopter_bank = next_account_info(account_info_iter)?;
+    let unpaid_future_ubi_bank = next_account_info(account_info_iter)?;
 
     let comptoken_mint_account = verify_comptoken_mint(comptoken_mint_account, false);
     let global_data_account = verify_global_data_account(global_data_account, program_id, true);
     let unpaid_interest_bank = verify_interest_bank_account(unpaid_interest_bank, program_id, true);
-    let unpaid_ubi_bank = verify_ubi_bank_account(unpaid_ubi_bank, program_id, true);
+    let unpaid_verified_human_ubi_bank =
+        verify_verified_human_ubi_bank_account(unpaid_verified_human_ubi_bank, program_id, true);
     let slot_hashes_account = verify_slothashes_account(slot_hashes_account);
-    let unpaid_early_adopter_bank = verify_early_adopter_bank_account(unpaid_early_adopter_bank, program_id, true);
+    let unpaid_future_ubi_bank = verify_future_ubi_bank_account(unpaid_future_ubi_bank, program_id, true);
 
     let interest_daily_distribution;
-    let ubi_daily_distribution;
-    let early_adopter_daily_distribution;
+    let verified_human_ubi_daily_distribution;
+    let future_ubi_daily_distribution;
     // scope to prevent reborrowing issues
     {
         let mut global_data_account_data = global_data_account.try_borrow_mut_data().unwrap();
         let global_data: &mut GlobalData = global_data_account_data.as_mut().into();
         let mint_data = comptoken_mint_account.try_borrow_data().unwrap();
         let comptoken_mint = StateWithExtensions::<Mint>::unpack(&mint_data).unwrap();
-        let ubi_data = unpaid_ubi_bank.try_borrow_data().unwrap();
-        let ubi_bank = StateWithExtensions::<Account>::unpack(&ubi_data).unwrap();
-        let early_adopter_data = unpaid_early_adopter_bank.try_borrow_data().unwrap();
-        let early_adopter_bank = StateWithExtensions::<Account>::unpack(&early_adopter_data).unwrap();
+        let verified_human_ubi_data = unpaid_verified_human_ubi_bank.try_borrow_data().unwrap();
+        let verified_human_ubi_bank = StateWithExtensions::<Account>::unpack(&verified_human_ubi_data).unwrap();
+        let future_ubi_data = unpaid_future_ubi_bank.try_borrow_data().unwrap();
+        let future_ubi_bank = StateWithExtensions::<Account>::unpack(&future_ubi_data).unwrap();
 
         let current_time = get_current_time();
         assert!(
@@ -407,12 +410,12 @@ pub fn daily_distribution_event(
 
         DailyDistributionValues {
             interest_distribution: interest_daily_distribution,
-            ubi_for_verified_humans: ubi_daily_distribution,
-            future_ubi_distribution: early_adopter_daily_distribution,
+            ubi_for_verified_humans: verified_human_ubi_daily_distribution,
+            future_ubi_distribution: future_ubi_daily_distribution,
         } = global_data.daily_distribution_event(
             &comptoken_mint.base,
-            &ubi_bank.base,
-            &early_adopter_bank.base,
+            &verified_human_ubi_bank.base,
+            &future_ubi_bank.base,
             &slot_hashes_account,
         );
     }
@@ -425,15 +428,15 @@ pub fn daily_distribution_event(
     )?;
     mint(
         &global_data_account,
-        &unpaid_ubi_bank,
-        ubi_daily_distribution,
-        &[&comptoken_mint_account, &global_data_account, &unpaid_ubi_bank],
+        &unpaid_verified_human_ubi_bank,
+        verified_human_ubi_daily_distribution,
+        &[&comptoken_mint_account, &global_data_account, &unpaid_verified_human_ubi_bank],
     )?;
     mint(
         &global_data_account,
-        &unpaid_early_adopter_bank,
-        early_adopter_daily_distribution,
-        &[&comptoken_mint_account, &global_data_account, &unpaid_early_adopter_bank],
+        &unpaid_future_ubi_bank,
+        future_ubi_daily_distribution,
+        &[&comptoken_mint_account, &global_data_account, &unpaid_future_ubi_bank],
     )
 }
 
@@ -499,7 +502,7 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
     let comptoken_mint_account = verify_comptoken_mint(comptoken_mint_account, false);
     let global_data_account = verify_global_data_account(global_data_account, program_id, false);
     let unpaid_interest_bank = verify_interest_bank_account(unpaid_interest_bank, program_id, true);
-    let unpaid_ubi_bank = verify_ubi_bank_account(unpaid_ubi_bank, program_id, true);
+    let unpaid_ubi_bank = verify_verified_human_ubi_bank_account(unpaid_ubi_bank, program_id, true);
     let transfer_hook_program = verify_transfer_hook_program(transfer_hook_program);
     let extra_account_metas_account = verify_extra_account_metas_account(
         extra_account_metas_account,

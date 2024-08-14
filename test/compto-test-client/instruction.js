@@ -8,10 +8,10 @@ import {
     compto_program_id_pubkey,
     compto_transfer_hook_id_pubkey,
     comptoken_mint_pubkey,
-    early_adopter_bank_account_pubkey,
+    future_ubi_bank_account_pubkey,
     global_data_account_pubkey,
     interest_bank_account_pubkey,
-    ubi_bank_account_pubkey,
+    verified_human_ubi_bank_account_pubkey,
 } from "./common.js";
 import { ComptokenProof } from "./comptoken_proof.js";
 import { bigintAsU64ToBytes } from "./utils.js";
@@ -98,8 +98,8 @@ export async function createInitializeComptokenProgramInstruction(context) {
             { pubkey: global_data_account_pubkey, isSigner: false, isWritable: true },
             // the address of the interest bank account to be created
             { pubkey: interest_bank_account_pubkey, isSigner: false, isWritable: true },
-            // the address of the ubi bank account to be created
-            { pubkey: ubi_bank_account_pubkey, isSigner: false, isWritable: true },
+            // the address of the verified human ubi bank account to be created
+            { pubkey: verified_human_ubi_bank_account_pubkey, isSigner: false, isWritable: true },
             // the comptoken mint account
             { pubkey: comptoken_mint_pubkey, isSigner: false, isWritable: false },
             // needed because compto program interacts with the system program to create the account
@@ -112,8 +112,8 @@ export async function createInitializeComptokenProgramInstruction(context) {
             { pubkey: compto_transfer_hook_id_pubkey, isSigner: false, isWritable: false },
             // the transfer hook program initialization sets the extra account metas in this account
             { pubkey: compto_extra_account_metas_account_pubkey, isSigner: false, isWritable: true },
-            // the early adopter bank account
-            { pubkey: early_adopter_bank_account_pubkey, isSigner: false, isWritable: true },
+            // the address of the future ubi bank account to be created
+            { pubkey: future_ubi_bank_account_pubkey, isSigner: false, isWritable: true },
         ],
         data: Buffer.from([
             Instruction.INITIALIZE_COMPTOKEN_PROGRAM,
@@ -171,14 +171,14 @@ export async function createDailyDistributionEventInstruction() {
             { pubkey: global_data_account_pubkey, isSigner: false, isWritable: true },
             // comptoken token account used as bank for unpaid interest
             { pubkey: interest_bank_account_pubkey, isSigner: false, isWritable: true },
-            // comptoken token account used as bank for unpaid Universal Basic Income
-            { pubkey: ubi_bank_account_pubkey, isSigner: false, isWritable: true },
+            // comptoken token account used as bank for unpaid Universal Basic Income to verified humans
+            { pubkey: verified_human_ubi_bank_account_pubkey, isSigner: false, isWritable: true },
             // the token program that will mint the tokens when instructed by the mint authority
             { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
             // program will pull a recent hash from slothashes sysvar if a new valid blockhash is needed.  
             { pubkey: SYSVAR_SLOT_HASHES_PUBKEY, isSigner: false, isWritable: false },
-            // comptoken token account used as bank for early adopter ubi payouts
-            { pubkey: early_adopter_bank_account_pubkey, isSigner: false, isWritable: true },
+            // comptoken token account used as bank for future ubi payouts
+            { pubkey: future_ubi_bank_account_pubkey, isSigner: false, isWritable: true },
         ],
         data: Buffer.from([Instruction.DAILY_DISTRIBUTION_EVENT]),
     });
@@ -221,7 +221,7 @@ export async function createGetOwedComptokensInstruction(user_wallet_address, us
             //  Comptoken Interest Bank stores comptokens owed for interest
             { pubkey: interest_bank_account_pubkey, isSigner: false, isWritable: true },
             //  Comptoken UBI Bank stores comptokens owed for UBI
-            { pubkey: ubi_bank_account_pubkey, isSigner: false, isWritable: true },
+            { pubkey: verified_human_ubi_bank_account_pubkey, isSigner: false, isWritable: true },
             //  Token 2022 Program moves the tokens
             { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
             //  stores account metas to add to transfer instructions
@@ -233,7 +233,7 @@ export async function createGetOwedComptokensInstruction(user_wallet_address, us
             //  needed by the transfer hook program (doesn't really exist)
             { pubkey: PublicKey.findProgramAddressSync([interest_bank_account_pubkey.toBytes()], compto_program_id_pubkey)[0], isSigner: false, isWritable: false },
             //  needed by the transfer hook program (doesn't really exist)
-            { pubkey: PublicKey.findProgramAddressSync([ubi_bank_account_pubkey.toBytes()], compto_program_id_pubkey)[0], isSigner: false, isWritable: false },
+            { pubkey: PublicKey.findProgramAddressSync([verified_human_ubi_bank_account_pubkey.toBytes()], compto_program_id_pubkey)[0], isSigner: false, isWritable: false },
             // the owner of the comptoken wallet
             { pubkey: user_wallet_address, isSigner: true, isWritable: false },
         ],

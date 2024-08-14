@@ -4,7 +4,6 @@ from argparse import ArgumentParser, Namespace
 
 from common import *
 
-
 def generateFiles():
     print("generating files...")
     # create cache if it doesn't exist
@@ -24,22 +23,21 @@ def generateFiles():
     interestBankPDA = setInterestBankPDA(comptokenProgramId)
     interestBankSeed = interestBankPDA["bumpSeed"]
     interestBankAddress = interestBankPDA["address"]
-    UBIBankPDA = setUBIBankPDA(comptokenProgramId)
-    UBIBankSeed = UBIBankPDA["bumpSeed"]
-    UBIBankAddress = UBIBankPDA["address"]
-    earlyAdopterBankPDA = setEarlyAdopterBankPDA(comptokenProgramId)
-    earlyAdopterBankSeed = earlyAdopterBankPDA["bumpSeed"]
+    verifiedHumanUBIBankPDA = setVerifiedHumanUBIBankPDA(comptokenProgramId)
+    verifiedHumanUBIBankSeed = verifiedHumanUBIBankPDA["bumpSeed"]
+    verifiedHumanUBIBankAddress = verifiedHumanUBIBankPDA["address"]
+    futureUBIBankPDA = setFutureUBIBankPDA(comptokenProgramId)
+    futureUBIBankSeed = futureUBIBankPDA["bumpSeed"]
 
-    extraAccountMetasSeed = setExtraAccountMetasPDA(
-        transferHookId, Pubkey(mint_address))["bumpSeed"]
+    extraAccountMetasSeed = setExtraAccountMetasPDA(transferHookId, Pubkey(mint_address))["bumpSeed"]
     # test user
     generateTestUser()
     # rust file
-    generateComptokenAddressFile(globalDataSeed, interestBankSeed, UBIBankSeed,
-                                 earlyAdopterBankSeed, mint_address,
-                                 transferHookId)
+    generateComptokenAddressFile(
+        globalDataSeed, interestBankSeed, verifiedHumanUBIBankSeed, futureUBIBankSeed, mint_address, transferHookId
+    )
     generateTransferHookAddressFile(
-        comptokenProgramId, extraAccountMetasSeed, mint_address, interestBankAddress, UBIBankAddress
+        comptokenProgramId, extraAccountMetasSeed, mint_address, interestBankAddress, verifiedHumanUBIBankAddress
     )
     print("done generating files")
 

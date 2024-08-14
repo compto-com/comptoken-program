@@ -60,14 +60,14 @@ impl DailyDistributionData {
             ubi_for_verified_humans: (total_ubi_distribution as f64 * verified_human_ubi_ratio) as u64,
             future_ubi_distribution: (total_ubi_distribution as f64 * (1. - verified_human_ubi_ratio)) as u64,
         };
-        let interest = distribution_values.interest_distribution as f64 / mint.supply as f64;
-        msg!("Interest: {}", interest);
+        let days_interest_rate = distribution_values.interest_distribution as f64 / mint.supply as f64;
+        msg!("Interest: {}", days_interest_rate);
         // pay out interest for comptoken program owned banks
         // interest for the ubi for verified humans is calculated when the owed comptokens are payed out
 
-        let early_adopter_interest = (future_ubi_bank.amount as f64 * interest).round_ties_even() as u64;
-        distribution_values.interest_distribution -= early_adopter_interest;
-        distribution_values.future_ubi_distribution += early_adopter_interest;
+        let future_ubi_interest = (future_ubi_bank.amount as f64 * days_interest_rate).round_ties_even() as u64;
+        distribution_values.interest_distribution -= future_ubi_interest;
+        distribution_values.future_ubi_distribution += future_ubi_interest;
 
         let ubi = if self.verified_humans > 0 {
             distribution_values.ubi_for_verified_humans / self.verified_humans
@@ -76,7 +76,7 @@ impl DailyDistributionData {
         };
         msg!("UBI: {}", ubi);
 
-        self.insert(interest, ubi);
+        self.insert(days_interest_rate, ubi);
         self.yesterday_supply = mint.supply + distribution_values.total_distributed();
 
         distribution_values
@@ -242,8 +242,8 @@ mod test {
             ..Default::default()
         };
         let ubi_bank = Account { amount: 0, owner: Pubkey::new_unique(), ..Default::default() };
-        let early_adopter_bank = Account { amount: 0, owner: Pubkey::new_unique(), ..Default::default() };
-        let values = data.daily_distribution(&mint, &ubi_bank, &early_adopter_bank);
+        let future_ubi_bank = Account { amount: 0, owner: Pubkey::new_unique(), ..Default::default() };
+        let values = data.daily_distribution(&mint, &ubi_bank, &future_ubi_bank);
 
         assert_eq!(values.interest_distribution, 73_000);
         assert_eq!(values.ubi_for_verified_humans, 0);

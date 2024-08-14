@@ -20,11 +20,11 @@ const global_data_account_str = global_data_account["address"];
 import interest_bank_account from "../.cache/compto_interest_bank_account.json" assert { type: "json" };
 const interest_bank_account_str = interest_bank_account["address"];
 
-import ubi_bank_account from "../.cache/compto_ubi_bank_account.json" assert { type: "json" };
-const ubi_bank_account_str = ubi_bank_account["address"];
+import verified_humanubi_bank_account from "../.cache/compto_verified_human_ubi_bank_account.json" assert { type: "json" };
+const verified_human_ubi_bank_account_str = verified_humanubi_bank_account["address"];
 
-import early_adopter_bank_account from "../.cache/compto_early_adopter_bank_account.json" assert { type: "json" };
-const early_adopter_bank_account_str = early_adopter_bank_account["address"];
+import future_ubi_bank_account from "../.cache/compto_future_ubi_bank_account.json" assert { type: "json" };
+const future_ubi_bank_account_str = future_ubi_bank_account["address"];
 
 import comptoken_id from "../.cache/comptoken_mint.json" assert { type: "json" };
 const comptoken_mint_str = comptoken_id["commandOutput"]["address"];
@@ -48,8 +48,8 @@ export const comptoken_mint_pubkey = new PublicKey(bs58.decode(comptoken_mint_st
 export const global_data_account_pubkey = new PublicKey(bs58.decode(global_data_account_str));
 
 export const interest_bank_account_pubkey = new PublicKey(bs58.decode(interest_bank_account_str));
-export const ubi_bank_account_pubkey = new PublicKey(bs58.decode(ubi_bank_account_str));
-export const early_adopter_bank_account_pubkey = new PublicKey(bs58.decode(early_adopter_bank_account_str));
+export const verified_human_ubi_bank_account_pubkey = new PublicKey(bs58.decode(verified_human_ubi_bank_account_str));
+export const future_ubi_bank_account_pubkey = new PublicKey(bs58.decode(future_ubi_bank_account_str));
 
 export const compto_transfer_hook_id_pubkey = new PublicKey(bs58.decode(compto_transfer_hook_id_str));
 export const compto_extra_account_metas_account_pubkey = new PublicKey(bs58.decode(compto_extra_account_metas_account_str));

@@ -63,11 +63,9 @@ impl DailyDistributionData {
         let interest = distribution_values.interest_distribution as f64 / mint.supply as f64;
         msg!("Interest: {}", interest);
         // pay out interest for comptoken program owned banks
-        let verified_human_ubi_bank_interest = (verified_human_ubi_bank.amount as f64 * interest).trunc() as u64;
-        distribution_values.interest_distribution -= verified_human_ubi_bank_interest;
-        distribution_values.ubi_for_verified_humans += verified_human_ubi_bank_interest;
+        // interest for the ubi for verified humans is calculated when the owed comptokens are payed out
 
-        let early_adopter_interest = (future_ubi_bank.amount as f64 * interest).trunc() as u64;
+        let early_adopter_interest = (future_ubi_bank.amount as f64 * interest).round_ties_even() as u64;
         distribution_values.interest_distribution -= early_adopter_interest;
         distribution_values.future_ubi_distribution += early_adopter_interest;
 
@@ -109,24 +107,25 @@ impl DailyDistributionData {
             / COMPTOKEN_DISTRIBUTION_MULTIPLIER
     }
 
-    pub fn apply_n_interests(&self, n: usize, initial_money: u64) -> u64 {
+    pub fn get_interest_for_n_days(&self, n: usize, initial_money: u64) -> u64 {
         self.into_iter().take(n).fold(initial_money as f64, |balance, (interest_rate, _)| {
             (balance * (1. + interest_rate)).round_ties_even()
         }) as u64
+            - initial_money
     }
 
-    pub fn get_n_ubis(&self, n: usize) -> u64 {
+    pub fn get_ubi_for_n_days(&self, n: usize) -> u64 {
         self.into_iter().take(n).fold(0, |ubi, (_, days_ubi)| ubi + days_ubi)
     }
 
-    pub fn get_n_distributions(&self, n: usize, initial_money: u64) -> (u64, u64) {
+    pub fn get_distributions_for_n_days(&self, n: usize, initial_money: u64) -> (u64, u64) {
         let distributions =
             self.into_iter()
                 .take(n)
                 .fold((initial_money as f64, 0), |(balance, ubi), (interest_rate, days_ubi)| {
-                    ((balance * (1. + interest_rate)).round_ties_even(), ubi + days_ubi)
+                    (((balance + days_ubi as f64) * (1. + interest_rate)).round_ties_even(), ubi + days_ubi)
                 });
-        (distributions.0 as u64, distributions.1)
+        (distributions.0 as u64 - distributions.1 - initial_money, distributions.1)
     }
 
     fn insert(&mut self, interest: f64, ubi: u64) {

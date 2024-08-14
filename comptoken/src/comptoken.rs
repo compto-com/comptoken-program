@@ -527,6 +527,7 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
         let user_comptoken_wallet = StateWithExtensions::<Account>::unpack(user_wallet_data.as_ref()).unwrap();
         let global_data: &mut GlobalData = (&global_data_account).into();
         let user_data: &mut UserData = (&user_data_account).into();
+        is_verified_human = user_data.is_verified_human;
 
         // get days since last update
         let current_day = normalize_time(get_current_time());
@@ -534,16 +535,20 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
 
         msg!("total before interest: {}", user_comptoken_wallet.base.amount);
         // get interest
-        interest = global_data
-            .daily_distribution_data
-            .apply_n_interests(days_since_last_update as usize, user_comptoken_wallet.base.amount)
-            - user_comptoken_wallet.base.amount;
+        if is_verified_human {
+            (interest, ubi) = global_data
+                .daily_distribution_data
+                .get_distributions_for_n_days(days_since_last_update as usize, user_comptoken_wallet.base.amount);
+        } else {
+            interest = global_data
+                .daily_distribution_data
+                .get_interest_for_n_days(days_since_last_update as usize, user_comptoken_wallet.base.amount);
+            ubi = 0;
+        }
 
         msg!("Interest: {}", interest);
+        msg!("ubi: {}", ubi);
         user_data.last_interest_payout_date = current_day;
-        is_verified_human = user_data.is_verified_human;
-
-        ubi = global_data.daily_distribution_data.get_n_ubis(days_since_last_update as usize);
     }
 
     transfer(
@@ -563,7 +568,6 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
 
     // get ubi if verified
     if is_verified_human {
-        msg!("ubi: {}", ubi);
         transfer(
             &unpaid_ubi_bank,
             &user_comptoken_wallet_account,
@@ -578,8 +582,6 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
             ],
             ubi,
         )?;
-    } else {
-        msg!("ubi: 0");
     }
 
     Ok(())

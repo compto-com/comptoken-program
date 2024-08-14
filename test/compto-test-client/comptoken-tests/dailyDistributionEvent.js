@@ -20,7 +20,7 @@ import { createDailyDistributionEventInstruction } from "../instruction.js";
 
 async function test_dailyDistributionEvent() {
     let original_comptoken_mint = get_default_comptoken_mint();
-    original_comptoken_mint.data.supply = 100n;
+    original_comptoken_mint.data.supply = 10_000n;
     let original_global_data_account = get_default_global_data();
     original_global_data_account.data.dailyDistributionData.verifiedHumans = 1n;
     const original_unpaid_interest_bank = get_default_unpaid_interest_bank();

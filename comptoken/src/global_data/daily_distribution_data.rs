@@ -1,3 +1,5 @@
+use std::future;
+
 use spl_token_2022::{
     solana_program::msg,
     state::{Account, Mint},
@@ -27,7 +29,7 @@ impl DailyDistributionData {
     }
 
     pub(super) fn daily_distribution(
-        &mut self, mint: &Mint, ubi_bank: &Account, early_adopter_bank: &Account,
+        &mut self, mint: &Mint, verified_human_ubi_bank: &Account, future_ubi_bank: &Account,
     ) -> DailyDistributionValues {
         // calculate interest/high water mark
         self.last_daily_distribution_time = normalize_time(get_current_time());
@@ -37,7 +39,7 @@ impl DailyDistributionData {
             self.insert(0., 0);
             return DailyDistributionValues {
                 interest_distribution: 0,
-                ubi_distribution: 0,
+                ubi_for_verified_humans: 0,
                 future_ubi_distribution: 0,
             };
         }
@@ -46,26 +48,34 @@ impl DailyDistributionData {
         self.high_water_mark += high_water_mark_increase;
 
         let total_daily_distribution = high_water_mark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER;
-        let total_ubi_distributed = total_daily_distribution / 2;
-        let verified_ubi = total_ubi_distributed * self.verified_humans / FUTURE_UBI_VERIFIED_HUMANS;
+        let total_ubi_distribution = total_daily_distribution / 2;
+
+        let verified_human_ubi_ratio = f64::min(
+            1.,
+            self.verified_humans as f64 * 2. / (FUTURE_UBI_VERIFIED_HUMANS as f64 + self.verified_humans as f64),
+        );
+
         let mut distribution_values = DailyDistributionValues {
             interest_distribution: total_daily_distribution / 2,
-            ubi_distribution: std::cmp::min(total_ubi_distributed, verified_ubi),
-            future_ubi_distribution: total_ubi_distributed.saturating_sub(verified_ubi),
+            ubi_for_verified_humans: (total_ubi_distribution as f64 * verified_human_ubi_ratio) as u64,
+            future_ubi_distribution: (total_ubi_distribution as f64 * (1. - verified_human_ubi_ratio)) as u64,
         };
         let interest = distribution_values.interest_distribution as f64 / mint.supply as f64;
         msg!("Interest: {}", interest);
+        // pay out interest for comptoken program owned banks
+        let verified_human_ubi_bank_interest = (verified_human_ubi_bank.amount as f64 * interest).trunc() as u64;
+        distribution_values.interest_distribution -= verified_human_ubi_bank_interest;
+        distribution_values.ubi_for_verified_humans += verified_human_ubi_bank_interest;
 
-        let ubi_interest = (ubi_bank.amount as f64 * interest).trunc() as u64;
-        distribution_values.interest_distribution -= ubi_interest;
-        distribution_values.ubi_distribution += ubi_interest;
-
-        let early_adopter_interest = (early_adopter_bank.amount as f64 * interest).trunc() as u64;
+        let early_adopter_interest = (future_ubi_bank.amount as f64 * interest).trunc() as u64;
         distribution_values.interest_distribution -= early_adopter_interest;
         distribution_values.future_ubi_distribution += early_adopter_interest;
 
-        let ubi =
-            if self.verified_humans > 0 { distribution_values.ubi_distribution / self.verified_humans } else { 0 };
+        let ubi = if self.verified_humans > 0 {
+            distribution_values.ubi_for_verified_humans / self.verified_humans
+        } else {
+            0
+        };
         msg!("UBI: {}", ubi);
 
         self.insert(interest, ubi);
@@ -165,13 +175,13 @@ impl<'a> IntoIterator for &'a DailyDistributionData {
 
 pub struct DailyDistributionValues {
     pub interest_distribution: u64,
-    pub ubi_distribution: u64,
+    pub ubi_for_verified_humans: u64,
     pub future_ubi_distribution: u64,
 }
 
 impl DailyDistributionValues {
     pub fn total_distributed(&self) -> u64 {
-        self.interest_distribution + self.ubi_distribution + self.future_ubi_distribution
+        self.interest_distribution + self.ubi_for_verified_humans + self.future_ubi_distribution
     }
 }
 
@@ -237,7 +247,7 @@ mod test {
         let values = data.daily_distribution(&mint, &ubi_bank, &early_adopter_bank);
 
         assert_eq!(values.interest_distribution, 73_000);
-        assert_eq!(values.ubi_distribution, 0);
+        assert_eq!(values.ubi_for_verified_humans, 0);
         assert_eq!(values.future_ubi_distribution, 73_000);
         assert_eq!(data.yesterday_supply, 146_001);
         assert_eq!(data.high_water_mark, 1);

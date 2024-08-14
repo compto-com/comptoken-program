@@ -397,8 +397,6 @@ pub fn daily_distribution_event(
         let global_data: &mut GlobalData = global_data_account_data.as_mut().into();
         let mint_data = comptoken_mint_account.try_borrow_data().unwrap();
         let comptoken_mint = StateWithExtensions::<Mint>::unpack(&mint_data).unwrap();
-        let verified_human_ubi_data = unpaid_verified_human_ubi_bank.try_borrow_data().unwrap();
-        let verified_human_ubi_bank = StateWithExtensions::<Account>::unpack(&verified_human_ubi_data).unwrap();
         let future_ubi_data = unpaid_future_ubi_bank.try_borrow_data().unwrap();
         let future_ubi_bank = StateWithExtensions::<Account>::unpack(&future_ubi_data).unwrap();
 
@@ -412,12 +410,7 @@ pub fn daily_distribution_event(
             interest_distribution: interest_daily_distribution,
             ubi_for_verified_humans: verified_human_ubi_daily_distribution,
             future_ubi_distribution: future_ubi_daily_distribution,
-        } = global_data.daily_distribution_event(
-            &comptoken_mint.base,
-            &verified_human_ubi_bank.base,
-            &future_ubi_bank.base,
-            &slot_hashes_account,
-        );
+        } = global_data.daily_distribution_event(&comptoken_mint.base, &future_ubi_bank.base, &slot_hashes_account);
     }
     // mint to banks
     mint(

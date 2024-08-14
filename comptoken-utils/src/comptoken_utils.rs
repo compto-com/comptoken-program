@@ -2,9 +2,11 @@ pub mod user_data;
 pub mod verify_accounts;
 
 use spl_token_2022::solana_program::{
-    clock::Clock, entrypoint::ProgramResult, instruction::Instruction, program::invoke_signed, pubkey::Pubkey,
-    system_instruction, sysvar::Sysvar,
+    entrypoint::ProgramResult, instruction::Instruction, program::invoke_signed, pubkey::Pubkey, system_instruction,
 };
+
+#[cfg(not(test))]
+use spl_token_2022::solana_program::{clock::Clock, sysvar::Sysvar};
 
 use verify_accounts::VerifiedAccountInfo;
 

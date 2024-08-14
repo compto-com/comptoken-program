@@ -1,5 +1,3 @@
-use std::future;
-
 use spl_token_2022::{
     solana_program::msg,
     state::{Account, Mint},
@@ -28,9 +26,7 @@ impl DailyDistributionData {
         self.last_daily_distribution_time = normalize_time(get_current_time());
     }
 
-    pub(super) fn daily_distribution(
-        &mut self, mint: &Mint, verified_human_ubi_bank: &Account, future_ubi_bank: &Account,
-    ) -> DailyDistributionValues {
+    pub(super) fn daily_distribution(&mut self, mint: &Mint, future_ubi_bank: &Account) -> DailyDistributionValues {
         // calculate interest/high water mark
         self.last_daily_distribution_time = normalize_time(get_current_time());
 
@@ -241,9 +237,8 @@ mod test {
             is_initialized: true,
             ..Default::default()
         };
-        let ubi_bank = Account { amount: 0, owner: Pubkey::new_unique(), ..Default::default() };
         let future_ubi_bank = Account { amount: 0, owner: Pubkey::new_unique(), ..Default::default() };
-        let values = data.daily_distribution(&mint, &ubi_bank, &future_ubi_bank);
+        let values = data.daily_distribution(&mint, &future_ubi_bank);
 
         assert_eq!(values.interest_distribution, 73_000);
         assert_eq!(values.ubi_for_verified_humans, 0);

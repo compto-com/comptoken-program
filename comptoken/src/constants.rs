@@ -20,3 +20,6 @@ pub const MINT_DECIMALS: u8 = 0;
 
 // the bytes a comptoken account takes up
 pub const COMPTOKEN_ACCOUNT_SPACE: u64 = 256; // TODO: get actual size
+
+// the number of verified humans that will receive money from the future UBI account
+pub const FUTURE_UBI_VERIFIED_HUMANS: u64 = 1_000_000_000;

@@ -47,7 +47,7 @@ impl DailyDistributionData {
 
         let total_daily_distribution = high_water_mark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER;
         let total_ubi_distributed = total_daily_distribution / 2;
-        let verified_ubi = total_ubi_distributed * self.verified_humans / 1_000_000;
+        let verified_ubi = total_ubi_distributed * self.verified_humans / FUTURE_UBI_VERIFIED_HUMANS;
         let mut distribution_values = DailyDistributionValues {
             interest_distribution: total_daily_distribution / 2,
             ubi_distribution: std::cmp::min(total_ubi_distributed, verified_ubi),

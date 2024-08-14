@@ -3,15 +3,7 @@ use spl_token_2022::{
     state::{Account, Mint},
 };
 
-use crate::{constants::*, normalize_time};
-
-#[cfg(not(test))]
-use crate::get_current_time;
-
-#[cfg(test)]
-fn get_current_time() -> i64 {
-    1_721_940_656
-}
+use crate::{constants::*, get_current_time, normalize_time};
 
 const HISTORY_SIZE: usize = 365;
 
@@ -21,10 +13,9 @@ pub struct DailyDistributionData {
     pub yesterday_supply: u64,
     pub high_water_mark: u64,
     pub last_daily_distribution_time: i64,
-    pub oldest_historic_value: usize,
+    pub oldest_historic_index: usize,
     pub historic_interests: [f64; HISTORY_SIZE],
     pub verified_humans: u64,
-    pub yesterday_ubi_amount: u64,
     pub historic_ubis: [u64; HISTORY_SIZE],
 }
 
@@ -45,9 +36,9 @@ impl DailyDistributionData {
         if daily_mining_total == 0 {
             self.insert(0., 0);
             return DailyDistributionValues {
-                interest_distributed: 0,
-                ubi_distributed: 0,
-                early_adopter_distributed: 0,
+                interest_distribution: 0,
+                ubi_distribution: 0,
+                future_ubi_distribution: 0,
             };
         }
         let high_water_mark_increase = self.calculate_high_water_mark_increase(daily_mining_total);
@@ -58,26 +49,23 @@ impl DailyDistributionData {
         let total_ubi_distributed = total_daily_distribution / 2;
         let verified_ubi = total_ubi_distributed * self.verified_humans / 1_000_000;
         let mut distribution_values = DailyDistributionValues {
-            interest_distributed: total_daily_distribution / 2,
-            ubi_distributed: std::cmp::min(total_ubi_distributed, verified_ubi),
-            early_adopter_distributed: total_ubi_distributed.saturating_sub(verified_ubi),
+            interest_distribution: total_daily_distribution / 2,
+            ubi_distribution: std::cmp::min(total_ubi_distributed, verified_ubi),
+            future_ubi_distribution: total_ubi_distributed.saturating_sub(verified_ubi),
         };
-        let interest = distribution_values.interest_distributed as f64 / mint.supply as f64;
+        let interest = distribution_values.interest_distribution as f64 / mint.supply as f64;
         msg!("Interest: {}", interest);
 
         let ubi_interest = (ubi_bank.amount as f64 * interest).trunc() as u64;
-        distribution_values.interest_distributed -= ubi_interest;
-        distribution_values.ubi_distributed += ubi_interest;
+        distribution_values.interest_distribution -= ubi_interest;
+        distribution_values.ubi_distribution += ubi_interest;
 
         let early_adopter_interest = (early_adopter_bank.amount as f64 * interest).trunc() as u64;
-        distribution_values.interest_distributed -= early_adopter_interest;
-        distribution_values.early_adopter_distributed += early_adopter_interest;
+        distribution_values.interest_distribution -= early_adopter_interest;
+        distribution_values.future_ubi_distribution += early_adopter_interest;
 
-        let ubi = if self.verified_humans > 0 {
-            (distribution_values.ubi_distributed + ubi_bank.amount - self.yesterday_ubi_amount) / self.verified_humans
-        } else {
-            0
-        };
+        let ubi =
+            if self.verified_humans > 0 { distribution_values.ubi_distribution / self.verified_humans } else { 0 };
         msg!("UBI: {}", ubi);
 
         self.insert(interest, ubi);
@@ -132,9 +120,9 @@ impl DailyDistributionData {
     }
 
     fn insert(&mut self, interest: f64, ubi: u64) {
-        self.historic_interests[self.oldest_historic_value] = interest;
-        self.historic_ubis[self.oldest_historic_value] = ubi;
-        self.oldest_historic_value = (self.oldest_historic_value + 1) % Self::HISTORY_SIZE;
+        self.historic_interests[self.oldest_historic_index] = interest;
+        self.historic_ubis[self.oldest_historic_index] = ubi;
+        self.oldest_historic_index = (self.oldest_historic_index + 1) % Self::HISTORY_SIZE;
     }
 }
 
@@ -168,7 +156,7 @@ impl<'a> IntoIterator for &'a DailyDistributionData {
 
     fn into_iter(self) -> Self::IntoIter {
         DailyDistributionDataIter {
-            index: self.oldest_historic_value,
+            index: self.oldest_historic_index,
             count: 0,
             daily_distribution_data: self,
         }
@@ -176,14 +164,14 @@ impl<'a> IntoIterator for &'a DailyDistributionData {
 }
 
 pub struct DailyDistributionValues {
-    pub interest_distributed: u64,
-    pub ubi_distributed: u64,
-    pub early_adopter_distributed: u64,
+    pub interest_distribution: u64,
+    pub ubi_distribution: u64,
+    pub future_ubi_distribution: u64,
 }
 
 impl DailyDistributionValues {
     pub fn total_distributed(&self) -> u64 {
-        self.interest_distributed + self.ubi_distributed + self.early_adopter_distributed
+        self.interest_distribution + self.ubi_distribution + self.future_ubi_distribution
     }
 }
 
@@ -231,10 +219,9 @@ mod test {
             yesterday_supply: 0,
             high_water_mark: 0,
             last_daily_distribution_time: 0,
-            oldest_historic_value: 0,
+            oldest_historic_index: 0,
             historic_interests: [0.; HISTORY_SIZE],
             verified_humans: 0,
-            yesterday_ubi_amount: 0,
             historic_ubis: [0; HISTORY_SIZE],
         };
         data.initialize();
@@ -249,9 +236,9 @@ mod test {
         let early_adopter_bank = Account { amount: 0, owner: Pubkey::new_unique(), ..Default::default() };
         let values = data.daily_distribution(&mint, &ubi_bank, &early_adopter_bank);
 
-        assert_eq!(values.interest_distributed, 73_000);
-        assert_eq!(values.ubi_distributed, 0);
-        assert_eq!(values.early_adopter_distributed, 73_000);
+        assert_eq!(values.interest_distribution, 73_000);
+        assert_eq!(values.ubi_distribution, 0);
+        assert_eq!(values.future_ubi_distribution, 73_000);
         assert_eq!(data.yesterday_supply, 146_001);
         assert_eq!(data.high_water_mark, 1);
         assert_eq!(data.last_daily_distribution_time, normalize_time(get_current_time()));
@@ -263,10 +250,9 @@ mod test {
             yesterday_supply: 0,
             high_water_mark: 0,
             last_daily_distribution_time: 0,
-            oldest_historic_value: 3,
+            oldest_historic_index: 3,
             historic_interests: [0.; HISTORY_SIZE],
             verified_humans: 0,
-            yesterday_ubi_amount: 0,
             historic_ubis: [0; HISTORY_SIZE],
         };
         data.initialize();

@@ -406,9 +406,9 @@ pub fn daily_distribution_event(
         );
 
         DailyDistributionValues {
-            interest_distributed: interest_daily_distribution,
-            ubi_distributed: ubi_daily_distribution,
-            early_adopter_distributed: early_adopter_daily_distribution,
+            interest_distribution: interest_daily_distribution,
+            ubi_distribution: ubi_daily_distribution,
+            future_ubi_distribution: early_adopter_daily_distribution,
         } = global_data.daily_distribution_event(
             &comptoken_mint.base,
             &ubi_bank.base,

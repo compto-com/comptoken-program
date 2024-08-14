@@ -363,7 +363,6 @@ export const DailyDistributionDataLayout = struct([
     u64("oldestHistoricValue"),
     seq(f64(), GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE, "historicInterests"),
     u64("verifiedHumans"),
-    u64("yesterdayUBIAmount"),
     seq(u64(), GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE, "historicUBIs"),
 ]);
 

@@ -27,8 +27,14 @@ pub fn invoke_signed_verified(
     invoke_signed(instruction, &account_refs, signers_seeds)
 }
 
+#[cfg(not(test))]
 pub fn get_current_time() -> i64 {
     Clock::get().unwrap().unix_timestamp
+}
+
+#[cfg(test)]
+fn get_current_time() -> i64 {
+    1_721_940_656
 }
 
 pub fn normalize_time(time: i64) -> i64 {

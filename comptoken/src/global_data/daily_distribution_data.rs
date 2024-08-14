@@ -1,6 +1,17 @@
-use spl_token_2022::{solana_program::msg, state::Mint};
+use spl_token_2022::{
+    solana_program::msg,
+    state::{Account, Mint},
+};
 
-use crate::{constants::*, get_current_time, normalize_time};
+use crate::{constants::*, normalize_time};
+
+#[cfg(not(test))]
+use crate::get_current_time;
+
+#[cfg(test)]
+fn get_current_time() -> i64 {
+    1_721_940_656
+}
 
 const HISTORY_SIZE: usize = 365;
 
@@ -10,8 +21,11 @@ pub struct DailyDistributionData {
     pub yesterday_supply: u64,
     pub high_water_mark: u64,
     pub last_daily_distribution_time: i64,
-    pub oldest_interest: usize,
+    pub oldest_historic_value: usize,
     pub historic_interests: [f64; HISTORY_SIZE],
+    pub verified_humans: u64,
+    pub yesterday_ubi_amount: u64,
+    pub historic_ubis: [u64; HISTORY_SIZE],
 }
 
 impl DailyDistributionData {
@@ -21,29 +35,53 @@ impl DailyDistributionData {
         self.last_daily_distribution_time = normalize_time(get_current_time());
     }
 
-    pub(super) fn daily_distribution(&mut self, mint: Mint) -> DailyDistributionValues {
+    pub(super) fn daily_distribution(
+        &mut self, mint: &Mint, ubi_bank: &Account, early_adopter_bank: &Account,
+    ) -> DailyDistributionValues {
         // calculate interest/high water mark
         self.last_daily_distribution_time = normalize_time(get_current_time());
 
         let daily_mining_total = mint.supply - self.yesterday_supply;
         if daily_mining_total == 0 {
-            return DailyDistributionValues { interest_distributed: 0, ubi_distributed: 0 };
+            self.insert(0., 0);
+            return DailyDistributionValues {
+                interest_distributed: 0,
+                ubi_distributed: 0,
+                early_adopter_distributed: 0,
+            };
         }
         let high_water_mark_increase = self.calculate_high_water_mark_increase(daily_mining_total);
         msg!("High water mark increase: {}", high_water_mark_increase);
         self.high_water_mark += high_water_mark_increase;
 
         let total_daily_distribution = high_water_mark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER;
-        let distribution_values = DailyDistributionValues {
+        let total_ubi_distributed = total_daily_distribution / 2;
+        let verified_ubi = total_ubi_distributed * self.verified_humans / 1_000_000;
+        let mut distribution_values = DailyDistributionValues {
             interest_distributed: total_daily_distribution / 2,
-            ubi_distributed: total_daily_distribution / 2,
+            ubi_distributed: std::cmp::min(total_ubi_distributed, verified_ubi),
+            early_adopter_distributed: total_ubi_distributed.saturating_sub(verified_ubi),
         };
         let interest = distribution_values.interest_distributed as f64 / mint.supply as f64;
         msg!("Interest: {}", interest);
-        self.insert(interest);
 
-        self.yesterday_supply =
-            mint.supply + distribution_values.interest_distributed + distribution_values.ubi_distributed;
+        let ubi_interest = (ubi_bank.amount as f64 * interest).trunc() as u64;
+        distribution_values.interest_distributed -= ubi_interest;
+        distribution_values.ubi_distributed += ubi_interest;
+
+        let early_adopter_interest = (early_adopter_bank.amount as f64 * interest).trunc() as u64;
+        distribution_values.interest_distributed -= early_adopter_interest;
+        distribution_values.early_adopter_distributed += early_adopter_interest;
+
+        let ubi = if self.verified_humans > 0 {
+            (distribution_values.ubi_distributed + ubi_bank.amount - self.yesterday_ubi_amount) / self.verified_humans
+        } else {
+            0
+        };
+        msg!("UBI: {}", ubi);
+
+        self.insert(interest, ubi);
+        self.yesterday_supply = mint.supply + distribution_values.total_distributed();
 
         distribution_values
     }
@@ -74,43 +112,65 @@ impl DailyDistributionData {
     }
 
     pub fn apply_n_interests(&self, n: usize, initial_money: u64) -> u64 {
-        self.into_iter()
-            .take(n)
-            .fold(initial_money as f64, |money, interest| (money * (1. + interest)).round_ties_even()) as u64
+        self.into_iter().take(n).fold(initial_money as f64, |balance, (interest_rate, _)| {
+            (balance * (1. + interest_rate)).round_ties_even()
+        }) as u64
     }
 
-    fn insert(&mut self, interest: f64) {
-        self.historic_interests[self.oldest_interest] = interest;
-        self.oldest_interest = (self.oldest_interest + 1) % Self::HISTORY_SIZE;
+    pub fn get_n_ubis(&self, n: usize) -> u64 {
+        self.into_iter().take(n).fold(0, |ubi, (_, days_ubi)| ubi + days_ubi)
+    }
+
+    pub fn get_n_distributions(&self, n: usize, initial_money: u64) -> (u64, u64) {
+        let distributions =
+            self.into_iter()
+                .take(n)
+                .fold((initial_money as f64, 0), |(balance, ubi), (interest_rate, days_ubi)| {
+                    ((balance * (1. + interest_rate)).round_ties_even(), ubi + days_ubi)
+                });
+        (distributions.0 as u64, distributions.1)
+    }
+
+    fn insert(&mut self, interest: f64, ubi: u64) {
+        self.historic_interests[self.oldest_historic_value] = interest;
+        self.historic_ubis[self.oldest_historic_value] = ubi;
+        self.oldest_historic_value = (self.oldest_historic_value + 1) % Self::HISTORY_SIZE;
     }
 }
 
-pub struct DailyDistributionDataIter {
-    iter: Box<dyn Iterator<Item = f64>>,
+pub struct DailyDistributionDataIter<'a> {
+    index: usize,
+    count: usize,
+    daily_distribution_data: &'a DailyDistributionData,
 }
 
-impl Iterator for DailyDistributionDataIter {
-    type Item = f64;
+impl<'a> Iterator for DailyDistributionDataIter<'a> {
+    type Item = (f64, u64);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
+        self.count += 1;
+        self.index = std::cmp::min(self.index.wrapping_sub(1), DailyDistributionData::HISTORY_SIZE - 1);
+
+        if self.count > DailyDistributionData::HISTORY_SIZE {
+            None
+        } else {
+            Some((
+                self.daily_distribution_data.historic_interests[self.index],
+                self.daily_distribution_data.historic_ubis[self.index],
+            ))
+        }
     }
 }
 
-impl IntoIterator for &DailyDistributionData {
-    type IntoIter = DailyDistributionDataIter;
-    type Item = f64;
+impl<'a> IntoIterator for &'a DailyDistributionData {
+    type IntoIter = DailyDistributionDataIter<'a>;
+    type Item = (f64, u64);
 
     fn into_iter(self) -> Self::IntoIter {
         DailyDistributionDataIter {
-            iter: Box::from(
-                self.historic_interests
-                    .into_iter()
-                    .rev()
-                    .cycle()
-                    .skip(DailyDistributionData::HISTORY_SIZE - self.oldest_interest)
-                    .take(DailyDistributionData::HISTORY_SIZE),
-            ),
+            index: self.oldest_historic_value,
+            count: 0,
+            daily_distribution_data: self,
         }
     }
 }
@@ -118,6 +178,13 @@ impl IntoIterator for &DailyDistributionData {
 pub struct DailyDistributionValues {
     pub interest_distributed: u64,
     pub ubi_distributed: u64,
+    pub early_adopter_distributed: u64,
+}
+
+impl DailyDistributionValues {
+    pub fn total_distributed(&self) -> u64 {
+        self.interest_distributed + self.ubi_distributed + self.early_adopter_distributed
+    }
 }
 
 // rust implements round_ties_even in version 1.77, which is more recent than
@@ -135,5 +202,83 @@ impl RoundEven for f64 {
         } else {
             res
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use spl_token_2022::solana_program::pubkey::Pubkey;
+
+    use super::*;
+
+    #[test]
+    fn test_round_ties_even() {
+        assert_eq!(1.5.round_ties_even(), 2.);
+        assert_eq!(2.5.round_ties_even(), 2.);
+        assert_eq!(3.5.round_ties_even(), 4.);
+        assert_eq!(4.5.round_ties_even(), 4.);
+        assert_eq!(5.5.round_ties_even(), 6.);
+        assert_eq!(6.5.round_ties_even(), 6.);
+        assert_eq!(7.5.round_ties_even(), 8.);
+        assert_eq!(8.5.round_ties_even(), 8.);
+        assert_eq!(9.5.round_ties_even(), 10.);
+        assert_eq!(10.5.round_ties_even(), 10.);
+    }
+
+    #[test]
+    fn test_daily_distribution_data() {
+        let mut data = DailyDistributionData {
+            yesterday_supply: 0,
+            high_water_mark: 0,
+            last_daily_distribution_time: 0,
+            oldest_historic_value: 0,
+            historic_interests: [0.; HISTORY_SIZE],
+            verified_humans: 0,
+            yesterday_ubi_amount: 0,
+            historic_ubis: [0; HISTORY_SIZE],
+        };
+        data.initialize();
+
+        let mint = Mint {
+            supply: 1,
+            decimals: MINT_DECIMALS,
+            is_initialized: true,
+            ..Default::default()
+        };
+        let ubi_bank = Account { amount: 0, owner: Pubkey::new_unique(), ..Default::default() };
+        let early_adopter_bank = Account { amount: 0, owner: Pubkey::new_unique(), ..Default::default() };
+        let values = data.daily_distribution(&mint, &ubi_bank, &early_adopter_bank);
+
+        assert_eq!(values.interest_distributed, 73_000);
+        assert_eq!(values.ubi_distributed, 0);
+        assert_eq!(values.early_adopter_distributed, 73_000);
+        assert_eq!(data.yesterday_supply, 146_001);
+        assert_eq!(data.high_water_mark, 1);
+        assert_eq!(data.last_daily_distribution_time, normalize_time(get_current_time()));
+    }
+
+    #[test]
+    fn test_daily_distribution_data_iter() {
+        let mut data = DailyDistributionData {
+            yesterday_supply: 0,
+            high_water_mark: 0,
+            last_daily_distribution_time: 0,
+            oldest_historic_value: 3,
+            historic_interests: [0.; HISTORY_SIZE],
+            verified_humans: 0,
+            yesterday_ubi_amount: 0,
+            historic_ubis: [0; HISTORY_SIZE],
+        };
+        data.initialize();
+
+        data.insert(1., 2);
+        data.insert(3., 4);
+        data.insert(5., 6);
+        let mut iter = data.into_iter();
+        assert_eq!(iter.next(), Some((5., 6)));
+        assert_eq!(iter.next(), Some((3., 4)));
+        assert_eq!(iter.next(), Some((1., 2)));
+        while iter.next().is_some() {}
+        assert_eq!(iter.count, HISTORY_SIZE + 1);
     }
 }

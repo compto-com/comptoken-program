@@ -194,6 +194,7 @@ pub fn initialize_comptoken_program(
     //      [] Solana SlotHashes Sysvar
     //      [] Transfer Hook Program
     //      [w] Extra Account Metas Account
+    //      [w] Comptoken Early Adopter Bank
 
     msg!("instruction_data: {:?}", instruction_data);
 
@@ -366,6 +367,7 @@ pub fn daily_distribution_event(
     //      [w] Comptoken UBI Bank
     //      [] Solana Token Program
     //      [] Solana SlotHashes Sysvar
+    //      [w] Comptoken Early Adopter Bank
 
     let account_info_iter = &mut accounts.iter();
     let comptoken_mint_account = next_account_info(account_info_iter)?;
@@ -374,21 +376,28 @@ pub fn daily_distribution_event(
     let unpaid_ubi_bank = next_account_info(account_info_iter)?;
     let _solana_token_account = next_account_info(account_info_iter)?;
     let slot_hashes_account = next_account_info(account_info_iter)?;
+    let unpaid_early_adopter_bank = next_account_info(account_info_iter)?;
 
     let comptoken_mint_account = verify_comptoken_mint(comptoken_mint_account, false);
     let global_data_account = verify_global_data_account(global_data_account, program_id, true);
     let unpaid_interest_bank = verify_interest_bank_account(unpaid_interest_bank, program_id, true);
     let unpaid_ubi_bank = verify_ubi_bank_account(unpaid_ubi_bank, program_id, true);
     let slot_hashes_account = verify_slothashes_account(slot_hashes_account);
+    let unpaid_early_adopter_bank = verify_early_adopter_bank_account(unpaid_early_adopter_bank, program_id, true);
 
     let interest_daily_distribution;
     let ubi_daily_distribution;
+    let early_adopter_daily_distribution;
     // scope to prevent reborrowing issues
     {
         let mut global_data_account_data = global_data_account.try_borrow_mut_data().unwrap();
         let global_data: &mut GlobalData = global_data_account_data.as_mut().into();
         let mint_data = comptoken_mint_account.try_borrow_data().unwrap();
-        let comptoken_mint = StateWithExtensions::<Mint>::unpack(mint_data.as_ref()).unwrap();
+        let comptoken_mint = StateWithExtensions::<Mint>::unpack(&mint_data).unwrap();
+        let ubi_data = unpaid_ubi_bank.try_borrow_data().unwrap();
+        let ubi_bank = StateWithExtensions::<Account>::unpack(&ubi_data).unwrap();
+        let early_adopter_data = unpaid_early_adopter_bank.try_borrow_data().unwrap();
+        let early_adopter_bank = StateWithExtensions::<Account>::unpack(&early_adopter_data).unwrap();
 
         let current_time = get_current_time();
         assert!(
@@ -399,7 +408,13 @@ pub fn daily_distribution_event(
         DailyDistributionValues {
             interest_distributed: interest_daily_distribution,
             ubi_distributed: ubi_daily_distribution,
-        } = global_data.daily_distribution_event(comptoken_mint.base, &slot_hashes_account);
+            early_adopter_distributed: early_adopter_daily_distribution,
+        } = global_data.daily_distribution_event(
+            &comptoken_mint.base,
+            &ubi_bank.base,
+            &early_adopter_bank.base,
+            &slot_hashes_account,
+        );
     }
     // mint to banks
     mint(
@@ -414,8 +429,12 @@ pub fn daily_distribution_event(
         ubi_daily_distribution,
         &[&comptoken_mint_account, &global_data_account, &unpaid_ubi_bank],
     )?;
-
-    Ok(())
+    mint(
+        &global_data_account,
+        &unpaid_early_adopter_bank,
+        early_adopter_daily_distribution,
+        &[&comptoken_mint_account, &global_data_account, &unpaid_early_adopter_bank],
+    )
 }
 
 pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_data: &[u8]) -> ProgramResult {
@@ -502,6 +521,7 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
 
     let interest;
     let is_verified_human;
+    let ubi;
     {
         let user_wallet_data = user_comptoken_wallet_account.try_borrow_data().unwrap();
         let user_comptoken_wallet = StateWithExtensions::<Account>::unpack(user_wallet_data.as_ref()).unwrap();
@@ -522,6 +542,8 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
         msg!("Interest: {}", interest);
         user_data.last_interest_payout_date = current_day;
         is_verified_human = user_data.is_verified_human;
+
+        ubi = global_data.daily_distribution_data.get_n_ubis(days_since_last_update as usize);
     }
 
     transfer(
@@ -541,6 +563,7 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
 
     // get ubi if verified
     if is_verified_human {
+        msg!("ubi: {}", ubi);
         transfer(
             &unpaid_ubi_bank,
             &user_comptoken_wallet_account,
@@ -553,8 +576,10 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
                 &user_data_account,
                 &ubi_data_pda,
             ],
-            0, // TODO figure out correct amount
+            ubi,
         )?;
+    } else {
+        msg!("ubi: 0");
     }
 
     Ok(())

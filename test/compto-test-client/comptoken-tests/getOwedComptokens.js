@@ -35,7 +35,7 @@ async function test_getOwedComptokens() {
 
     let global_data = get_default_global_data();
     global_data.data.dailyDistributionData.historicInterests[0] = 0.5;
-    global_data.data.dailyDistributionData.oldestInterest = 1n;
+    global_data.data.dailyDistributionData.oldestHistoricValue = 1n;
     global_data.data.dailyDistributionData.yesterdaySupply = 292_004n;
 
     let interest_bank = get_default_unpaid_interest_bank();

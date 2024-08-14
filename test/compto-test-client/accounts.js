@@ -21,6 +21,7 @@ import {
     comptoken_mint_pubkey,
     DEFAULT_ANNOUNCE_TIME,
     DEFAULT_DISTRIBUTION_TIME,
+    early_adopter_bank_account_pubkey,
     global_data_account_pubkey,
     interest_bank_account_pubkey,
     ubi_bank_account_pubkey,
@@ -359,8 +360,11 @@ export const DailyDistributionDataLayout = struct([
     u64("yesterdaySupply"),
     u64("highWaterMark"),
     u64("lastDailyDistributionTime"), // actually i64, but will always be positive
-    u64("oldestInterest"),
+    u64("oldestHistoricValue"),
     seq(f64(), GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE, "historicInterests"),
+    u64("verifiedHumans"),
+    u64("yesterdayUBIAmount"),
+    seq(u64(), GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE, "historicUBIs"),
 ]);
 
 export const GlobalDataLayout = struct([
@@ -450,8 +454,10 @@ export function get_default_global_data() {
                 yesterdaySupply: 0n,
                 highWaterMark: 0n,
                 lastDailyDistributionTime: DEFAULT_DISTRIBUTION_TIME,
-                oldestInterest: 0n,
-                historicInterests: Array.from({ length: GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE }, (v, i) => new Uint8Array(32)),
+                oldestHistoricValue: 0n,
+                historicInterests: Array.from({ length: GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE }, (v, i) => 0),
+                verifiedHumans: 0n,
+                historicUBIs: Array.from({ length: GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE }, (v, i) => 0n),
             },
         }));
 }
@@ -490,6 +496,13 @@ export function get_default_unpaid_interest_bank() {
  */
 export function get_default_unpaid_ubi_bank() {
     return get_default_comptoken_wallet(ubi_bank_account_pubkey, global_data_account_pubkey);
+}
+
+/**
+ * @returns {TokenAccount}
+ */
+export function get_default_unpaid_early_adopter_bank() {
+    return get_default_comptoken_wallet(early_adopter_bank_account_pubkey, global_data_account_pubkey);
 }
 
 /**

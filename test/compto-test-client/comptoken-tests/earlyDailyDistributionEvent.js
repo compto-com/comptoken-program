@@ -1,6 +1,7 @@
 import {
     get_default_comptoken_mint,
     get_default_global_data,
+    get_default_unpaid_early_adopter_bank,
     get_default_unpaid_interest_bank,
     get_default_unpaid_ubi_bank,
     MintAccount,
@@ -15,7 +16,7 @@ async function test_earlyDailyDistributionEvent() {
     original_comptoken_mint.data.supply += 1n;
 
     const existing_accounts = [
-        original_comptoken_mint, get_default_global_data(), get_default_unpaid_interest_bank(), get_default_unpaid_ubi_bank()
+        original_comptoken_mint, get_default_global_data(), get_default_unpaid_interest_bank(), get_default_unpaid_ubi_bank(), get_default_unpaid_early_adopter_bank(),
     ];
 
     let context = await setup_test(existing_accounts);

@@ -5,7 +5,6 @@ mod verify_accounts;
 
 extern crate bs58;
 
-use solana_program::instruction::AccountMeta;
 use spl_token_2022::{
     extension::StateWithExtensions,
     instruction::mint_to,
@@ -15,6 +14,7 @@ use spl_token_2022::{
         entrypoint,
         entrypoint::MAX_PERMITTED_DATA_INCREASE,
         hash::HASH_BYTES,
+        instruction::AccountMeta,
         msg,
         program::set_return_data,
         program_error::ProgramError,
@@ -115,12 +115,8 @@ pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data
     let comptoken_mint_account = verify_comptoken_mint(comptoken_mint_account, true);
     let testuser_solana_wallet_account =
         VerifiedAccountInfo::verify_account_signer_or_writable(testuser_solana_wallet_account, true, false);
-    let user_comptoken_wallet_account = verify_user_comptoken_wallet_account(
-        user_comptoken_wallet_account,
-        &testuser_solana_wallet_account,
-        false,
-        true,
-    );
+    let user_comptoken_wallet_account =
+        verify_user_comptoken_wallet_account(user_comptoken_wallet_account, &testuser_solana_wallet_account, true);
     let global_data_account = verify_global_data_account(global_data_account, program_id, false);
 
     let amount = 2;
@@ -135,35 +131,37 @@ pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data
 
 pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
-    //      [w] Comptoken Mint
-    //      [w] User Comptoken Wallet
-    //      [] Global Data (also Mint Authority)
-    //      [w] User Data
-    //      [] Solana Token 2022
-    //      [s] User Solana Wallet
+    //      [w] Comptoken Mint Account
+    //      [] Comptoken Global Data Account (also Mint Authority)
+    //      [s] User's Wallet
+    //      [w] User Comptoken Token Account
+    //      [w] User Data Account
+    //      [] Solana Token 2022 Program
 
-    let account_info_iter = &mut accounts.iter();
-    let _comptoken_mint_account = next_account_info(account_info_iter)?;
-    let user_comptoken_wallet_account = next_account_info(account_info_iter)?;
-    let global_data_account = next_account_info(account_info_iter)?;
-    let user_data_account = next_account_info(account_info_iter)?;
-    let _solana_token_account = next_account_info(account_info_iter)?;
-    let user_solana_wallet_account = next_account_info(account_info_iter)?;
+    let verified_accounts = verify_accounts(
+        accounts,
+        program_id,
+        AccountsToVerify {
+            comptoken_mint: Some((false, true)),
+            global_data: Some((false, false)),
+            user_wallet: Some((true, false)),
+            user_comptoken_token_account: Some((false, true)),
+            user_data: Some((false, true)),
+            solana_token_2022_program: Some((false, false)),
+            ..Default::default()
+        },
+    )?;
+    let comptoken_mint_account = verified_accounts.comptoken_mint.unwrap();
+    let global_data_account = verified_accounts.global_data.unwrap();
+    let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
+    let user_data_account = verified_accounts.user_data.unwrap();
 
-    let comptoken_mint_account = verify_comptoken_mint(_comptoken_mint_account, true);
-    let global_data_account = verify_global_data_account(global_data_account, program_id, false);
     let global_data: &mut GlobalData = (&global_data_account).into();
-    let user_solana_wallet_account =
-        VerifiedAccountInfo::verify_account_signer_or_writable(user_solana_wallet_account, true, false);
-    let user_comptoken_wallet_account =
-        verify_user_comptoken_wallet_account(user_comptoken_wallet_account, &user_solana_wallet_account, false, true);
     let proof = ComptokenProof::verify_submitted_proof(
-        &user_comptoken_wallet_account,
+        &user_comptoken_token_account,
         instruction_data,
         &global_data.valid_blockhashes,
     );
-    let (user_data_account, _) =
-        verify_user_data_account(user_data_account, &user_comptoken_wallet_account, program_id, true);
 
     msg!("data/accounts verified");
     let amount = 2;
@@ -172,9 +170,9 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     msg!("stored the proof");
     mint(
         &global_data_account,
-        &user_comptoken_wallet_account,
+        &user_comptoken_token_account,
         amount,
-        &[&comptoken_mint_account, &user_comptoken_wallet_account, &global_data_account],
+        &[&comptoken_mint_account, &user_comptoken_token_account, &global_data_account],
     )?;
 
     Ok(())
@@ -334,7 +332,7 @@ pub fn create_user_data_account(
 
     let payer_account = verify_payer_account(payer_account);
     let user_comptoken_wallet_account =
-        verify_user_comptoken_wallet_account(user_comptoken_wallet_account, &user_solana_wallet_account, false, false);
+        verify_user_comptoken_wallet_account(user_comptoken_wallet_account, &user_solana_wallet_account, false);
     let (user_data_account, bump) = VerifiedAccountInfo::verify_pda(
         user_data_account,
         program_id,
@@ -489,7 +487,7 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
         VerifiedAccountInfo::verify_account_signer_or_writable(next_account_info(account_info_iter)?, true, false);
 
     let user_comptoken_wallet_account =
-        verify_user_comptoken_wallet_account(user_comptoken_wallet_account, &user_solana_wallet_account, false, true);
+        verify_user_comptoken_wallet_account(user_comptoken_wallet_account, &user_solana_wallet_account, true);
     let (user_data_account, _) =
         verify_user_data_account(user_data_account, &user_comptoken_wallet_account, program_id, true);
     let comptoken_mint_account = verify_comptoken_mint(comptoken_mint_account, false);
@@ -607,7 +605,7 @@ pub fn realloc_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instruct
 
     let payer_account = verify_payer_account(payer_account);
     let user_comptoken_wallet_account =
-        verify_user_comptoken_wallet_account(user_comptoken_wallet_account, &user_solana_wallet_account, false, false);
+        verify_user_comptoken_wallet_account(user_comptoken_wallet_account, &user_solana_wallet_account, false);
     let (user_data_account, _) =
         verify_user_data_account(user_data_account, &user_comptoken_wallet_account, program_id, true);
 

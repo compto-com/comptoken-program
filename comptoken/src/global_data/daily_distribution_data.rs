@@ -56,25 +56,17 @@ impl DailyDistributionData {
             ubi_for_verified_humans: (total_ubi_distribution as f64 * verified_human_ubi_ratio) as u64,
             future_ubi_distribution: (total_ubi_distribution as f64 * (1. - verified_human_ubi_ratio)) as u64,
         };
-        let days_interest_rate = distribution_values.interest_distribution as f64 / mint.supply as f64;
-        msg!("Interest: {}", days_interest_rate);
-        // pay out interest for comptoken program owned banks
+        let todays_interest_rate = distribution_values.interest_distribution as f64 / mint.supply as f64;
+        msg!("Interest: {}", todays_interest_rate);
+        // pay out interest on comptokens in the unclaimed ubi bank
         // interest for the ubi for verified humans is calculated when the owed comptokens are payed out
-
-        let future_ubi_interest = (future_ubi_bank.amount as f64 * days_interest_rate).round_ties_even() as u64;
+        let future_ubi_interest = (future_ubi_bank.amount as f64 * todays_interest_rate).round_ties_even() as u64;
         distribution_values.interest_distribution -= future_ubi_interest;
         distribution_values.future_ubi_distribution += future_ubi_interest;
-
-        let ubi = if self.verified_humans > 0 {
-            distribution_values.ubi_for_verified_humans / self.verified_humans
-        } else {
-            0
-        };
-        msg!("UBI: {}", ubi);
-
-        self.insert(days_interest_rate, ubi);
+        let todays_ubi = distribution_values.ubi_for_verified_humans.checked_div(self.verified_humans).unwrap_or(0);
+        msg!("UBI: {}", todays_ubi);
+        self.insert(todays_interest_rate, todays_ubi);
         self.yesterday_supply = mint.supply + distribution_values.total_distributed();
-
         distribution_values
     }
 
@@ -110,16 +102,14 @@ impl DailyDistributionData {
             - initial_money
     }
 
-    pub fn get_ubi_for_n_days(&self, n: usize) -> u64 {
-        self.into_iter().take(n).fold(0, |ubi, (_, days_ubi)| ubi + days_ubi)
-    }
-
+    // we calculate and return ubi separately so that we know how much to distribute from the ubi vs interest banks
+    // return value is (interest, ubi)
     pub fn get_distributions_for_n_days(&self, n: usize, initial_money: u64) -> (u64, u64) {
         let distributions =
             self.into_iter()
                 .take(n)
                 .fold((initial_money as f64, 0), |(balance, ubi), (interest_rate, days_ubi)| {
-                    (((balance + days_ubi as f64) * (1. + interest_rate)).round_ties_even(), ubi + days_ubi)
+                    ((balance * (1. + interest_rate)).round_ties_even() + days_ubi as f64, ubi + days_ubi)
                 });
         (distributions.0 as u64 - distributions.1 - initial_money, distributions.1)
     }

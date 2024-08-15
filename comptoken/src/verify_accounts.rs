@@ -71,7 +71,7 @@ pub fn verify_future_ubi_bank_account<'a>(
     )
 }
 
-pub fn verify_user_comptoken_wallet_account<'a>(
+pub fn verify_user_comptoken_token_account<'a>(
     account: &AccountInfo<'a>, wallet_owner: &VerifiedAccountInfo<'a>, needs_writable: bool,
 ) -> VerifiedAccountInfo<'a> {
     let account_data = &account.data.borrow();
@@ -83,9 +83,11 @@ pub fn verify_user_comptoken_wallet_account<'a>(
 
 pub fn verify_user_data_account<'a>(
     user_data_account: &AccountInfo<'a>, user_comptoken_wallet_account: &VerifiedAccountInfo, program_id: &Pubkey,
-    needs_writable: bool,
+    is_created: bool, needs_writable: bool,
 ) -> (VerifiedAccountInfo<'a>, u8) {
-    assert_eq!(user_data_account.owner, program_id);
+    if is_created {
+        assert_eq!(user_data_account.owner, program_id);
+    }
     VerifiedAccountInfo::verify_pda(
         user_data_account,
         program_id,
@@ -150,7 +152,7 @@ pub struct AccountsToVerify {
     pub future_ubi_bank_data: Option<SignerAndWritable>,
     pub user_wallet: Option<SignerAndWritable>,
     pub user_comptoken_token_account: Option<SignerAndWritable>,
-    pub user_data: Option<SignerAndWritable>,
+    pub user_data: Option<(bool, SignerAndWritable)>, // (isCreated, (needsSigner, needsWritable)),
     pub transfer_hook_program: Option<SignerAndWritable>,
     pub extra_account_metas: Option<SignerAndWritable>,
     pub solana_program: Option<SignerAndWritable>,
@@ -182,12 +184,14 @@ pub struct VerifiedAccounts<'a> {
 }
 
 pub fn verify_accounts<'a>(
-    accounts: &[AccountInfo<'a>], program_id: &Pubkey, which: AccountsToVerify,
+    accounts: &[AccountInfo<'a>], program_id: &Pubkey, accounts_to_verify: AccountsToVerify,
 ) -> Result<VerifiedAccounts<'a>, ProgramError> {
     let account_info_iter = &mut accounts.iter();
-    let payer = which.payer.map(|_| verify_payer_account(next_account_info(account_info_iter).unwrap()));
+    let payer = accounts_to_verify
+        .payer
+        .map(|_| verify_payer_account(next_account_info(account_info_iter).unwrap()));
 
-    let comptoken_program = which.comptoken_program.map(|(needs_signer, needs_writable)| {
+    let comptoken_program = accounts_to_verify.comptoken_program.map(|(needs_signer, needs_writable)| {
         VerifiedAccountInfo::verify_specific_address(
             next_account_info(account_info_iter).unwrap(),
             program_id,
@@ -195,28 +199,28 @@ pub fn verify_accounts<'a>(
             needs_writable,
         )
     });
-    let comptoken_mint = which.comptoken_mint.map(|(_, needs_writable)| {
+    let comptoken_mint = accounts_to_verify.comptoken_mint.map(|(_, needs_writable)| {
         verify_comptoken_mint(next_account_info(account_info_iter).unwrap(), needs_writable)
     });
-    let global_data = which.global_data.map(|(_, needs_writable)| {
+    let global_data = accounts_to_verify.global_data.map(|(_, needs_writable)| {
         verify_global_data_account(next_account_info(account_info_iter).unwrap(), program_id, needs_writable)
     });
 
-    let interest_bank = which.interest_bank.map(|(_, needs_writable)| {
+    let interest_bank = accounts_to_verify.interest_bank.map(|(_, needs_writable)| {
         verify_interest_bank_account(next_account_info(account_info_iter).unwrap(), program_id, needs_writable)
     });
-    let verified_human_ubi_bank = which.verified_human_ubi_bank.map(|(_, needs_writable)| {
+    let verified_human_ubi_bank = accounts_to_verify.verified_human_ubi_bank.map(|(_, needs_writable)| {
         verify_verified_human_ubi_bank_account(
             next_account_info(account_info_iter).unwrap(),
             program_id,
             needs_writable,
         )
     });
-    let future_ubi_bank = which.future_ubi_bank.map(|(_, needs_writable)| {
+    let future_ubi_bank = accounts_to_verify.future_ubi_bank.map(|(_, needs_writable)| {
         verify_future_ubi_bank_account(next_account_info(account_info_iter).unwrap(), program_id, needs_writable)
     });
 
-    let interest_bank_data = which.interest_bank_data.map(|(needs_signer, needs_writable)| {
+    let interest_bank_data = accounts_to_verify.interest_bank_data.map(|(needs_signer, needs_writable)| {
         VerifiedAccountInfo::verify_pda(
             next_account_info(account_info_iter).unwrap(),
             program_id,
@@ -226,17 +230,18 @@ pub fn verify_accounts<'a>(
         )
         .0
     });
-    let verified_human_ubi_bank_data = which.verified_human_ubi_bank_data.map(|(needs_signer, needs_writable)| {
-        VerifiedAccountInfo::verify_pda(
-            next_account_info(account_info_iter).unwrap(),
-            program_id,
-            &[verified_human_ubi_bank.as_ref().unwrap().key.as_ref()],
-            needs_signer,
-            needs_writable,
-        )
-        .0
-    });
-    let future_ubi_bank_data = which.future_ubi_bank_data.map(|(needs_signer, needs_writable)| {
+    let verified_human_ubi_bank_data =
+        accounts_to_verify.verified_human_ubi_bank_data.map(|(needs_signer, needs_writable)| {
+            VerifiedAccountInfo::verify_pda(
+                next_account_info(account_info_iter).unwrap(),
+                program_id,
+                &[verified_human_ubi_bank.as_ref().unwrap().key.as_ref()],
+                needs_signer,
+                needs_writable,
+            )
+            .0
+        });
+    let future_ubi_bank_data = accounts_to_verify.future_ubi_bank_data.map(|(needs_signer, needs_writable)| {
         VerifiedAccountInfo::verify_pda(
             next_account_info(account_info_iter).unwrap(),
             program_id,
@@ -247,32 +252,33 @@ pub fn verify_accounts<'a>(
         .0
     });
 
-    let user_wallet = which
+    let user_wallet = accounts_to_verify
         .user_wallet
         .map(|_| verify_wallet_account(next_account_info(account_info_iter).unwrap()));
-    let user_comptoken_token_account = which.user_comptoken_token_account.map(|(_, needs_writable)| {
-        verify_user_comptoken_wallet_account(
+    let user_comptoken_token_account = accounts_to_verify.user_comptoken_token_account.map(|(_, needs_writable)| {
+        verify_user_comptoken_token_account(
             next_account_info(account_info_iter).unwrap(),
             user_wallet.as_ref().unwrap(),
             needs_writable,
         )
     });
-    let (user_data, user_data_bump) = which
+    let (user_data, user_data_bump) = accounts_to_verify
         .user_data
-        .map(|(_, needs_writable)| {
+        .map(|(is_created, (_, needs_writable))| {
             verify_user_data_account(
                 next_account_info(account_info_iter).unwrap(),
                 user_comptoken_token_account.as_ref().unwrap(),
                 program_id,
+                is_created,
                 needs_writable,
             )
         })
         .unzip();
 
-    let transfer_hook_program = which
+    let transfer_hook_program = accounts_to_verify
         .transfer_hook_program
         .map(|_| verify_transfer_hook_program(next_account_info(account_info_iter).unwrap()));
-    let extra_account_metas = which.extra_account_metas.map(|(_, needs_writable)| {
+    let extra_account_metas = accounts_to_verify.extra_account_metas.map(|(_, needs_writable)| {
         verify_extra_account_metas_account(
             next_account_info(account_info_iter).unwrap(),
             comptoken_mint.as_ref().unwrap(),
@@ -281,13 +287,13 @@ pub fn verify_accounts<'a>(
         )
     });
 
-    let solana_program = which
+    let solana_program = accounts_to_verify
         .solana_program
         .map(|_| verify_solana_program(next_account_info(account_info_iter).unwrap()));
-    let solana_token_2022_program = which
+    let solana_token_2022_program = accounts_to_verify
         .solana_token_2022_program
         .map(|_| verify_solana_token_2022_program(next_account_info(account_info_iter).unwrap()));
-    let slothashes = which
+    let slothashes = accounts_to_verify
         .slothashes
         .map(|_| verify_slothashes_account(next_account_info(account_info_iter).unwrap()));
 

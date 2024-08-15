@@ -10,15 +10,8 @@ use spl_token_2022::{
     instruction::mint_to,
     onchain,
     solana_program::{
-        account_info::{next_account_info, AccountInfo},
-        entrypoint,
-        entrypoint::MAX_PERMITTED_DATA_INCREASE,
-        hash::HASH_BYTES,
-        instruction::AccountMeta,
-        msg,
-        program::set_return_data,
-        program_error::ProgramError,
-        pubkey::Pubkey,
+        account_info::AccountInfo, entrypoint, entrypoint::MAX_PERMITTED_DATA_INCREASE, hash::HASH_BYTES,
+        instruction::AccountMeta, msg, program::set_return_data, program_error::ProgramError, pubkey::Pubkey,
         system_instruction,
     },
     state::{Account, Mint},
@@ -93,39 +86,38 @@ pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instru
 
 pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
-    //      [w] Comptoken Mint account
-    //      [] Testuser Comptoken Wallet
-    //      [] Global Data (also Mint Authority)
+    //      [w] Comptoken Mint Account
+    //      [] Comptoken Global Data Account (also Mint Authority)
+    //      [s] User Wallet
+    //      [] User Comptoken Token Account
     //      [] Solana Token 2022
-    //      [s] Testuser Solana Wallet
 
     msg!("instruction_data: {:?}", instruction_data);
 
-    let account_info_iter = &mut accounts.iter();
-    let comptoken_mint_account = next_account_info(account_info_iter)?;
-    msg!("Comptoken Mint Key: {:?}", comptoken_mint_account.key);
-    let user_comptoken_wallet_account = next_account_info(account_info_iter)?;
-    msg!("User Comptoken Wallet Key: {:?}", user_comptoken_wallet_account.key);
-    let global_data_account = next_account_info(account_info_iter)?;
-    msg!("Global Data Key: {:?}", global_data_account.key);
-    let _solana_token_account = next_account_info(account_info_iter)?;
-    msg!("Solana Token Key: {:?}", _solana_token_account.key);
-    let testuser_solana_wallet_account = next_account_info(account_info_iter)?;
+    let verified_accounts = verify_accounts(
+        accounts,
+        program_id,
+        AccountsToVerify {
+            comptoken_mint: Some((false, true)),
+            global_data: Some((false, false)),
+            user_wallet: Some((true, false)),
+            user_comptoken_token_account: Some((false, false)),
+            solana_token_2022_program: Some((false, false)),
+            ..Default::default()
+        },
+    )?;
 
-    let comptoken_mint_account = verify_comptoken_mint(comptoken_mint_account, true);
-    let testuser_solana_wallet_account =
-        VerifiedAccountInfo::verify_account_signer_or_writable(testuser_solana_wallet_account, true, false);
-    let user_comptoken_wallet_account =
-        verify_user_comptoken_wallet_account(user_comptoken_wallet_account, &testuser_solana_wallet_account, true);
-    let global_data_account = verify_global_data_account(global_data_account, program_id, false);
+    let comptoken_mint_account = verified_accounts.comptoken_mint.unwrap();
+    let global_data_account = verified_accounts.global_data.unwrap();
+    let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
 
     let amount = 2;
 
     mint(
         &global_data_account,
-        &user_comptoken_wallet_account,
+        &user_comptoken_token_account,
         amount,
-        &[&comptoken_mint_account, &user_comptoken_wallet_account, &global_data_account],
+        &[&comptoken_mint_account, &user_comptoken_token_account, &global_data_account],
     )
 }
 
@@ -134,8 +126,8 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     //      [w] Comptoken Mint Account
     //      [] Comptoken Global Data Account (also Mint Authority)
     //      [s] User's Wallet
-    //      [w] User Comptoken Token Account
-    //      [w] User Data Account
+    //      [w] User's Comptoken Token Account
+    //      [w] User's Data Account
     //      [] Solana Token 2022 Program
 
     let verified_accounts = verify_accounts(
@@ -146,7 +138,7 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
             global_data: Some((false, false)),
             user_wallet: Some((true, false)),
             user_comptoken_token_account: Some((false, true)),
-            user_data: Some((false, true)),
+            user_data: Some((true, (false, true))),
             solana_token_2022_program: Some((false, false)),
             ..Default::default()
         },
@@ -183,45 +175,47 @@ pub fn initialize_comptoken_program(
 ) -> ProgramResult {
     //  accounts order:
     //      [s, w] Payer (probably COMPTO's account)
+    //      [] Comptoken Mint
     //      [w] Global Data Account (also mint authority)
     //      [w] Comptoken Interest Bank
     //      [w] Comptoken Verified Human UBI Bank
-    //      [] Comptoken Mint
+    //      [w] Comptoken Future UBI Bank
+    //      [] Transfer Hook Program
+    //      [w] Extra Account Metas Account
     //      [] Solana Program
     //      [] Solana Token 2022 Program
     //      [] Solana SlotHashes Sysvar
-    //      [] Transfer Hook Program
-    //      [w] Extra Account Metas Account
-    //      [w] Comptoken Future UBI Bank
 
     msg!("instruction_data: {:?}", instruction_data);
 
-    let account_info_iter = &mut accounts.iter();
-    let payer_account = next_account_info(account_info_iter)?;
-    let global_data_account = next_account_info(account_info_iter)?;
-    let unpaid_interest_bank = next_account_info(account_info_iter)?;
-    let unpaid_verified_human_ubi_bank = next_account_info(account_info_iter)?;
-    let comptoken_mint = next_account_info(account_info_iter)?;
-    let solana_program = next_account_info(account_info_iter)?;
-    let _token_2022_program = next_account_info(account_info_iter)?;
-    let slot_hashes_account = next_account_info(account_info_iter)?;
-    let transfer_hook_program = next_account_info(account_info_iter)?;
-    let extra_account_metas_account = next_account_info(account_info_iter)?;
-    let unpaid_future_ubi_bank = next_account_info(account_info_iter)?;
+    let verified_accounts = verify_accounts(
+        accounts,
+        program_id,
+        AccountsToVerify {
+            payer: Some((true, true)),
+            comptoken_mint: Some((false, false)),
+            global_data: Some((false, true)),
+            interest_bank: Some((false, true)),
+            verified_human_ubi_bank: Some((false, true)),
+            future_ubi_bank: Some((false, true)),
+            transfer_hook_program: Some((false, false)),
+            extra_account_metas: Some((false, true)),
+            solana_program: Some((false, false)),
+            solana_token_2022_program: Some((false, false)),
+            slothashes: Some((false, false)),
+            ..Default::default()
+        },
+    )?;
 
-    let payer_account = verify_payer_account(payer_account);
-    let global_data_account = verify_global_data_account(global_data_account, program_id, true);
-    let unpaid_interest_bank = verify_interest_bank_account(unpaid_interest_bank, program_id, true);
-    let unpaid_verified_human_ubi_bank =
-        verify_verified_human_ubi_bank_account(unpaid_verified_human_ubi_bank, program_id, true);
-    let comptoken_mint = verify_comptoken_mint(comptoken_mint, false);
-    let solana_program =
-        VerifiedAccountInfo::verify_specific_address(solana_program, &solana_program::system_program::ID, false, false);
-    let slot_hashes_account = verify_slothashes_account(slot_hashes_account);
-    let transfer_hook_program = verify_transfer_hook_program(transfer_hook_program);
-    let extra_account_metas_account =
-        verify_extra_account_metas_account(extra_account_metas_account, &comptoken_mint, &transfer_hook_program, true);
-    let unpaid_future_ubi_bank = verify_future_ubi_bank_account(unpaid_future_ubi_bank, program_id, true);
+    let payer_account = verified_accounts.payer.unwrap();
+    let comptoken_mint = verified_accounts.comptoken_mint.unwrap();
+    let global_data_account = verified_accounts.global_data.unwrap();
+    let unpaid_interest_bank = verified_accounts.interest_bank.unwrap();
+    let unpaid_verified_human_ubi_bank = verified_accounts.verified_human_ubi_bank.unwrap();
+    let unpaid_future_ubi_bank = verified_accounts.future_ubi_bank.unwrap();
+    let extra_account_metas_account = verified_accounts.extra_account_metas.unwrap();
+    let solana_program = verified_accounts.solana_program.unwrap();
+    let slothashes_account = verified_accounts.slothashes.unwrap();
 
     let first_8_bytes: [u8; 8] = instruction_data[0..8].try_into().unwrap();
     let lamports_global_data = u64::from_le_bytes(first_8_bytes);
@@ -279,7 +273,7 @@ pub fn initialize_comptoken_program(
     msg!("initialized future ubi bank account");
 
     let global_data: &mut GlobalData = (&global_data_account).into();
-    global_data.initialize(&slot_hashes_account);
+    global_data.initialize(&slothashes_account);
 
     let mut init_transfer_hook_instruction =
         spl_transfer_hook_interface::instruction::initialize_extra_account_meta_list(
@@ -308,20 +302,29 @@ pub fn create_user_data_account(
     program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8],
 ) -> ProgramResult {
     //  Account Order
-    //      [s, w] User's Solana Wallet
-    //      [w] User's Data
-    //      [] User's Comptoken Wallet
-    //      [] Solana Program
+    //      [s, w] payer account
     //      [s] User Solana Wallet
+    //      [] User's Comptoken Token Account
+    //      [w] User's Data Account
+    //      [] Solana Program
 
-    let account_info_iter = &mut accounts.iter();
+    let verified_accounts = verify_accounts(
+        accounts,
+        program_id,
+        AccountsToVerify {
+            payer: Some((true, true)),
+            user_wallet: Some((true, false)),
+            user_comptoken_token_account: Some((false, false)),
+            user_data: Some((false, (false, true))),
+            solana_program: Some((false, false)),
+            ..Default::default()
+        },
+    )?;
 
-    let payer_account = next_account_info(account_info_iter)?;
-    let user_data_account = next_account_info(account_info_iter)?;
-    let user_comptoken_wallet_account = next_account_info(account_info_iter)?;
-    let _solana_program = next_account_info(account_info_iter)?;
-    let user_solana_wallet_account =
-        VerifiedAccountInfo::verify_account_signer_or_writable(next_account_info(account_info_iter)?, true, false);
+    let payer_account = verified_accounts.payer.unwrap();
+    let user_comptoken_wallet_account = verified_accounts.user_comptoken_token_account.unwrap();
+    let user_data_account = verified_accounts.user_data.unwrap();
+    let bump = verified_accounts.user_data_bump.unwrap();
 
     // find space and minimum rent required for account
     let rent_lamports = u64::from_le_bytes(instruction_data[0..8].try_into().expect("correct size"));
@@ -329,17 +332,6 @@ pub fn create_user_data_account(
     msg!("space: {}", space);
     assert!(space >= USER_DATA_MIN_SIZE);
     assert!((space - USER_DATA_MIN_SIZE) % HASH_BYTES == 0);
-
-    let payer_account = verify_payer_account(payer_account);
-    let user_comptoken_wallet_account =
-        verify_user_comptoken_wallet_account(user_comptoken_wallet_account, &user_solana_wallet_account, false);
-    let (user_data_account, bump) = VerifiedAccountInfo::verify_pda(
-        user_data_account,
-        program_id,
-        &[user_comptoken_wallet_account.key.as_ref()],
-        false,
-        true,
-    );
 
     create_pda(
         &payer_account,
@@ -365,26 +357,31 @@ pub fn daily_distribution_event(
     //      [w] Comptoken Global Data (also mint authority)
     //      [w] Comptoken Interest Bank
     //      [w] Comptoken Verified Human UBI Bank
-    //      [] Solana Token Program
-    //      [] Solana SlotHashes Sysvar
     //      [w] Comptoken Future UBI Bank
+    //      [] Solana Token 2022 Program
+    //      [] Solana SlotHashes Sysvar
 
-    let account_info_iter = &mut accounts.iter();
-    let comptoken_mint_account = next_account_info(account_info_iter)?;
-    let global_data_account = next_account_info(account_info_iter)?;
-    let unpaid_interest_bank = next_account_info(account_info_iter)?;
-    let unpaid_verified_human_ubi_bank = next_account_info(account_info_iter)?;
-    let _solana_token_account = next_account_info(account_info_iter)?;
-    let slot_hashes_account = next_account_info(account_info_iter)?;
-    let unpaid_future_ubi_bank = next_account_info(account_info_iter)?;
+    let verified_accounts = verify_accounts(
+        accounts,
+        program_id,
+        AccountsToVerify {
+            comptoken_mint: Some((false, false)),
+            global_data: Some((false, true)),
+            interest_bank: Some((false, true)),
+            verified_human_ubi_bank: Some((false, true)),
+            future_ubi_bank: Some((false, true)),
+            solana_token_2022_program: Some((false, false)),
+            slothashes: Some((false, false)),
+            ..Default::default()
+        },
+    )?;
 
-    let comptoken_mint_account = verify_comptoken_mint(comptoken_mint_account, false);
-    let global_data_account = verify_global_data_account(global_data_account, program_id, true);
-    let unpaid_interest_bank = verify_interest_bank_account(unpaid_interest_bank, program_id, true);
-    let unpaid_verified_human_ubi_bank =
-        verify_verified_human_ubi_bank_account(unpaid_verified_human_ubi_bank, program_id, true);
-    let slot_hashes_account = verify_slothashes_account(slot_hashes_account);
-    let unpaid_future_ubi_bank = verify_future_ubi_bank_account(unpaid_future_ubi_bank, program_id, true);
+    let comptoken_mint_account = verified_accounts.comptoken_mint.unwrap();
+    let global_data_account = verified_accounts.global_data.unwrap();
+    let unpaid_interest_bank = verified_accounts.interest_bank.unwrap();
+    let unpaid_verified_human_ubi_bank = verified_accounts.verified_human_ubi_bank.unwrap();
+    let unpaid_future_ubi_bank = verified_accounts.future_ubi_bank.unwrap();
+    let slothashes_account = verified_accounts.slothashes.unwrap();
 
     let interest_daily_distribution;
     let verified_human_ubi_daily_distribution;
@@ -408,7 +405,7 @@ pub fn daily_distribution_event(
             interest_distribution: interest_daily_distribution,
             ubi_for_verified_humans: verified_human_ubi_daily_distribution,
             future_ubi_distribution: future_ubi_daily_distribution,
-        } = global_data.daily_distribution_event(&comptoken_mint.base, &future_ubi_bank.base, &slot_hashes_account);
+        } = global_data.daily_distribution_event(&comptoken_mint.base, &future_ubi_bank.base, &slothashes_account);
     }
     // mint to banks
     mint(
@@ -436,17 +433,23 @@ pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], _ins
     //      [w] Comptoken Global Data (also mint authority)
     //      [] Solana SlotHashes Sysvar
 
-    let account_info_iter = &mut accounts.iter();
-    let global_data_account = next_account_info(account_info_iter)?;
-    let slot_hashes_account = next_account_info(account_info_iter)?;
+    let verified_accounts = verify_accounts(
+        accounts,
+        program_id,
+        AccountsToVerify {
+            global_data: Some((false, true)),
+            slothashes: Some((false, false)),
+            ..Default::default()
+        },
+    )?;
 
-    let global_data_account = verify_global_data_account(global_data_account, program_id, true);
-    let slot_hashes_account = verify_slothashes_account(slot_hashes_account);
+    let global_data_account = verified_accounts.global_data.unwrap();
+    let slothashes_account = verified_accounts.slothashes.unwrap();
 
     let global_data: &mut GlobalData = (&global_data_account).into();
     let valid_blockhashes = &mut global_data.valid_blockhashes;
 
-    valid_blockhashes.update(&slot_hashes_account);
+    valid_blockhashes.update(&slothashes_account);
 
     let mut data = Vec::from(global_data.valid_blockhashes.valid_blockhash.to_bytes());
     data.extend(global_data.valid_blockhashes.announced_blockhash.to_bytes());
@@ -456,68 +459,58 @@ pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], _ins
 
 pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
-    //      [w] User's Data
-    //      [w] User's Comptoken Wallet
+    //      [] Comptoken Program
     //      [] Comptoken Mint
     //      [] Comptoken Global Data (also mint authority)
     //      [w] Comptoken Interest Bank
-    //      [w] Comptoken UBI Bank
-    //      [] Solana Token 2022 Program
-    //      [] Extra Account Metas Account
-    //      [] Transfer Hook Program
-    //      [] Comptoken Program
+    //      [w] Comptoken Verified Human UBI Bank
     //      [] Interest Bank Data PDA (doesn't actually exist)
-    //      [] UBI Bank Data PDA (doesn't actually exist)
+    //      [] Verified Human UBI Bank Data PDA (doesn't actually exist)
     //      [s] User Solana Wallet
+    //      [w] User's Comptoken Token Account
+    //      [w] User's Data
+    //      [] Transfer Hook Program
+    //      [] Extra Account Metas Account
+    //      [] Solana Token 2022 Program
 
-    let account_info_iter = &mut accounts.iter();
-    let user_data_account = next_account_info(account_info_iter)?;
-    let user_comptoken_wallet_account = next_account_info(account_info_iter)?;
-    let comptoken_mint_account = next_account_info(account_info_iter)?;
-    let global_data_account = next_account_info(account_info_iter)?;
-    let unpaid_interest_bank = next_account_info(account_info_iter)?;
-    let unpaid_ubi_bank = next_account_info(account_info_iter)?;
-    let _solana_token_account = next_account_info(account_info_iter)?;
-    let extra_account_metas_account = next_account_info(account_info_iter)?;
-    let transfer_hook_program = next_account_info(account_info_iter)?;
-    let compto_program = next_account_info(account_info_iter)?;
-    let interest_data_pda /* not a real account */ = next_account_info(account_info_iter)?;
-    let ubi_data_pda /* not a real account */ = next_account_info(account_info_iter)?;
-    let user_solana_wallet_account =
-        VerifiedAccountInfo::verify_account_signer_or_writable(next_account_info(account_info_iter)?, true, false);
-
-    let user_comptoken_wallet_account =
-        verify_user_comptoken_wallet_account(user_comptoken_wallet_account, &user_solana_wallet_account, true);
-    let (user_data_account, _) =
-        verify_user_data_account(user_data_account, &user_comptoken_wallet_account, program_id, true);
-    let comptoken_mint_account = verify_comptoken_mint(comptoken_mint_account, false);
-    let global_data_account = verify_global_data_account(global_data_account, program_id, false);
-    let unpaid_interest_bank = verify_interest_bank_account(unpaid_interest_bank, program_id, true);
-    let unpaid_ubi_bank = verify_verified_human_ubi_bank_account(unpaid_ubi_bank, program_id, true);
-    let transfer_hook_program = verify_transfer_hook_program(transfer_hook_program);
-    let extra_account_metas_account = verify_extra_account_metas_account(
-        extra_account_metas_account,
-        &comptoken_mint_account,
-        &transfer_hook_program,
-        false,
-    );
-    let compto_program = VerifiedAccountInfo::verify_specific_address(compto_program, program_id, false, false);
-    let interest_data_pda = VerifiedAccountInfo::verify_pda(
-        interest_data_pda,
+    let verified_accounts = verify_accounts(
+        accounts,
         program_id,
-        &[unpaid_interest_bank.key.as_ref()],
-        false,
-        false,
-    )
-    .0;
-    let ubi_data_pda =
-        VerifiedAccountInfo::verify_pda(ubi_data_pda, program_id, &[unpaid_ubi_bank.key.as_ref()], false, false).0;
+        AccountsToVerify {
+            comptoken_program: Some((false, false)),
+            comptoken_mint: Some((false, false)),
+            global_data: Some((false, false)),
+            interest_bank: Some((false, true)),
+            verified_human_ubi_bank: Some((false, true)),
+            interest_bank_data: Some((false, false)),
+            verified_human_ubi_bank_data: Some((false, false)),
+            user_wallet: Some((true, false)),
+            user_comptoken_token_account: Some((false, true)),
+            user_data: Some((true, (false, true))),
+            transfer_hook_program: Some((false, false)),
+            extra_account_metas: Some((false, false)),
+            solana_token_2022_program: Some((false, false)),
+            ..Default::default()
+        },
+    )?;
+
+    let comptoken_program = verified_accounts.comptoken_program.unwrap();
+    let comptoken_mint_account = verified_accounts.comptoken_mint.unwrap();
+    let global_data_account = verified_accounts.global_data.unwrap();
+    let unpaid_interest_bank = verified_accounts.interest_bank.unwrap();
+    let unpaid_verified_human_ubi_bank = verified_accounts.verified_human_ubi_bank.unwrap();
+    let interest_data_pda = verified_accounts.interest_bank_data.unwrap();
+    let verified_human_ubi_data_pda = verified_accounts.verified_human_ubi_bank_data.unwrap();
+    let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
+    let user_data_account = verified_accounts.user_data.unwrap();
+    let transfer_hook_program = verified_accounts.transfer_hook_program.unwrap();
+    let extra_account_metas_account = verified_accounts.extra_account_metas.unwrap();
 
     let interest;
     let is_verified_human;
     let ubi;
     {
-        let user_wallet_data = user_comptoken_wallet_account.try_borrow_data().unwrap();
+        let user_wallet_data = user_comptoken_token_account.try_borrow_data().unwrap();
         let user_comptoken_wallet = StateWithExtensions::<Account>::unpack(user_wallet_data.as_ref()).unwrap();
         let global_data: &mut GlobalData = (&global_data_account).into();
         let user_data: &mut UserData = (&user_data_account).into();
@@ -547,13 +540,13 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
 
     transfer(
         &unpaid_interest_bank,
-        &user_comptoken_wallet_account,
+        &user_comptoken_token_account,
         &comptoken_mint_account,
         &global_data_account,
         &[
             &extra_account_metas_account,
             &transfer_hook_program,
-            &compto_program,
+            &comptoken_program,
             &user_data_account,
             &interest_data_pda,
         ],
@@ -563,16 +556,16 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
     // get ubi if verified
     if is_verified_human {
         transfer(
-            &unpaid_ubi_bank,
-            &user_comptoken_wallet_account,
+            &unpaid_verified_human_ubi_bank,
+            &user_comptoken_token_account,
             &comptoken_mint_account,
             &global_data_account,
             &[
                 &extra_account_metas_account,
                 &transfer_hook_program,
-                &compto_program,
+                &comptoken_program,
                 &user_data_account,
-                &ubi_data_pda,
+                &verified_human_ubi_data_pda,
             ],
             ubi,
         )?;
@@ -583,31 +576,28 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
 
 pub fn realloc_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  Account Order
-    //      [s, w] User's Solana Wallet
-    //      [w] User's Data
-    //      [] User's Comptoken Wallet
-    //      [] Solana Program
+    //      [s, w] Payer Account
     //      [s] User Solana Wallet
+    //      [] User's Comptoken Token Account
+    //      [w] User's Data
+    //      [] Solana Program
 
-    let account_info_iter = &mut accounts.iter();
+    let verified_accounts = verify_accounts(
+        accounts,
+        program_id,
+        AccountsToVerify {
+            payer: Some((true, true)),
+            user_wallet: Some((true, false)),
+            user_comptoken_token_account: Some((false, false)),
+            user_data: Some((true, (false, true))),
+            solana_program: Some((false, false)),
+            ..Default::default()
+        },
+    )?;
 
-    let payer_account = next_account_info(account_info_iter)?;
-    let user_data_account = next_account_info(account_info_iter)?;
-    let user_comptoken_wallet_account = next_account_info(account_info_iter)?;
-    let system_program = VerifiedAccountInfo::verify_specific_address(
-        next_account_info(account_info_iter)?,
-        &solana_program::system_program::ID,
-        false,
-        false,
-    );
-    let user_solana_wallet_account =
-        VerifiedAccountInfo::verify_account_signer_or_writable(next_account_info(account_info_iter)?, true, false);
-
-    let payer_account = verify_payer_account(payer_account);
-    let user_comptoken_wallet_account =
-        verify_user_comptoken_wallet_account(user_comptoken_wallet_account, &user_solana_wallet_account, false);
-    let (user_data_account, _) =
-        verify_user_data_account(user_data_account, &user_comptoken_wallet_account, program_id, true);
+    let payer_account = verified_accounts.payer.unwrap();
+    let user_data_account = verified_accounts.user_data.unwrap();
+    let system_program = verified_accounts.solana_program.unwrap();
 
     // find space and minimum rent required for account
     let rent_lamports = u64::from_le_bytes(instruction_data[0..8].try_into().expect("correct size"));

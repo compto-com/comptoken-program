@@ -9,7 +9,7 @@ import {
     DEFAULT_DISTRIBUTION_TIME,
     global_data_account_pubkey,
     interest_bank_account_pubkey,
-    ubi_bank_account_pubkey
+    verified_human_ubi_bank_account_pubkey
 } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 import { createInitializeComptokenProgramInstruction } from "../instruction.js";
@@ -34,7 +34,7 @@ async function initialize_comptoken_program() {
         Assert.assert(final_interest_bank.data.owner.equals(global_data_account_pubkey), "interest owner");
         Assert.assertEqual(final_interest_bank.data.state, AccountState.Initialized, "interest state");
 
-        const final_UBI_bank = await get_account(context, ubi_bank_account_pubkey, TokenAccount);
+        const final_UBI_bank = await get_account(context, verified_human_ubi_bank_account_pubkey, TokenAccount);
         Assert.assertEqual(final_UBI_bank.data.amount, 0n, "ubi amount");
         Assert.assert(final_UBI_bank.data.mint.equals(comptoken_mint_pubkey), "ubi mint");
         Assert.assert(final_UBI_bank.data.owner.equals(global_data_account_pubkey), "ubi owner");

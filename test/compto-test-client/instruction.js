@@ -66,16 +66,16 @@ export async function createProofSubmissionInstruction(comptoken_proof, user_wal
         keys: [
             // will mint some comptokens
             { pubkey: comptoken_mint_pubkey, isSigner: false, isWritable: true },
-            // will store minted comptoken
-            { pubkey: user_comptoken_wallet_address, isSigner: false, isWritable: true },
             // stores the current valid blockhashes
             { pubkey: global_data_account_pubkey, isSigner: false, isWritable: false },
+            // the owner of the comptoken wallet
+            { pubkey: user_wallet_address, isSigner: true, isWritable: false },
+            // will store minted comptoken
+            { pubkey: user_comptoken_wallet_address, isSigner: false, isWritable: true },
             // stores the proof to prevent duplicate submissions
             { pubkey: destination_data_account_address, isSigner: false, isWritable: true },
             // for the actual minting
             { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
-            // the owner of the comptoken wallet
-            { pubkey: user_wallet_address, isSigner: true, isWritable: false },
         ], data: Buffer.from([
             Instruction.PROOF_SUBMISSION,
             ...comptoken_proof.serializeData(),

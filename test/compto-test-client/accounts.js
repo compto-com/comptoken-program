@@ -469,7 +469,7 @@ export function get_default_global_data() {
  * @param {PublicKey} owner
  * @returns {TokenAccount}
  */
-export function get_default_comptoken_wallet(address, owner) {
+export function get_default_comptoken_token_account(address, owner) {
     return new TokenAccount(address, BIG_NUMBER, TOKEN_2022_PROGRAM_ID,
         new Token({
             mint: comptoken_mint_pubkey,
@@ -490,21 +490,21 @@ export function get_default_comptoken_wallet(address, owner) {
  * @returns {TokenAccount}
  */
 export function get_default_unpaid_interest_bank() {
-    return get_default_comptoken_wallet(interest_bank_account_pubkey, global_data_account_pubkey);
+    return get_default_comptoken_token_account(interest_bank_account_pubkey, global_data_account_pubkey);
 }
 
 /**
  * @returns {TokenAccount}
  */
 export function get_default_unpaid_verified_human_ubi_bank() {
-    return get_default_comptoken_wallet(verified_human_ubi_bank_account_pubkey, global_data_account_pubkey);
+    return get_default_comptoken_token_account(verified_human_ubi_bank_account_pubkey, global_data_account_pubkey);
 }
 
 /**
  * @returns {TokenAccount}
  */
 export function get_default_unpaid_future_ubi_bank() {
-    return get_default_comptoken_wallet(future_ubi_bank_account_pubkey, global_data_account_pubkey);
+    return get_default_comptoken_token_account(future_ubi_bank_account_pubkey, global_data_account_pubkey);
 }
 
 /**

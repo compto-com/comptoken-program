@@ -2,7 +2,7 @@ import { Keypair, PublicKey } from "@solana/web3.js";
 
 import {
     get_default_comptoken_mint,
-    get_default_comptoken_wallet,
+    get_default_comptoken_token_account,
     get_default_global_data,
     UserData,
     UserDataAccount
@@ -15,7 +15,7 @@ import { createCreateUserDataAccountInstruction } from "../instruction.js";
 async function test_createUserDataAccount() {
     const user = Keypair.generate();
 
-    const original_user_comptoken_wallet = get_default_comptoken_wallet(PublicKey.unique(), user.publicKey);
+    const original_user_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), user.publicKey);
 
     const existing_accounts = [get_default_comptoken_mint(), get_default_global_data(), original_user_comptoken_wallet];
 

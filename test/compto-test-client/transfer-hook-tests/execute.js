@@ -3,7 +3,7 @@ import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
 
 import {
     get_default_comptoken_mint,
-    get_default_comptoken_wallet,
+    get_default_comptoken_token_account,
     get_default_extra_account_metas_account,
     get_default_user_data_account,
     TokenAccount
@@ -15,12 +15,12 @@ import { get_account, run_test, setup_test } from "../generic_test.js";
 async function test_execute() {
     const user1 = Keypair.generate();
     const comptoken_mint = get_default_comptoken_mint();
-    let original_user1_comptoken_wallet = get_default_comptoken_wallet(PublicKey.unique(), user1.publicKey);
+    let original_user1_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), user1.publicKey);
     original_user1_comptoken_wallet.data.amount = 1n;
     const user1_data_pda = PublicKey.findProgramAddressSync([original_user1_comptoken_wallet.address.toBytes()], compto_program_id_pubkey)[0];
     const user1_data_account = get_default_user_data_account(user1_data_pda);
 
-    const original_user2_comptoken_wallet = get_default_comptoken_wallet(PublicKey.unique(), PublicKey.unique());
+    const original_user2_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), PublicKey.unique());
     const user2_data_pda = PublicKey.findProgramAddressSync([original_user2_comptoken_wallet.address.toBytes()], compto_program_id_pubkey)[0];
     const user2_data_account = get_default_user_data_account(user2_data_pda);
 

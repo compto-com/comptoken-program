@@ -1,6 +1,6 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 
-import { get_default_comptoken_mint, get_default_comptoken_wallet, get_default_global_data, get_default_testuser_comptoken_wallet, get_default_user_data_account, UserData } from "../accounts.js";
+import { get_default_comptoken_mint, get_default_comptoken_wallet, get_default_global_data, get_default_user_data_account, UserData } from "../accounts.js";
 import { Assert } from "../assert.js";
 import { compto_program_id_pubkey } from "../common.js";
 import { run_test, setup_test } from "../generic_test.js";

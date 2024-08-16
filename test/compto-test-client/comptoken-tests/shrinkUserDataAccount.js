@@ -31,7 +31,7 @@ async function test_failShrinkUserDataAccount() {
             result.meta.logMessages.some((msg, i) => msg.includes("assertion failed: user_data_account.data_len() < new_size")),
             "program should have failed b/c it wouldn't shrink"
         );
-    });
+    }, true);
 }
 
 (async () => { await test_failShrinkUserDataAccount(); })();

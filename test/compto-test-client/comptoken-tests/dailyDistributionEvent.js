@@ -2,8 +2,9 @@ import { Clock } from "solana-bankrun";
 import {
     get_default_comptoken_mint,
     get_default_global_data,
+    get_default_unpaid_future_ubi_bank,
     get_default_unpaid_interest_bank,
-    get_default_unpaid_ubi_bank,
+    get_default_unpaid_verified_human_ubi_bank,
     GlobalDataAccount,
     MintAccount,
     TokenAccount
@@ -19,12 +20,16 @@ import { createDailyDistributionEventInstruction } from "../instruction.js";
 
 async function test_dailyDistributionEvent() {
     let original_comptoken_mint = get_default_comptoken_mint();
-    original_comptoken_mint.data.supply = 1n;
-    const original_global_data_account = get_default_global_data();
+    original_comptoken_mint.data.supply = 10_000n;
+    let original_global_data_account = get_default_global_data();
+    original_global_data_account.data.dailyDistributionData.verifiedHumans = 1n;
     const original_unpaid_interest_bank = get_default_unpaid_interest_bank();
-    const original_unpaid_ubi_bank = get_default_unpaid_ubi_bank();
+    const original_unpaid_verified_human_ubi_bank = get_default_unpaid_verified_human_ubi_bank();
+    const original_unpaid_future_ubi_bank = get_default_unpaid_future_ubi_bank();
 
-    const existing_accounts = [original_comptoken_mint, original_global_data_account, original_unpaid_interest_bank, original_unpaid_ubi_bank];
+    const existing_accounts = [
+        original_comptoken_mint, original_global_data_account, original_unpaid_interest_bank, original_unpaid_verified_human_ubi_bank, original_unpaid_future_ubi_bank,
+    ];
 
     // 216_000 is mostly arbitrary, but it should roughly correspond to a days worth of slots
     let context = await setup_test(existing_accounts, new Clock(216_000n, 0n, 0n, 0n, DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY + 1n));
@@ -57,7 +62,7 @@ async function test_dailyDistributionEvent() {
 
         const final_daily_distribution_data = final_global_data_account.data.dailyDistributionData;
         const original_daily_distribution_data = original_global_data_account.data.dailyDistributionData;
-        Assert.assertEqual(final_daily_distribution_data.highWaterMark, 1n, "highwater mark has increased"); // TODO: find a better way to get oracle value
+        Assert.assert(final_daily_distribution_data.highWaterMark > original_daily_distribution_data.highWaterMark, "highwater mark has increased");
         Assert.assertEqual(
             final_daily_distribution_data.lastDailyDistributionTime,
             DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY,
@@ -69,16 +74,19 @@ async function test_dailyDistributionEvent() {
             "yesterdays supply is where the mint is after"
         );
         Assert.assertEqual(
-            final_daily_distribution_data.oldestInterest,
-            original_daily_distribution_data.oldestInterest + 1n,
+            final_daily_distribution_data.oldestHistoricValue,
+            original_daily_distribution_data.oldestHistoricValue + 1n,
             "oldest interests has increased"
         );
 
         const final_interest_bank_account = await get_account(context, original_unpaid_interest_bank.address, TokenAccount);
         Assert.assert(final_interest_bank_account.data.amount > original_unpaid_interest_bank.data.amount, "interest bank has increased");
 
-        const final_Ubi_bank_account = await get_account(context, original_unpaid_ubi_bank.address, TokenAccount);
-        Assert.assert(final_Ubi_bank_account.data.amount > original_unpaid_ubi_bank.data.amount, "interest bank has increased");
+        const final_unpaid_verified_human_ubi_bank_account = await get_account(context, original_unpaid_verified_human_ubi_bank.address, TokenAccount);
+        Assert.assert(final_unpaid_verified_human_ubi_bank_account.data.amount > original_unpaid_verified_human_ubi_bank.data.amount, "Verified Human UBI bank has increased");
+
+        const final_unpaid_future_ubi_bank_account = await get_account(context, original_unpaid_future_ubi_bank.address, TokenAccount);
+        Assert.assert(final_unpaid_future_ubi_bank_account.data.amount > original_unpaid_future_ubi_bank.data.amount, "Future UBI bank has increased");
     });
 }
 

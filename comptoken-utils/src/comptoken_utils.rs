@@ -2,9 +2,11 @@ pub mod user_data;
 pub mod verify_accounts;
 
 use spl_token_2022::solana_program::{
-    clock::Clock, entrypoint::ProgramResult, instruction::Instruction, program::invoke_signed, pubkey::Pubkey,
-    system_instruction, sysvar::Sysvar,
+    entrypoint::ProgramResult, instruction::Instruction, program::invoke_signed, pubkey::Pubkey, system_instruction,
 };
+
+#[cfg(not(feature = "test_mock"))]
+use spl_token_2022::solana_program::{clock::Clock, sysvar::Sysvar};
 
 use verify_accounts::VerifiedAccountInfo;
 
@@ -27,8 +29,14 @@ pub fn invoke_signed_verified(
     invoke_signed(instruction, &account_refs, signers_seeds)
 }
 
+#[cfg(not(feature = "test_mock"))]
 pub fn get_current_time() -> i64 {
     Clock::get().unwrap().unix_timestamp
+}
+
+#[cfg(feature = "test_mock")]
+pub fn get_current_time() -> i64 {
+    1_721_940_656
 }
 
 pub fn normalize_time(time: i64) -> i64 {

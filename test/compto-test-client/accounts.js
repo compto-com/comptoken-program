@@ -21,10 +21,10 @@ import {
     comptoken_mint_pubkey,
     DEFAULT_ANNOUNCE_TIME,
     DEFAULT_DISTRIBUTION_TIME,
+    future_ubi_bank_account_pubkey,
     global_data_account_pubkey,
     interest_bank_account_pubkey,
-    testuser_comptoken_wallet_pubkey,
-    ubi_bank_account_pubkey,
+    verified_human_ubi_bank_account_pubkey,
 } from "./common.js";
 import { getOptionOr, numAsU16ToLEBytes, toOption } from "./utils.js";
 
@@ -356,12 +356,18 @@ export const ValidBlockhashesLayout = struct([
     u64("validBlockhashTime"), // actually i64, but will always be positive
 ]);
 
+export const DistributionLayout = struct([
+    f64("interestRate"),
+    u64("ubiAmount"),
+]);
+
 export const DailyDistributionDataLayout = struct([
     u64("yesterdaySupply"),
     u64("highWaterMark"),
     u64("lastDailyDistributionTime"), // actually i64, but will always be positive
-    u64("oldestInterest"),
-    seq(f64(), GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE, "historicInterests"),
+    u64("verifiedHumans"),
+    u64("oldestHistoricValue"),
+    seq(DistributionLayout.replicate(), GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE, "historicDistributions"),
 ]);
 
 export const GlobalDataLayout = struct([
@@ -451,8 +457,9 @@ export function get_default_global_data() {
                 yesterdaySupply: 0n,
                 highWaterMark: 0n,
                 lastDailyDistributionTime: DEFAULT_DISTRIBUTION_TIME,
-                oldestInterest: 0n,
-                historicInterests: Array.from({ length: GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE }, (v, i) => new Uint8Array(32)),
+                verifiedHumans: 0n,
+                oldestHistoricValue: 0n,
+                historicDistributions: Array.from({ length: GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE }, (v, i) => [0, 0n]),
             },
         }));
 }
@@ -489,17 +496,24 @@ export function get_default_unpaid_interest_bank() {
 /**
  * @returns {TokenAccount}
  */
-export function get_default_unpaid_ubi_bank() {
-    return get_default_comptoken_wallet(ubi_bank_account_pubkey, global_data_account_pubkey);
+export function get_default_unpaid_verified_human_ubi_bank() {
+    return get_default_comptoken_wallet(verified_human_ubi_bank_account_pubkey, global_data_account_pubkey);
+}
+
+/**
+ * @returns {TokenAccount}
+ */
+export function get_default_unpaid_future_ubi_bank() {
+    return get_default_comptoken_wallet(future_ubi_bank_account_pubkey, global_data_account_pubkey);
 }
 
 /**
  * @param {PublicKey} owner 
  * @returns {TokenAccount}
  */
-export function get_default_testuser_comptoken_wallet(owner) {
-    return get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, owner);
-}
+//export function get_default_testuser_comptoken_wallet(owner) {
+//    return get_default_comptoken_wallet(testuser_comptoken_wallet_pubkey, owner);
+//}
 
 /**
  * @param {PublicKey} address 

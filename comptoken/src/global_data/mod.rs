@@ -1,7 +1,7 @@
 pub mod daily_distribution_data;
 pub mod valid_blockhashes;
 
-use spl_token_2022::state::Mint;
+use spl_token_2022::state::{Account, Mint};
 
 use crate::VerifiedAccountInfo;
 use daily_distribution_data::{DailyDistributionData, DailyDistributionValues};
@@ -22,10 +22,10 @@ impl GlobalData {
     }
 
     pub fn daily_distribution_event(
-        &mut self, mint: Mint, slot_hash_account: &VerifiedAccountInfo,
+        &mut self, mint: &Mint, unpaid_future_ubi_bank: &Account, slot_hash_account: &VerifiedAccountInfo,
     ) -> DailyDistributionValues {
         self.valid_blockhashes.update(slot_hash_account);
-        self.daily_distribution_data.daily_distribution(mint)
+        self.daily_distribution_data.daily_distribution(mint, unpaid_future_ubi_bank)
     }
 }
 

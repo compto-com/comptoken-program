@@ -6,8 +6,10 @@ import {
     get_default_extra_account_metas_account,
     get_default_global_data,
     get_default_unpaid_interest_bank,
-    get_default_unpaid_ubi_bank,
+    get_default_unpaid_verified_human_ubi_bank,
     get_default_user_data_account,
+    GlobalData,
+    GlobalDataAccount,
     TokenAccount,
     UserDataAccount
 } from "../accounts.js";
@@ -34,14 +36,14 @@ async function test_getOwedComptokens() {
     original_user_data_account.data.lastInterestPayoutDate = DEFAULT_DISTRIBUTION_TIME - SEC_PER_DAY;
 
     let global_data = get_default_global_data();
-    global_data.data.dailyDistributionData.historicInterests[0] = 0.5;
-    global_data.data.dailyDistributionData.oldestInterest = 1n;
+    global_data.data.dailyDistributionData.historicDistributions[0].interestRate = 1.5;
+    global_data.data.dailyDistributionData.oldestHistoricValue = 1n;
     global_data.data.dailyDistributionData.yesterdaySupply = 292_004n;
 
     let interest_bank = get_default_unpaid_interest_bank();
     interest_bank.data.amount = 146_000n;
 
-    let ubi_bank = get_default_unpaid_ubi_bank();
+    let ubi_bank = get_default_unpaid_verified_human_ubi_bank();
     ubi_bank.data.amount = 146_000n;
 
     const existing_accounts = [

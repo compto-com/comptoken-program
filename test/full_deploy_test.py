@@ -129,7 +129,7 @@ if __name__ == "__main__":
         programId = getProgramId()
         globalDataPDA = setGlobalDataPDA(programId)
         interestBankPDA = setInterestBankPDA(programId)
-        UBIBankPDA = setUBIBankPDA(programId)
+        UBIBankPDA = setVerifiedHumanUBIBankPDA(programId)
         comptoken_id = getTokenAddress()
         print("Checking Compto Program for hardcoded Comptoken Address and static seed...")
         generateComptokenAddressFile(

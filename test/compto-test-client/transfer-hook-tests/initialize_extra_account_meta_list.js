@@ -42,7 +42,7 @@ async function test_initializeExtraAccountMetaList() {
     let instructions = [new TransactionInstruction({ programId: compto_transfer_hook_id_pubkey, keys, data })];
     let result;
 
-    [context, result] = await run_test("initializeExtraAccountMetaList", context, instructions, [context.payer, mint_authority], async (context, result) => {
+    [context, result] = await run_test("initializeExtraAccountMetaList", context, instructions, [context.payer, mint_authority], false, async (context, result) => {
         const final_extra_account_meta_list_account = await get_account(context, compto_extra_account_metas_account_pubkey, ExtraAccountMetaAccount);
         const default_account_meta_list = get_default_extra_account_metas_account()
         Assert.assert(final_extra_account_meta_list_account.address.equals(default_account_meta_list.address), "address isn't correct");

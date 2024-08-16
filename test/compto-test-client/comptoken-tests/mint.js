@@ -15,7 +15,7 @@ async function test_mint() {
     let instructions = [await createTestInstruction(testuser.publicKey, user_comptoken_wallet.address)];
     let result;
 
-    [context, result] = await run_test("mint", context, instructions, [context.payer, testuser], async (context, result) => {
+    [context, result] = await run_test("mint", context, instructions, [context.payer, testuser], false, async (context, result) => {
         const final_user_comptoken_wallet = await get_account(context, user_comptoken_wallet.address, TokenAccount);
         Assert.assertEqual(
             final_user_comptoken_wallet.data.amount,

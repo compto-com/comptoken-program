@@ -35,7 +35,7 @@ async function test_proofSubmission() {
     let instructions = [await createProofSubmissionInstruction(proof, user.publicKey, original_user_comptoken_wallet.address)];
     let result;
 
-    [context, result] = await run_test("proofSubmission", context, instructions, [context.payer, user], async (context, result) => {
+    [context, result] = await run_test("proofSubmission", context, instructions, [context.payer, user], false, async (context, result) => {
         const final_comptoken_mint_account = await get_account(context, original_comptoken_mint.address, MintAccount);
         Assert.assert(final_comptoken_mint_account.data.supply > original_comptoken_mint.data.supply, "comptokens have been minted");
 

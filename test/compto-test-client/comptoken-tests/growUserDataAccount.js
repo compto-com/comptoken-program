@@ -26,7 +26,7 @@ async function test_growUserDataAccount() {
     let result;
 
     context.banksClient.getAccount(user_data_account.address);
-    [context, result] = await run_test("growUserDataAccount", context, instructions, [context.payer, user], async (context, result) => {
+    [context, result] = await run_test("growUserDataAccount", context, instructions, [context.payer, user], false, async (context, result) => {
         const packed_final_user_data_account = await context.banksClient.getAccount(user_data_account.address);
         Assert.assertEqual(new_user_data_size, BigInt(packed_final_user_data_account.data.length));
     });

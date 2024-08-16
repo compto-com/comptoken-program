@@ -62,7 +62,7 @@ async function test_execute() {
     let instructions = [new TransactionInstruction({ programId: TOKEN_2022_PROGRAM_ID, keys, data })];
     let result;
 
-    [context, result] = await run_test("execute", context, instructions, [context.payer, user1], async (context, result) => {
+    [context, result] = await run_test("execute", context, instructions, [context.payer, user1], false, async (context, result) => {
         const final_user1_comptoken_wallet = await get_account(context, original_user1_comptoken_wallet.address, TokenAccount);
         Assert.assertEqual(final_user1_comptoken_wallet.data.amount, 0n);
 

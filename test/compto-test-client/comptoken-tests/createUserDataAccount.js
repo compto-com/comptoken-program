@@ -26,7 +26,7 @@ async function test_createUserDataAccount() {
     ];
     let result;
 
-    [context, result] = await run_test("createUserDataAccount", context, instructions, [context.payer, user], async (context, result) => {
+    [context, result] = await run_test("createUserDataAccount", context, instructions, [context.payer, user], false, async (context, result) => {
         const user_data_pda = PublicKey.findProgramAddressSync([original_user_comptoken_wallet.address.toBytes()], compto_program_id_pubkey)[0];
         const final_user_data_account = await get_account(context, user_data_pda, UserDataAccount);
         Assert.assertEqual(final_user_data_account.data.lastInterestPayoutDate, DEFAULT_DISTRIBUTION_TIME, "user data lastInterestPayoutDate");

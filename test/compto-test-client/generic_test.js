@@ -13,7 +13,7 @@ import { compto_program_id_pubkey, compto_transfer_hook_id_pubkey, DEFAULT_START
  * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => null} assert_fn 
  * @returns {[ProgramTestContext, BanksTransactionResultWithMeta]}
  */
-export async function run_test(name, context, instructions, signers, assert_fn, should_fail = false) {
+export async function run_test(name, context, instructions, signers, should_fail, assert_fn) {
     console.log("test " + name)
     console.log(context);
     console.log(instructions);

@@ -160,7 +160,6 @@ pub struct AccountsToVerify {
     pub slothashes: Option<SignerAndWritable>,
 }
 
-#[allow(dead_code)]
 pub struct VerifiedAccounts<'a> {
     pub payer: Option<VerifiedAccountInfo<'a>>,
     pub comptoken_program: Option<VerifiedAccountInfo<'a>>,

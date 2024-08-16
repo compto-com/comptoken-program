@@ -45,10 +45,6 @@ use generated::{
 pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     msg!("instruction_data: {:?}", instruction_data);
     match instruction_data[0] {
-        0 => {
-            msg!("Test Mint");
-            test_mint(program_id, accounts, &instruction_data[1..])
-        }
         1 => {
             msg!("Mint New Comptokens");
             mint_comptokens(program_id, accounts, &instruction_data[1..])
@@ -77,6 +73,10 @@ pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instru
             msg!("Grow User Data Acccount");
             realloc_user_data(program_id, accounts, &instruction_data[1..])
         }
+        255 => {
+            msg!("Test Mint");
+            test_mint(program_id, accounts, &instruction_data[1..])
+        }
         _ => {
             msg!("Invalid Instruction");
             Err(ProgramError::InvalidInstructionData)
@@ -84,6 +84,7 @@ pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instru
     }
 }
 
+#[cfg(feature = "testmode")]
 pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
     //      [w] Comptoken Mint Account
@@ -119,6 +120,12 @@ pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data
         amount,
         &[&comptoken_mint_account, &user_comptoken_token_account, &global_data_account],
     )
+}
+
+#[cfg(not(feature = "testmode"))]
+fn test_mint(_program_id: &Pubkey, _accounts: &[AccountInfo], _instruction_data: &[u8]) -> ProgramResult {
+    msg!("Invalid Instruction");
+    Err(ProgramError::InvalidInstructionData)
 }
 
 pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {

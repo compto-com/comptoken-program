@@ -18,7 +18,6 @@ import { bigintAsU64ToBytes } from "./utils.js";
 
 
 export const Instruction = {
-    TEST: 0,
     PROOF_SUBMISSION: 1,
     INITIALIZE_COMPTOKEN_PROGRAM: 2,
     CREATE_USER_DATA_ACCOUNT: 3,
@@ -26,6 +25,7 @@ export const Instruction = {
     GET_VALID_BLOCKHASHES: 5,
     GET_OWED_COMPTOKENS: 6,
     GROW_USER_DATA_ACCOUNT: 7,
+    TEST: 255,
 };
 
 /**

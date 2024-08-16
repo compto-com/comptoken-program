@@ -530,7 +530,7 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
         let days_since_last_update = (current_day - user_data.last_interest_payout_date) / SEC_PER_DAY;
 
         msg!("total before interest: {}", user_comptoken_wallet.base.amount);
-        // get interest
+        // get interest and ubi
         if is_verified_human {
             (interest, ubi) = global_data
                 .daily_distribution_data

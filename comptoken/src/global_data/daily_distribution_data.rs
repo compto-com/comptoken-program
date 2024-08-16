@@ -13,10 +13,9 @@ pub struct DailyDistributionData {
     pub yesterday_supply: u64,
     pub high_water_mark: u64,
     pub last_daily_distribution_time: i64,
-    pub oldest_historic_index: usize,
-    pub historic_interests: [f64; HISTORY_SIZE],
     pub verified_humans: u64,
-    pub historic_ubis: [u64; HISTORY_SIZE],
+    pub oldest_historic_index: usize,
+    pub historic_distributions: [(f64, u64); HISTORY_SIZE],
 }
 
 impl DailyDistributionData {
@@ -96,28 +95,30 @@ impl DailyDistributionData {
     }
 
     pub fn get_interest_for_n_days(&self, n: usize, initial_money: u64) -> u64 {
-        self.into_iter().take(n).fold(initial_money as f64, |balance, (interest_rate, _)| {
-            (balance * (1. + interest_rate)).round_ties_even()
-        }) as u64
+        self.into_iter()
+            .skip(Self::HISTORY_SIZE - n)
+            .fold(initial_money as f64, |balance, (interest_rate, _)| {
+                (balance * (1. + interest_rate)).round_ties_even()
+            }) as u64
             - initial_money
     }
 
     // we calculate and return ubi separately so that we know how much to distribute from the ubi vs interest banks
     // return value is (interest, ubi)
     pub fn get_distributions_for_n_days(&self, n: usize, initial_money: u64) -> (u64, u64) {
-        let distributions =
-            self.into_iter()
-                .take(n)
-                .fold((initial_money as f64, 0), |(balance, ubi), (interest_rate, days_ubi)| {
-                    ((balance * (1. + interest_rate)).round_ties_even() + days_ubi as f64, ubi + days_ubi)
-                });
+        let distributions = self.into_iter().skip(Self::HISTORY_SIZE - n).fold(
+            (initial_money as f64, 0),
+            |(balance, ubi), (interest_rate, days_ubi)| {
+                ((balance * (1. + interest_rate)).round_ties_even() + days_ubi as f64, ubi + days_ubi)
+            },
+        );
         (distributions.0 as u64 - distributions.1 - initial_money, distributions.1)
     }
 
     fn insert(&mut self, interest: f64, ubi: u64) {
-        self.historic_interests[self.oldest_historic_index] = interest;
-        self.historic_ubis[self.oldest_historic_index] = ubi;
-        self.oldest_historic_index = (self.oldest_historic_index + 1) % Self::HISTORY_SIZE;
+        self.historic_distributions[self.oldest_historic_index] = (interest, ubi);
+        self.oldest_historic_index += 1;
+        self.oldest_historic_index %= Self::HISTORY_SIZE;
     }
 }
 
@@ -132,15 +133,25 @@ impl<'a> Iterator for DailyDistributionDataIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.count += 1;
-        self.index = std::cmp::min(self.index.wrapping_sub(1), DailyDistributionData::HISTORY_SIZE - 1);
+        self.index += 1;
+        self.index %= DailyDistributionData::HISTORY_SIZE;
 
         if self.count > DailyDistributionData::HISTORY_SIZE {
             None
         } else {
-            Some((
-                self.daily_distribution_data.historic_interests[self.index],
-                self.daily_distribution_data.historic_ubis[self.index],
-            ))
+            Some(self.daily_distribution_data.historic_distributions[self.index])
+        }
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.count += n;
+        self.index += n;
+        self.index %= DailyDistributionData::HISTORY_SIZE;
+
+        if self.count > DailyDistributionData::HISTORY_SIZE {
+            None
+        } else {
+            Some(self.daily_distribution_data.historic_distributions[self.index])
         }
     }
 }
@@ -214,10 +225,9 @@ mod test {
             yesterday_supply: 0,
             high_water_mark: 0,
             last_daily_distribution_time: 0,
-            oldest_historic_index: 0,
-            historic_interests: [0.; HISTORY_SIZE],
             verified_humans: 0,
-            historic_ubis: [0; HISTORY_SIZE],
+            oldest_historic_index: 0,
+            historic_distributions: [(0., 0); HISTORY_SIZE],
         };
         data.initialize();
 
@@ -244,10 +254,9 @@ mod test {
             yesterday_supply: 0,
             high_water_mark: 0,
             last_daily_distribution_time: 0,
-            oldest_historic_index: 3,
-            historic_interests: [0.; HISTORY_SIZE],
             verified_humans: 0,
-            historic_ubis: [0; HISTORY_SIZE],
+            oldest_historic_index: 3,
+            historic_distributions: [(0., 0); HISTORY_SIZE],
         };
         data.initialize();
 

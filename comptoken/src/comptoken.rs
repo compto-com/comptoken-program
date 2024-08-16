@@ -541,24 +541,24 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
         msg!("ubi: {}", ubi);
         user_data.last_interest_payout_date = current_day;
     }
-
-    transfer(
-        &unpaid_interest_bank,
-        &user_comptoken_wallet_account,
-        &comptoken_mint_account,
-        &global_data_account,
-        &[
-            &extra_account_metas_account,
-            &transfer_hook_program,
-            &compto_program,
-            &user_data_account,
-            &interest_data_pda,
-        ],
-        interest,
-    )?;
-
+    if interest > 0 {
+        transfer(
+            &unpaid_interest_bank,
+            &user_comptoken_wallet_account,
+            &comptoken_mint_account,
+            &global_data_account,
+            &[
+                &extra_account_metas_account,
+                &transfer_hook_program,
+                &compto_program,
+                &user_data_account,
+                &interest_data_pda,
+            ],
+            interest,
+        )?;
+    }
     // get ubi if verified
-    if is_verified_human {
+    if is_verified_human && ubi > 0 {
         transfer(
             &unpaid_ubi_bank,
             &user_comptoken_wallet_account,

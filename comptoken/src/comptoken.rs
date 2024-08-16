@@ -360,6 +360,7 @@ pub fn daily_distribution_event(
     //      [w] Comptoken Future UBI Bank
     //      [] Solana Token 2022 Program
     //      [] Solana SlotHashes Sysvar
+    //      [w] Comptoken Future UBI Bank
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -493,9 +494,7 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
     let comptoken_mint_account = verified_accounts.comptoken_mint.unwrap();
     let global_data_account = verified_accounts.global_data.unwrap();
     let unpaid_interest_bank = verified_accounts.interest_bank.unwrap();
-    let unpaid_verified_human_ubi_bank = verified_accounts.verified_human_ubi_bank.unwrap();
     let interest_data_pda = verified_accounts.interest_bank_data.unwrap();
-    let verified_human_ubi_data_pda = verified_accounts.verified_human_ubi_bank_data.unwrap();
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
     let user_data_account = verified_accounts.user_data.unwrap();
     let transfer_hook_program = verified_accounts.transfer_hook_program.unwrap();
@@ -551,7 +550,7 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
     // get ubi if verified
     if is_verified_human && ubi > 0 {
         transfer(
-            &unpaid_verified_human_ubi_bank,
+            &unpaid_interest_bank,
             &user_comptoken_token_account,
             &comptoken_mint_account,
             &global_data_account,
@@ -560,7 +559,7 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
                 &transfer_hook_program,
                 &comptoken_program,
                 &user_data_account,
-                &verified_human_ubi_data_pda,
+                &interest_data_pda,
             ],
             ubi,
         )?;

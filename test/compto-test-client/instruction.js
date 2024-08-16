@@ -179,6 +179,8 @@ export async function createDailyDistributionEventInstruction() {
             { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
             // program will pull a recent hash from slothashes sysvar if a new valid blockhash is needed.  
             { pubkey: SYSVAR_SLOT_HASHES_PUBKEY, isSigner: false, isWritable: false },
+            // comptoken token account used as bank for future ubi payouts
+            { pubkey: future_ubi_bank_account_pubkey, isSigner: false, isWritable: true },
         ],
         data: Buffer.from([Instruction.DAILY_DISTRIBUTION_EVENT]),
     });

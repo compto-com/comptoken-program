@@ -30,10 +30,11 @@ export const Instruction = {
 
 /**
  * @param {PublicKey} user_wallet_address
- * @param {PublicKey} user_comptoken_token_account_address 
+ * @param {PublicKey} user_comptoken_token_account_address
+ * @param {BigInt} amount
  * @returns {TransactionInstruction}
  */
-export function createTestInstruction(user_wallet_address, user_comptoken_token_account_address) {
+export function createTestInstruction(user_wallet_address, user_comptoken_token_account_address, amount) {
     return new TransactionInstruction({
         programId: compto_program_id_pubkey,
         keys: [
@@ -48,7 +49,7 @@ export function createTestInstruction(user_wallet_address, user_comptoken_token_
             { pubkey: user_comptoken_token_account_address, isSigner: false, isWritable: true },
             // the token program that will mint the tokens when instructed by the mint authority
             { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
-        ], data: Buffer.from([Instruction.TEST]),
+        ], data: Buffer.from([Instruction.TEST, ...bigintAsU64ToBytes(amount)]), // 2 is the number of tokens to mint
     });
 }
 

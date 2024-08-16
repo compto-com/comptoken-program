@@ -12,14 +12,16 @@ async function test_mint() {
 
     let context = await setup_test(accounts);
 
-    let instructions = [await createTestInstruction(testuser.publicKey, user_comptoken_wallet.address)];
+    const amount = 3n;
+
+    let instructions = [await createTestInstruction(testuser.publicKey, user_comptoken_wallet.address, amount)];
     let result;
 
     [context, result] = await run_test("mint", context, instructions, [context.payer, testuser], false, async (context, result) => {
         const final_user_comptoken_wallet = await get_account(context, user_comptoken_wallet.address, TokenAccount);
         Assert.assertEqual(
             final_user_comptoken_wallet.data.amount,
-            user_comptoken_wallet.data.amount + 2n // MAGIC NUMBER: ensure it remains consistent with comptoken.rs
+            user_comptoken_wallet.data.amount + amount
         );
     });
 }

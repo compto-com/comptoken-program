@@ -93,6 +93,8 @@ pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data
     //      [] User Comptoken Token Account
     //      [] Solana Token 2022
 
+    use spl_token_2022::extension::transfer_fee::instruction;
+
     msg!("instruction_data: {:?}", instruction_data);
 
     let verified_accounts = verify_accounts(
@@ -112,7 +114,7 @@ pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data
     let global_data_account = verified_accounts.global_data.unwrap();
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
 
-    let amount = 2;
+    let amount = u64::from_le_bytes(instruction_data[0..8].try_into().expect("correct size"));
 
     mint(
         &global_data_account,

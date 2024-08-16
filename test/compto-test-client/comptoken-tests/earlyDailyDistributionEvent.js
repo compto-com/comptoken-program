@@ -33,7 +33,7 @@ async function test_earlyDailyDistributionEvent() {
         const final_comptoken_mint = await get_account(context, comptoken_mint_pubkey, MintAccount);
         // no new distribution because it is the same day 
         Assert.assertEqual(final_comptoken_mint.data.supply, original_comptoken_mint.data.supply, "interest has not been issued");
-    });
+    }, true);
 }
 
 (async () => { await test_earlyDailyDistributionEvent(); })();

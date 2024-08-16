@@ -136,7 +136,8 @@ impl<'a> Iterator for DailyDistributionDataIter<'a> {
         self.index += 1;
         self.index %= DailyDistributionData::HISTORY_SIZE;
 
-        if self.count > DailyDistributionData::HISTORY_SIZE {
+        println!("count: {}", self.count);
+        if self.count >= DailyDistributionData::HISTORY_SIZE {
             None
         } else {
             Some(self.daily_distribution_data.historic_distributions[self.index])
@@ -144,15 +145,11 @@ impl<'a> Iterator for DailyDistributionDataIter<'a> {
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.count += n;
-        self.index += n;
+        self.count += n - 1;
+        self.index += n - 1;
         self.index %= DailyDistributionData::HISTORY_SIZE;
 
-        if self.count > DailyDistributionData::HISTORY_SIZE {
-            None
-        } else {
-            Some(self.daily_distribution_data.historic_distributions[self.index])
-        }
+        self.next()
     }
 }
 
@@ -263,11 +260,10 @@ mod test {
         data.insert(1., 2);
         data.insert(3., 4);
         data.insert(5., 6);
-        let mut iter = data.into_iter();
-        assert_eq!(iter.next(), Some((5., 6)));
-        assert_eq!(iter.next(), Some((3., 4)));
+        let mut iter = data.into_iter().skip(DailyDistributionData::HISTORY_SIZE - 3);
         assert_eq!(iter.next(), Some((1., 2)));
-        while iter.next().is_some() {}
-        assert_eq!(iter.count, HISTORY_SIZE + 1);
+        assert_eq!(iter.next(), Some((3., 4)));
+        assert_eq!(iter.next(), Some((5., 6)));
+        assert_eq!(iter.next(), None);
     }
 }

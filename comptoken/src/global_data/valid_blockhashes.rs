@@ -14,8 +14,8 @@ pub struct ValidBlockhashes {
 }
 
 impl ValidBlockhashes {
-    pub(super) fn initialize(&mut self, slot_hash_account: &VerifiedAccountInfo) {
-        self.update(slot_hash_account);
+    pub(super) fn initialize(&mut self, slothashes_account: &VerifiedAccountInfo) {
+        self.update(slothashes_account);
     }
 
     pub fn update(&mut self, slot_hash_account: &VerifiedAccountInfo) {

@@ -356,14 +356,18 @@ export const ValidBlockhashesLayout = struct([
     u64("validBlockhashTime"), // actually i64, but will always be positive
 ]);
 
+export const DistributionLayout = struct([
+    f64("interestRate"),
+    u64("ubiAmount"),
+]);
+
 export const DailyDistributionDataLayout = struct([
     u64("yesterdaySupply"),
     u64("highWaterMark"),
     u64("lastDailyDistributionTime"), // actually i64, but will always be positive
-    u64("oldestHistoricValue"),
-    seq(f64(), GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE, "historicInterests"),
     u64("verifiedHumans"),
-    seq(u64(), GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE, "historicUBIs"),
+    u64("oldestHistoricValue"),
+    seq(DistributionLayout.replicate(), GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE, "historicDistributions"),
 ]);
 
 export const GlobalDataLayout = struct([
@@ -453,10 +457,9 @@ export function get_default_global_data() {
                 yesterdaySupply: 0n,
                 highWaterMark: 0n,
                 lastDailyDistributionTime: DEFAULT_DISTRIBUTION_TIME,
-                oldestHistoricValue: 0n,
-                historicInterests: Array.from({ length: GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE }, (v, i) => 0),
                 verifiedHumans: 0n,
-                historicUBIs: Array.from({ length: GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE }, (v, i) => 0n),
+                oldestHistoricValue: 0n,
+                historicDistributions: Array.from({ length: GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE }, (v, i) => [0, 0n]),
             },
         }));
 }

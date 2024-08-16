@@ -378,22 +378,20 @@ pub fn daily_distribution_event(
 
     let comptoken_mint_account = verified_accounts.comptoken_mint.unwrap();
     let global_data_account = verified_accounts.global_data.unwrap();
-    let unpaid_interest_bank = verified_accounts.interest_bank.unwrap();
-    let unpaid_verified_human_ubi_bank = verified_accounts.verified_human_ubi_bank.unwrap();
-    let unpaid_future_ubi_bank = verified_accounts.future_ubi_bank.unwrap();
+    let unpaid_interest_bank_account = verified_accounts.interest_bank.unwrap();
+    let unpaid_verified_human_ubi_bank_account = verified_accounts.verified_human_ubi_bank.unwrap();
+    let unpaid_future_ubi_bank_account = verified_accounts.future_ubi_bank.unwrap();
     let slothashes_account = verified_accounts.slothashes.unwrap();
 
-    let interest_daily_distribution;
-    let verified_human_ubi_daily_distribution;
-    let future_ubi_daily_distribution;
+    let daily_distribution: DailyDistributionValues;
     // scope to prevent reborrowing issues
     {
         let mut global_data_account_data = global_data_account.try_borrow_mut_data().unwrap();
         let global_data: &mut GlobalData = global_data_account_data.as_mut().into();
         let mint_data = comptoken_mint_account.try_borrow_data().unwrap();
-        let comptoken_mint = StateWithExtensions::<Mint>::unpack(&mint_data).unwrap();
-        let future_ubi_data = unpaid_future_ubi_bank.try_borrow_data().unwrap();
-        let future_ubi_bank = StateWithExtensions::<Account>::unpack(&future_ubi_data).unwrap();
+        let comptoken_mint = StateWithExtensions::<Mint>::unpack(&mint_data).unwrap().base;
+        let unpaid_future_ubi_bank_data = unpaid_future_ubi_bank_account.try_borrow_data().unwrap();
+        let unpaid_future_ubi_bank = StateWithExtensions::<Account>::unpack(&unpaid_future_ubi_bank_data).unwrap().base;
 
         let current_time = get_current_time();
         assert!(
@@ -401,30 +399,27 @@ pub fn daily_distribution_event(
             "daily distribution already called today"
         );
 
-        DailyDistributionValues {
-            interest_distribution: interest_daily_distribution,
-            ubi_for_verified_humans: verified_human_ubi_daily_distribution,
-            future_ubi_distribution: future_ubi_daily_distribution,
-        } = global_data.daily_distribution_event(&comptoken_mint.base, &future_ubi_bank.base, &slothashes_account);
+        daily_distribution =
+            global_data.daily_distribution_event(&comptoken_mint, &unpaid_future_ubi_bank, &slothashes_account);
     }
     // mint to banks
     mint(
         &global_data_account,
-        &unpaid_interest_bank,
-        interest_daily_distribution,
-        &[&comptoken_mint_account, &global_data_account, &unpaid_interest_bank],
+        &unpaid_interest_bank_account,
+        daily_distribution.interest_distribution,
+        &[&comptoken_mint_account, &global_data_account, &unpaid_interest_bank_account],
     )?;
     mint(
         &global_data_account,
-        &unpaid_verified_human_ubi_bank,
-        verified_human_ubi_daily_distribution,
-        &[&comptoken_mint_account, &global_data_account, &unpaid_verified_human_ubi_bank],
+        &unpaid_verified_human_ubi_bank_account,
+        daily_distribution.ubi_for_verified_humans,
+        &[&comptoken_mint_account, &global_data_account, &unpaid_verified_human_ubi_bank_account],
     )?;
     mint(
         &global_data_account,
-        &unpaid_future_ubi_bank,
-        future_ubi_daily_distribution,
-        &[&comptoken_mint_account, &global_data_account, &unpaid_future_ubi_bank],
+        &unpaid_future_ubi_bank_account,
+        daily_distribution.future_ubi_distribution,
+        &[&comptoken_mint_account, &global_data_account, &unpaid_future_ubi_bank_account],
     )
 }
 
@@ -521,7 +516,7 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
         let days_since_last_update = (current_day - user_data.last_interest_payout_date) / SEC_PER_DAY;
 
         msg!("total before interest: {}", user_comptoken_wallet.base.amount);
-        // get interest
+        // get interest and ubi
         if is_verified_human {
             (interest, ubi) = global_data
                 .daily_distribution_data
@@ -537,24 +532,24 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
         msg!("ubi: {}", ubi);
         user_data.last_interest_payout_date = current_day;
     }
-
-    transfer(
-        &unpaid_interest_bank,
-        &user_comptoken_token_account,
-        &comptoken_mint_account,
-        &global_data_account,
-        &[
-            &extra_account_metas_account,
-            &transfer_hook_program,
-            &comptoken_program,
-            &user_data_account,
-            &interest_data_pda,
-        ],
-        interest,
-    )?;
-
+    if interest > 0 {
+        transfer(
+            &unpaid_interest_bank,
+            &user_comptoken_token_account,
+            &comptoken_mint_account,
+            &global_data_account,
+            &[
+                &extra_account_metas_account,
+                &transfer_hook_program,
+                &comptoken_program,
+                &user_data_account,
+                &interest_data_pda,
+            ],
+            interest,
+        )?;
+    }
     // get ubi if verified
-    if is_verified_human {
+    if is_verified_human && ubi > 0 {
         transfer(
             &unpaid_verified_human_ubi_bank,
             &user_comptoken_token_account,

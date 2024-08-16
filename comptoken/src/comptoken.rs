@@ -387,10 +387,8 @@ pub fn daily_distribution_event(
         verify_verified_human_ubi_bank_account(unpaid_verified_human_ubi_bank, program_id, true);
     let slot_hashes_account = verify_slothashes_account(slot_hashes_account);
     let unpaid_future_ubi_bank = verify_future_ubi_bank_account(unpaid_future_ubi_bank, program_id, true);
+    let daily_distribution: DailyDistributionValues;
 
-    let interest_daily_distribution;
-    let verified_human_ubi_daily_distribution;
-    let future_ubi_daily_distribution;
     // scope to prevent reborrowing issues
     {
         let mut global_data_account_data = global_data_account.try_borrow_mut_data().unwrap();
@@ -406,29 +404,26 @@ pub fn daily_distribution_event(
             "daily distribution already called today"
         );
 
-        DailyDistributionValues {
-            interest_distribution: interest_daily_distribution,
-            ubi_for_verified_humans: verified_human_ubi_daily_distribution,
-            future_ubi_distribution: future_ubi_daily_distribution,
-        } = global_data.daily_distribution_event(&comptoken_mint.base, &future_ubi_bank.base, &slot_hashes_account);
+        daily_distribution =
+            global_data.daily_distribution_event(&comptoken_mint.base, &future_ubi_bank.base, &slot_hashes_account);
     }
     // mint to banks
     mint(
         &global_data_account,
         &unpaid_interest_bank,
-        interest_daily_distribution,
+        daily_distribution.interest_distribution,
         &[&comptoken_mint_account, &global_data_account, &unpaid_interest_bank],
     )?;
     mint(
         &global_data_account,
         &unpaid_verified_human_ubi_bank,
-        verified_human_ubi_daily_distribution,
+        daily_distribution.ubi_for_verified_humans,
         &[&comptoken_mint_account, &global_data_account, &unpaid_verified_human_ubi_bank],
     )?;
     mint(
         &global_data_account,
         &unpaid_future_ubi_bank,
-        future_ubi_daily_distribution,
+        daily_distribution.future_ubi_distribution,
         &[&comptoken_mint_account, &global_data_account, &unpaid_future_ubi_bank],
     )
 }

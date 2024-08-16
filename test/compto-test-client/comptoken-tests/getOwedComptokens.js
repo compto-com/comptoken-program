@@ -36,7 +36,7 @@ async function test_getOwedComptokens() {
     original_user_data_account.data.lastInterestPayoutDate = DEFAULT_DISTRIBUTION_TIME - SEC_PER_DAY;
 
     let global_data = get_default_global_data();
-    global_data.data.dailyDistributionData.historicDistributions[0].interestRate = 0.5;
+    global_data.data.dailyDistributionData.historicDistributions[0].interestRate = 1.5;
     global_data.data.dailyDistributionData.oldestHistoricValue = 1n;
     global_data.data.dailyDistributionData.yesterdaySupply = 292_004n;
 
@@ -57,7 +57,6 @@ async function test_getOwedComptokens() {
     let result;
 
     [context, result] = await run_test("getOwedComptokens", context, instructions, [context.payer, user], async (context, result) => {
-        console.log((await get_account(context, global_data.address, GlobalDataAccount)).data.dailyDistributionData.historicDistributions);
         const final_user_comptoken_wallet = await get_account(context, original_user_comptoken_wallet.address, TokenAccount);
         Assert.assertEqual(final_user_comptoken_wallet.data.amount, 3n, "interest amount");
 

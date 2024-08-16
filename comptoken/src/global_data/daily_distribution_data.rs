@@ -41,21 +41,18 @@ impl DailyDistributionData {
         let high_water_mark_increase = self.calculate_high_water_mark_increase(daily_mining_total);
         msg!("High water mark increase: {}", high_water_mark_increase);
         self.high_water_mark += high_water_mark_increase;
-
         let total_daily_distribution = high_water_mark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER;
         let total_ubi_distribution = total_daily_distribution / 2;
-
         let verified_human_ubi_ratio = f64::min(
             1.,
             self.verified_humans as f64 * 2. / (FUTURE_UBI_VERIFIED_HUMANS as f64 + self.verified_humans as f64),
         );
-
         let mut distribution_values = DailyDistributionValues {
             interest_distribution: total_daily_distribution / 2,
             ubi_for_verified_humans: (total_ubi_distribution as f64 * verified_human_ubi_ratio) as u64,
             future_ubi_distribution: (total_ubi_distribution as f64 * (1. - verified_human_ubi_ratio)) as u64,
         };
-        let todays_interest_rate = distribution_values.interest_distribution as f64 / mint.supply as f64;
+        let todays_interest_rate = 1. + (distribution_values.interest_distribution as f64 / mint.supply as f64);
         msg!("Interest: {}", todays_interest_rate);
         // pay out interest on comptokens in the unclaimed ubi bank
         // interest for the ubi for verified humans is calculated when the owed comptokens are payed out
@@ -95,24 +92,25 @@ impl DailyDistributionData {
     }
 
     pub fn get_interest_for_n_days(&self, n: usize, initial_money: u64) -> u64 {
-        self.into_iter()
+        let new_balance = self
+            .into_iter()
             .skip(Self::HISTORY_SIZE - n)
-            .fold(initial_money as f64, |balance, (interest_rate, _)| {
-                (balance * (1. + interest_rate)).round_ties_even()
-            }) as u64
-            - initial_money
+            .fold(initial_money as f64, |balance, (interest_rate, _)| (balance * interest_rate).round_ties_even())
+            as u64;
+        new_balance.saturating_sub(initial_money)
     }
 
     // we calculate and return ubi separately so that we know how much to distribute from the ubi vs interest banks
     // return value is (interest, ubi)
     pub fn get_distributions_for_n_days(&self, n: usize, initial_money: u64) -> (u64, u64) {
-        let distributions = self.into_iter().skip(Self::HISTORY_SIZE - n).fold(
+        let (new_balance, ubi) = self.into_iter().skip(Self::HISTORY_SIZE - n).fold(
             (initial_money as f64, 0),
             |(balance, ubi), (interest_rate, days_ubi)| {
-                ((balance * (1. + interest_rate)).round_ties_even() + days_ubi as f64, ubi + days_ubi)
+                ((balance * interest_rate).round_ties_even() + days_ubi as f64, ubi + days_ubi)
             },
         );
-        (distributions.0 as u64 - distributions.1 - initial_money, distributions.1)
+        let interest = (new_balance as u64).saturating_sub(initial_money + ubi);
+        (interest, ubi)
     }
 
     fn insert(&mut self, interest: f64, ubi: u64) {
@@ -135,8 +133,6 @@ impl<'a> Iterator for DailyDistributionDataIter<'a> {
         self.count += 1;
         self.index += 1;
         self.index %= DailyDistributionData::HISTORY_SIZE;
-
-        println!("count: {}", self.count);
         if self.count >= DailyDistributionData::HISTORY_SIZE {
             None
         } else {
@@ -148,7 +144,6 @@ impl<'a> Iterator for DailyDistributionDataIter<'a> {
         self.count += n - 1;
         self.index += n - 1;
         self.index %= DailyDistributionData::HISTORY_SIZE;
-
         self.next()
     }
 }

@@ -130,19 +130,21 @@ impl<'a> Iterator for DailyDistributionDataIter<'a> {
     type Item = (f64, u64);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.count += 1;
-        self.index += 1;
-        self.index %= DailyDistributionData::HISTORY_SIZE;
-        if self.count >= DailyDistributionData::HISTORY_SIZE {
+        let result = if self.count >= DailyDistributionData::HISTORY_SIZE {
             None
         } else {
             Some(self.daily_distribution_data.historic_distributions[self.index])
-        }
+        };
+
+        self.count += 1;
+        self.index += 1;
+        self.index %= DailyDistributionData::HISTORY_SIZE;
+        result
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.count += n - 1;
-        self.index += n - 1;
+        self.count += n;
+        self.index += n;
         self.index %= DailyDistributionData::HISTORY_SIZE;
         self.next()
     }

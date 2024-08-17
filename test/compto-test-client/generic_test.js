@@ -16,8 +16,11 @@ import { compto_program_id_pubkey, compto_transfer_hook_id_pubkey, DEFAULT_START
  * @returns {[ProgramTestContext, BanksTransactionResultWithMeta]}
  */
 async function _run_test(name, context, instructions, signers, should_fail, verbose, assert_fn) {
+
     const log = verbose ? console.log : () => { };
-    console.log("test " + name)
+    const print = console.log;
+
+    print("test " + name, "utf8");
     log(context);
     log(instructions);
     log(signers);
@@ -50,7 +53,7 @@ async function _run_test(name, context, instructions, signers, should_fail, verb
 
     await assert_fn(context, result);
 
-    console.log("test %s passed", name);
+    print("test %s passed", name);
     return [context, result];
 }
 

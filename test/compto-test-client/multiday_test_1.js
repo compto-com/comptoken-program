@@ -37,8 +37,6 @@ async function advance_to_day(context, current_day) {
 
 async function test_multiday_1() {
     // this is a test for daily distributions only, none of the other features are tested
-
-
     const testuser = Keypair.generate();
     const user_comptoken_token_account = get_default_comptoken_token_account(PublicKey.unique(), testuser.publicKey);
     const original_comptoken_mint = get_default_comptoken_mint();
@@ -48,7 +46,8 @@ async function test_multiday_1() {
     const original_unpaid_future_ubi_bank = get_default_unpaid_future_ubi_bank();
 
     const existing_accounts = [
-        original_comptoken_mint, original_global_data_account, original_unpaid_interest_bank, original_unpaid_verified_human_ubi_bank, original_unpaid_future_ubi_bank, user_comptoken_token_account
+        original_comptoken_mint, original_global_data_account, original_unpaid_interest_bank, original_unpaid_verified_human_ubi_bank,
+        original_unpaid_future_ubi_bank, user_comptoken_token_account
     ];
 
     let context = await setup_test(existing_accounts);
@@ -61,9 +60,10 @@ async function test_multiday_1() {
         { comptokens_minted: 1_000_000n, },
     ];
 
-    days_parameters_arr = Array.from({ length: 300 }, (_, i) => { return { comptokens_minted: 1n } });
-    console.log(days_parameters_arr);
+    days_parameters_arr = Array.from({ length: 50 }, (_, i) => { return { comptokens_minted: BigInt(10 ** Math.floor(i / 10)) } });
+
     let historical_supplies = [];
+    let historical_highwatermarks = [];
     try {
         for (let days_parameters of days_parameters_arr) {
 
@@ -71,15 +71,19 @@ async function test_multiday_1() {
 
 
             const comptoken_mint = await get_account(context, comptoken_mint_pubkey, MintAccount);
+            const global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
             historical_supplies.push(comptoken_mint.data.supply);
-            console.log("supply: %s", comptoken_mint.data.supply);
+            historical_highwatermarks.push(global_data_account.data.dailyDistributionData.highWaterMark);
+            console.log(global_data_account.data);
         }
     } catch (e) {
         throw e;
     } finally {
-        let i = 1;
-        for (let supply of historical_supplies) {
-            console.log("supply[%d]: %s", i++, supply);
+        for (let [i, [days_parameters, supply, highwatermark]] of enumerate(zip(days_parameters_arr, historical_supplies, historical_highwatermarks))) {
+            console.log("comptokens minted [%d]: %s", i, days_parameters.comptokens_minted);
+            console.log("supply[%d]:             %s", i, supply);
+            console.log("highwatermark[%d]:      %s", i, highwatermark);
+            console.log()
         }
     }
 }
@@ -157,3 +161,30 @@ async function assert_day(context, result, yesterdays_global_data_account) {
 }
 
 (async () => { await test_multiday_1(); })();
+
+
+function* enumerate(iterable) {
+    let i = 0;
+    for (const x of iterable) {
+        yield [i, x];
+        i++;
+    }
+}
+
+/**
+ * @param  {...Iterable} iterables 
+ */
+function* zip(...iterables) {
+    let iterators = iterables.map(it => it[Symbol.iterator]());
+    while (true) {
+        let result = [];
+        for (let it of iterators) {
+            let next = it.next();
+            if (next.done) {
+                return;
+            }
+            result.push(next.value);
+        }
+        yield result;
+    }
+}

@@ -109,7 +109,7 @@ async function test_day(context, days_parameters, user_comptoken_token_account_a
     advance_to_day(context, test_day.current_day);
 
     let instructions = [await createDailyDistributionEventInstruction()];
-    let result = await run_test_quiet("multiday day " + test_day.current_day, context, instructions, [context.payer], false, async (context, result) => {
+    let result = await run_test("multiday day " + test_day.current_day, context, instructions, [context.payer], false, async (context, result) => {
         return assert_day(context, result, test_day.yesterdays_global_data_account)
     });
 

@@ -1,16 +1,26 @@
 import json
 import os
+import sys
 from argparse import ArgumentParser, Namespace
+from contextlib import contextmanager
 
 from common import *
 
 
+def createDirIfNotExists(path: str | Path):
+    run(f"[ -d {path} ] || mkdir {path} ")
+
+def generateDirectories(args: Namespace):
+    createDirIfNotExists(CACHE_PATH)
+    createDirIfNotExists(COMPTOKEN_GENERATED_PATH)
+    createDirIfNotExists(TRANSFER_HOOK_GENERATED_PATH)
+    if args.log_directory:
+        createDirIfNotExists(args.log_directory)
+        createDirIfNotExists(args.log_directory / "comptoken-tests")
+        createDirIfNotExists(args.log_directory / "transfer-hook-tests")
+
 def generateFiles():
     print("generating files...")
-    # create cache if it doesn't exist
-    run(f"[ -d {CACHE_PATH} ] || mkdir {CACHE_PATH} ")
-    run(f"[ -d {COMPTOKEN_GENERATED_PATH} ] || mkdir {COMPTOKEN_GENERATED_PATH} ")
-    run(f"[ -d {TRANSFER_HOOK_GENERATED_PATH} ] || mkdir {TRANSFER_HOOK_GENERATED_PATH} ")
     # programId
     comptokenProgramId = randAddress()
     transferHookId = randAddress()
@@ -70,10 +80,18 @@ def runTest(args: Namespace, file: str) -> bool:
     env = os.environ
     env["SBF_OUT_DIR"] = str(PROJECT_PATH / "target/deploy/")
     node = ("node --trace-warnings" if args.verbose >= 2 else "node")
+    verbosity = "" if args.verbose == 0 else "-" + "v" * args.verbose
+    command = f"{node} {TEST_PATH / f'compto-test-client/{file}'} {verbosity}"
+    if args.verbose >= 2:
+        print(f"command is '{command}'")
     try:
-        stdout = run(f"{node} {TEST_PATH / f'compto-test-client/{file}'}", env=env, timeout=5)
+        
+        stdout = run(command, env=env, timeout=5)
         if args.verbose >= 1:
-            print(stdout)
+            logfilePath = args.log_directory / f"{file}.log" if args.log_directory else None
+            with file_or_stdout(logfilePath) as logfile:
+                logfile.write(stdout)
+            #print(stdout)
         print(f"✅ \033[92m{file}\033[0m passed")
         return True
     except SubprocessFailedException as e:
@@ -91,9 +109,19 @@ def runTests(args: Namespace, tests: list[str]):
     print()
     print(f"passed: {passed}    failed: {failed}")
 
+@contextmanager
+def file_or_stdout(outfile: Path | None):
+    if outfile is not None:
+        with open(outfile, "w+") as file:
+            yield file
+    else:
+        yield sys.stdout
+
 def parseArgs():
     parser = ArgumentParser(prog="comptoken component tests")
     parser.add_argument("--verbose", "-v", action="count", default=0)
+    parser.add_argument("--log-directory", type=Path, help="logs test output to the specified directory")
+    parser.add_argument("--log", action="store_const", const=CACHE_PATH / "logs", dest="log_directory", help="logs test output to the test/.cache/logs directory")
     parser.add_argument("--no-build", action="store_false", dest="build")
 
     return parser.parse_args()
@@ -110,7 +138,7 @@ if __name__ == "__main__":
         "dailyDistributionEvent",
         "growUserDataAccount",
         "shrinkUserDataAccount",
-        "../multiday_test_1",
+        "multidayDailyDistribution",
     ]
     transfer_hook_tests: list[str] = [
         "initialize_extra_account_meta_list",
@@ -121,6 +149,7 @@ if __name__ == "__main__":
                  ) + list(map(lambda test: "transfer-hook-tests/" + test, transfer_hook_tests))
 
     args = parseArgs()
+    generateDirectories(args)
     if args.build:
         generateFiles()
         build()

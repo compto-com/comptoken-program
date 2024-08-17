@@ -4,6 +4,7 @@ from argparse import ArgumentParser, Namespace
 
 from common import *
 
+
 def generateFiles():
     print("generating files...")
     # create cache if it doesn't exist
@@ -109,6 +110,7 @@ if __name__ == "__main__":
         "dailyDistributionEvent",
         "growUserDataAccount",
         "shrinkUserDataAccount",
+        "../multiday_test_1",
     ]
     transfer_hook_tests: list[str] = [
         "initialize_extra_account_meta_list",

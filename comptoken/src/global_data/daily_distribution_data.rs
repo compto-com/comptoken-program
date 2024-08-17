@@ -81,7 +81,7 @@ impl DailyDistributionData {
     }
 
     fn calculate_distribution_limiter(supply: u64) -> f64 {
-        // the function (x - M)^a + E was found to give what we felt were reasonable values for limits on the maximum growth
+        // the function (x - M)^(-a) + E was found to give what we felt were reasonable values for limits on the maximum growth
         let x = supply - MIN_SUPPLY_LIMIT_AMT;
         f64::powf(x as f64, -ADJUST_FACTOR) + END_GOAL_PERCENT_INCREASE
     }
@@ -89,8 +89,10 @@ impl DailyDistributionData {
     #[allow(unstable_name_collisions)]
     fn calculate_max_allowable_hwm_increase(supply: u64) -> u64 {
         // `as` casts are lossy, but it shouldn't matter in the ranges we are dealing with
-        (supply as f64 * Self::calculate_distribution_limiter(supply)).round_ties_even() as u64
-            / COMPTOKEN_DISTRIBUTION_MULTIPLIER
+        let result = (supply as f64 * Self::calculate_distribution_limiter(supply)).round_ties_even() as u64
+            / COMPTOKEN_DISTRIBUTION_MULTIPLIER;
+        // cannot have a max increase of 0
+        std::cmp::max(result, 1)
     }
 
     pub fn get_interest_for_n_days(&self, n: usize, initial_money: u64) -> u64 {

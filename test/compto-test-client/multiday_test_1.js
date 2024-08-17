@@ -79,6 +79,15 @@ async function test_multiday_1() {
     } catch (e) {
         throw e;
     } finally {
+        for (let [i, days_parameters] of enumerate(days_parameters_arr)) {
+            console.log("comptokens minted [%d]: %s", i, days_parameters.comptokens_minted);
+        }
+        for (let [i, supply] of enumerate(historical_supplies)) {
+            console.log("supply[%d]:             %s", i, supply);
+        }
+        for (let [i, highwatermark] of enumerate(historical_highwatermarks)) {
+            console.log("highwatermark[%d]:      %s", i, highwatermark);
+        }
         for (let [i, [days_parameters, supply, highwatermark]] of enumerate(zip(days_parameters_arr, historical_supplies, historical_highwatermarks))) {
             console.log("comptokens minted [%d]: %s", i, days_parameters.comptokens_minted);
             console.log("supply[%d]:             %s", i, supply);

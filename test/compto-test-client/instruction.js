@@ -49,7 +49,7 @@ export function createTestInstruction(user_wallet_address, user_comptoken_token_
             { pubkey: user_comptoken_token_account_address, isSigner: false, isWritable: true },
             // the token program that will mint the tokens when instructed by the mint authority
             { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
-        ], data: Buffer.from([Instruction.TEST, ...bigintAsU64ToBytes(amount)]), // 2 is the number of tokens to mint
+        ], data: Buffer.from([Instruction.TEST, ...bigintAsU64ToBytes(amount)]),
     });
 }
 

@@ -26,7 +26,6 @@ async function test_failShrinkUserDataAccount() {
 
     [context, result] = await run_test("failShrinkUserDataAccount", context, instructions, [context.payer, user], true, async (context, result) => {
         Assert.assertNotNull(result.result, "program should fail");
-        console.log(result.meta.logMessages);
         Assert.assert(
             result.meta.logMessages.some((msg, i) => msg.includes("assertion failed: user_data_account.data_len() < new_size")),
             "program should have failed b/c it wouldn't shrink"

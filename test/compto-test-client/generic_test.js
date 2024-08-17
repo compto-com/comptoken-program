@@ -4,6 +4,7 @@ import { BanksTransactionResultWithMeta, Clock, ProgramTestContext, start } from
 import { Account } from "./accounts.js";
 import { Assert } from "./assert.js";
 import { compto_program_id_pubkey, compto_transfer_hook_id_pubkey, DEFAULT_START_TIME } from "./common.js";
+import { debug, log, print } from "./parse_args.js";
 
 /**
  * @param {string} name 
@@ -11,19 +12,15 @@ import { compto_program_id_pubkey, compto_transfer_hook_id_pubkey, DEFAULT_START
  * @param {TransactionInstruction[]} instructions
  * @param {Keypair[]} signers
  * @param {boolean} should_fail
- * @param {boolean} verbose
+ * @param {boolean} args
  * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => null} assert_fn 
  * @returns {[ProgramTestContext, BanksTransactionResultWithMeta]}
  */
-async function _run_test(name, context, instructions, signers, should_fail, verbose, assert_fn) {
-
-    const log = verbose ? console.log : () => { };
-    const print = console.log;
-
+export async function run_test(name, context, instructions, signers, should_fail, assert_fn) {
     print("test " + name, "utf8");
-    log(context);
-    log(instructions);
-    log(signers);
+    debug(context);
+    debug(instructions);
+    debug(signers);
 
     const client = context.banksClient;
     const payer = context.payer;
@@ -36,14 +33,14 @@ async function _run_test(name, context, instructions, signers, should_fail, verb
 
     const result = await client.tryProcessTransaction(tx);
 
-    log("result: %s", result.result);
+    debug("result: %s", result.result);
     if (result.meta !== null) {
         log("logMessages: %s", result.meta.logMessages);
-        log("computeUnitsConsumed: %d", result.meta.computeUnitsConsumed);
-        log("returnData: %s", result.meta.returnData);
+        debug("computeUnitsConsumed: %d", result.meta.computeUnitsConsumed);
+        debug("returnData: %s", result.meta.returnData);
     }
 
-    log("should_fail: %s", should_fail);
+    debug("should_fail: %s", should_fail);
     if (should_fail) {
         Assert.assertNotNull(result.result, "transaction should have failed");
     } else {
@@ -55,14 +52,6 @@ async function _run_test(name, context, instructions, signers, should_fail, verb
 
     print("test %s passed", name);
     return [context, result];
-}
-
-export async function run_test(name, context, instructions, signers, should_fail, assert_fn) {
-    return _run_test(name, context, instructions, signers, should_fail, true, assert_fn);
-}
-
-export async function run_test_quiet(name, context, instructions, signers, should_fail, assert_fn) {
-    return _run_test(name, context, instructions, signers, should_fail, false, assert_fn);
 }
 
 /**

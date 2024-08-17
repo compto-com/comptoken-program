@@ -413,18 +413,21 @@ pub fn daily_distribution_event(
             global_data.daily_distribution_event(&comptoken_mint, &unpaid_future_ubi_bank, &slothashes_account);
     }
     // mint to banks
+    msg!("Interest Distribution: {}", daily_distribution.interest_distribution);
     mint(
         &global_data_account,
         &unpaid_interest_bank_account,
         daily_distribution.interest_distribution,
         &[&comptoken_mint_account, &global_data_account, &unpaid_interest_bank_account],
     )?;
+    msg!("Ubi for verified humans: {}", daily_distribution.ubi_for_verified_humans);
     mint(
         &global_data_account,
         &unpaid_verified_human_ubi_bank_account,
         daily_distribution.ubi_for_verified_humans,
         &[&comptoken_mint_account, &global_data_account, &unpaid_verified_human_ubi_bank_account],
     )?;
+    msg!("Future UBI Distribution: {}", daily_distribution.future_ubi_distribution);
     mint(
         &global_data_account,
         &unpaid_future_ubi_bank_account,

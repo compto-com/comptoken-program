@@ -8,16 +8,19 @@ import { compto_program_id_pubkey, compto_transfer_hook_id_pubkey, DEFAULT_START
 /**
  * @param {string} name 
  * @param {ProgramTestContext} context
- * @param {TransactionInstruction[]} instruction
+ * @param {TransactionInstruction[]} instructions
  * @param {Keypair[]} signers
+ * @param {boolean} should_fail
+ * @param {boolean} verbose
  * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => null} assert_fn 
  * @returns {[ProgramTestContext, BanksTransactionResultWithMeta]}
  */
-export async function run_test(name, context, instructions, signers, should_fail, assert_fn) {
+async function _run_test(name, context, instructions, signers, should_fail, verbose, assert_fn) {
+    const log = verbose ? console.log : () => { };
     console.log("test " + name)
-    console.log(context);
-    console.log(instructions);
-    console.log(signers);
+    log(context);
+    log(instructions);
+    log(signers);
 
     const client = context.banksClient;
     const payer = context.payer;
@@ -30,14 +33,14 @@ export async function run_test(name, context, instructions, signers, should_fail
 
     const result = await client.tryProcessTransaction(tx);
 
-    console.log("result: %s", result.result);
+    log("result: %s", result.result);
     if (result.meta !== null) {
-        console.log("logMessages: %s", result.meta.logMessages);
-        console.log("computeUnitsConsumed: %d", result.meta.computeUnitsConsumed);
-        console.log("returnData: %s", result.meta.returnData);
+        log("logMessages: %s", result.meta.logMessages);
+        log("computeUnitsConsumed: %d", result.meta.computeUnitsConsumed);
+        log("returnData: %s", result.meta.returnData);
     }
 
-    console.log("should_fail: %s", should_fail);
+    log("should_fail: %s", should_fail);
     if (should_fail) {
         Assert.assertNotNull(result.result, "transaction should have failed");
     } else {
@@ -47,8 +50,16 @@ export async function run_test(name, context, instructions, signers, should_fail
 
     await assert_fn(context, result);
 
-    console.log("test passed");
+    console.log("test %s passed", name);
     return [context, result];
+}
+
+export async function run_test(name, context, instructions, signers, should_fail, assert_fn) {
+    return _run_test(name, context, instructions, signers, should_fail, true, assert_fn);
+}
+
+export async function run_test_quiet(name, context, instructions, signers, should_fail, assert_fn) {
+    return _run_test(name, context, instructions, signers, should_fail, false, assert_fn);
 }
 
 /**

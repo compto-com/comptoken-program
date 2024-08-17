@@ -57,7 +57,8 @@ impl DailyDistributionData {
         // pay out interest on comptokens in the unclaimed ubi bank
         // interest for the ubi for verified humans is calculated when the owed comptokens are payed out
         let future_ubi_interest = (future_ubi_bank.amount as f64 * todays_interest_rate).round_ties_even() as u64;
-        distribution_values.interest_distribution -= future_ubi_interest;
+        distribution_values.interest_distribution =
+            distribution_values.interest_distribution.saturating_sub(future_ubi_interest);
         distribution_values.future_ubi_distribution += future_ubi_interest;
         let todays_ubi = distribution_values.ubi_for_verified_humans.checked_div(self.verified_humans).unwrap_or(0);
         msg!("UBI: {}", todays_ubi);

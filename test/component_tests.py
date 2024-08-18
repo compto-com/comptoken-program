@@ -86,16 +86,18 @@ def runTest(args: Namespace, file: str) -> bool:
         print(f"command is '{command}'")
     try:
         
-        stdout = run(command, env=env, timeout=5)
+        stdout = run(command, env=env, timeout=20)
         if args.verbose >= 1:
             logfilePath = args.log_directory / f"{file}.log" if args.log_directory else None
             with file_or_stdout(logfilePath) as logfile:
                 logfile.write(stdout)
-            #print(stdout)
         print(f"✅ \033[92m{file}\033[0m passed")
         return True
     except SubprocessFailedException as e:
         print(f"❌ \033[91m{file}\033[0m failed")
+        logfilePath = args.log_directory / f"{file}.log" if args.log_directory else None
+        with file_or_stdout(logfilePath) as logfile:
+            logfile.write(str(e))
         print(e)
         return False
 

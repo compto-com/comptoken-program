@@ -94,3 +94,29 @@ export function isArrayEqual(left, right) {
     }
     return true;
 }
+
+export function* enumerate(iterable, start = 0, step = 1) {
+    let i = start;
+    for (const x of iterable) {
+        yield [i, x];
+        i += step;
+    }
+}
+
+/**
+ * @param  {...Iterable} iterables 
+ */
+export function* zip(...iterables) {
+    let iterators = iterables.map(it => it[Symbol.iterator]());
+    while (true) {
+        let result = [];
+        for (let it of iterators) {
+            let next = it.next();
+            if (next.done) {
+                return;
+            }
+            result.push(next.value);
+        }
+        yield result;
+    }
+}

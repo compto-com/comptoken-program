@@ -2,7 +2,7 @@ import { Keypair, PublicKey } from "@solana/web3.js";
 
 import {
     get_default_comptoken_mint,
-    get_default_comptoken_wallet,
+    get_default_comptoken_token_account,
     get_default_global_data,
     get_default_user_data_account,
     MintAccount,
@@ -21,7 +21,7 @@ async function test_proofSubmission() {
 
     const original_comptoken_mint = get_default_comptoken_mint();
     const original_global_data_account = get_default_global_data();
-    const original_user_comptoken_wallet = get_default_comptoken_wallet(PublicKey.unique(), user.publicKey);
+    const original_user_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), user.publicKey);
     const user_data_pda = PublicKey.findProgramAddressSync([original_user_comptoken_wallet.address.toBytes()], compto_program_id_pubkey)[0];
     const original_user_data_account = get_default_user_data_account(user_data_pda);
 
@@ -35,7 +35,7 @@ async function test_proofSubmission() {
     let instructions = [await createProofSubmissionInstruction(proof, user.publicKey, original_user_comptoken_wallet.address)];
     let result;
 
-    [context, result] = await run_test("proofSubmission", context, instructions, [context.payer, user], async (context, result) => {
+    [context, result] = await run_test("proofSubmission", context, instructions, [context.payer, user], false, async (context, result) => {
         const final_comptoken_mint_account = await get_account(context, original_comptoken_mint.address, MintAccount);
         Assert.assert(final_comptoken_mint_account.data.supply > original_comptoken_mint.data.supply, "comptokens have been minted");
 

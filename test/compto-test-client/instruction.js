@@ -18,7 +18,6 @@ import { bigintAsU64ToBytes } from "./utils.js";
 
 
 export const Instruction = {
-    TEST: 0,
     PROOF_SUBMISSION: 1,
     INITIALIZE_COMPTOKEN_PROGRAM: 2,
     CREATE_USER_DATA_ACCOUNT: 3,
@@ -26,14 +25,16 @@ export const Instruction = {
     GET_VALID_BLOCKHASHES: 5,
     GET_OWED_COMPTOKENS: 6,
     GROW_USER_DATA_ACCOUNT: 7,
+    TEST: 255,
 };
 
 /**
  * @param {PublicKey} user_wallet_address
- * @param {PublicKey} user_comptoken_token_account_address 
+ * @param {PublicKey} user_comptoken_token_account_address
+ * @param {BigInt} amount
  * @returns {TransactionInstruction}
  */
-export function createTestInstruction(user_wallet_address, user_comptoken_token_account_address) {
+export function createTestInstruction(user_wallet_address, user_comptoken_token_account_address, amount) {
     return new TransactionInstruction({
         programId: compto_program_id_pubkey,
         keys: [
@@ -48,7 +49,7 @@ export function createTestInstruction(user_wallet_address, user_comptoken_token_
             { pubkey: user_comptoken_token_account_address, isSigner: false, isWritable: true },
             // the token program that will mint the tokens when instructed by the mint authority
             { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
-        ], data: Buffer.from([Instruction.TEST]),
+        ], data: Buffer.from([Instruction.TEST, ...bigintAsU64ToBytes(amount)]),
     });
 }
 

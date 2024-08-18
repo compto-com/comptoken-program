@@ -2,14 +2,12 @@ import { Keypair, PublicKey, } from "@solana/web3.js";
 
 import {
     get_default_comptoken_mint,
-    get_default_comptoken_wallet,
+    get_default_comptoken_token_account,
     get_default_extra_account_metas_account,
     get_default_global_data,
     get_default_unpaid_interest_bank,
     get_default_unpaid_verified_human_ubi_bank,
     get_default_user_data_account,
-    GlobalData,
-    GlobalDataAccount,
     TokenAccount,
     UserDataAccount
 } from "../accounts.js";
@@ -28,7 +26,7 @@ async function test_getOwedComptokens() {
     let comptoken_mint = get_default_comptoken_mint();
     comptoken_mint.data.supply = 292_004n
 
-    let original_user_comptoken_wallet = get_default_comptoken_wallet(PublicKey.unique(), user.publicKey);
+    let original_user_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), user.publicKey);
     original_user_comptoken_wallet.data.amount = 2n;
 
     const user_data_pda = PublicKey.findProgramAddressSync([original_user_comptoken_wallet.address.toBytes()], compto_program_id_pubkey)[0];
@@ -56,7 +54,7 @@ async function test_getOwedComptokens() {
     let instructions = [await createGetOwedComptokensInstruction(user.publicKey, original_user_comptoken_wallet.address)];
     let result;
 
-    [context, result] = await run_test("getOwedComptokens", context, instructions, [context.payer, user], async (context, result) => {
+    [context, result] = await run_test("getOwedComptokens", context, instructions, [context.payer, user], false, async (context, result) => {
         const final_user_comptoken_wallet = await get_account(context, original_user_comptoken_wallet.address, TokenAccount);
         Assert.assertEqual(final_user_comptoken_wallet.data.amount, 3n, "interest amount");
 

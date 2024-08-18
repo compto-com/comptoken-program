@@ -24,7 +24,7 @@ async function test_earlyDailyDistributionEvent() {
     let instructions = [await createDailyDistributionEventInstruction()];
     let result;
 
-    [context, result] = await run_test("earlyDailyDistributionEvent", context, instructions, [context.payer], async (context, result) => {
+    [context, result] = await run_test("earlyDailyDistributionEvent", context, instructions, [context.payer], true, async (context, result) => {
         Assert.assert(
             result.meta.logMessages.some((msg, i) => msg.includes("daily distribution already called today")),
             "daily distribution already called"
@@ -33,7 +33,7 @@ async function test_earlyDailyDistributionEvent() {
         const final_comptoken_mint = await get_account(context, comptoken_mint_pubkey, MintAccount);
         // no new distribution because it is the same day 
         Assert.assertEqual(final_comptoken_mint.data.supply, original_comptoken_mint.data.supply, "interest has not been issued");
-    }, true);
+    });
 }
 
 (async () => { await test_earlyDailyDistributionEvent(); })();

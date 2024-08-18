@@ -52,16 +52,17 @@ impl DailyDistributionData {
             ubi_for_verified_humans: (total_ubi_distribution as f64 * verified_human_ubi_ratio) as u64,
             future_ubi_distribution: (total_ubi_distribution as f64 * (1. - verified_human_ubi_ratio)) as u64,
         };
-        let todays_interest_rate = 1. + (distribution_values.interest_distribution as f64 / mint.supply as f64);
+        let todays_interest_rate = distribution_values.interest_distribution as f64 / mint.supply as f64;
         msg!("Interest: {}", todays_interest_rate);
         // pay out interest on comptokens in the unclaimed ubi bank
         // interest for the ubi for verified humans is calculated when the owed comptokens are payed out
         let future_ubi_interest = (future_ubi_bank.amount as f64 * todays_interest_rate).round_ties_even() as u64;
-        distribution_values.interest_distribution -= future_ubi_interest;
+        distribution_values.interest_distribution =
+            distribution_values.interest_distribution.saturating_sub(future_ubi_interest);
         distribution_values.future_ubi_distribution += future_ubi_interest;
         let todays_ubi = distribution_values.ubi_for_verified_humans.checked_div(self.verified_humans).unwrap_or(0);
         msg!("UBI: {}", todays_ubi);
-        self.insert(todays_interest_rate, todays_ubi);
+        self.insert(1. + todays_interest_rate, todays_ubi);
         self.yesterday_supply = mint.supply + distribution_values.total_distributed();
         distribution_values
     }
@@ -79,7 +80,7 @@ impl DailyDistributionData {
     }
 
     fn calculate_distribution_limiter(supply: u64) -> f64 {
-        // the function (x - M)^a + E was found to give what we felt were reasonable values for limits on the maximum growth
+        // the function (x - M)^(-a) + E was found to give what we felt were reasonable values for limits on the maximum growth
         let x = supply - MIN_SUPPLY_LIMIT_AMT;
         f64::powf(x as f64, -ADJUST_FACTOR) + END_GOAL_PERCENT_INCREASE
     }
@@ -87,8 +88,10 @@ impl DailyDistributionData {
     #[allow(unstable_name_collisions)]
     fn calculate_max_allowable_hwm_increase(supply: u64) -> u64 {
         // `as` casts are lossy, but it shouldn't matter in the ranges we are dealing with
-        (supply as f64 * Self::calculate_distribution_limiter(supply)).round_ties_even() as u64
-            / COMPTOKEN_DISTRIBUTION_MULTIPLIER
+        let max_increase = (supply as f64 * Self::calculate_distribution_limiter(supply)).round_ties_even() as u64
+            / COMPTOKEN_DISTRIBUTION_MULTIPLIER;
+        // cannot have a max increase of 0
+        std::cmp::max(max_increase, 1)
     }
 
     pub fn get_interest_for_n_days(&self, n: usize, initial_money: u64) -> u64 {

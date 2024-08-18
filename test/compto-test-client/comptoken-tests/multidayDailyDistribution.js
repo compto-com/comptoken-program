@@ -75,8 +75,6 @@ let GLOBAL_YESTERDAYS_GLOBAL_DATA_ACCOUNT = get_default_global_data();
  * @returns {[ProgramTestContext, BanksTransactionResultWithMeta]}
  */
 async function test_day(context, days_parameters, user_comptoken_token_account_address, testuser) {
-    // test_day.* are static variable that are used to persist values across calls to test day
-
     let mint_instructions = [await createTestInstruction(testuser.publicKey, user_comptoken_token_account_address, days_parameters.comptokens_minted)];
     await run_test("multiday mint " + GLOBAL_TODAY, context, mint_instructions, [context.payer, testuser], false, async (context, result) => { });
     console.log("minted %d on day %d", days_parameters.comptokens_minted, GLOBAL_TODAY);

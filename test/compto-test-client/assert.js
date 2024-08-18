@@ -10,15 +10,24 @@ export class AssertionError extends Error {
      * @param {string[]} notes 
      * @param {string} msg 
      */
-    constructor(cause, notes, msg) {
-        let name = "Assertion Error";
-        let note = notes.map((p) => "\n    note: " + p).join("");
-        let msg_ = "\n    msg:\t'" + (msg === undefined ? "" : msg) + "'"
-        let message = name + ": " + cause + note + msg_ + "\n";
+    constructor(cause, notes = [], msg = "") {
+        let message = AssertionError.makeMessage(cause, notes, msg);
         super(message);
         this.cause = cause;
         this.notes = notes;
         this.msg = msg;
+    }
+
+    static makeMessage(cause, notes, msg) {
+        let note = notes.map((p) => "\n    note: " + p).join("");
+        let msg_ = "\n    msg:\t'" + msg + "'";
+        return "AssertionError" + ": " + cause + note + msg_ + "\n";
+    }
+
+    addNote(note) {
+        this.notes.push(note);
+        this.message = AssertionError.makeMessage(this.cause, this.notes, this.msg);
+        return this;
     }
 }
 

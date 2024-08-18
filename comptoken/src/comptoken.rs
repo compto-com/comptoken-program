@@ -93,8 +93,6 @@ pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data
     //      [] User Comptoken Token Account
     //      [] Solana Token 2022
 
-    use spl_token_2022::extension::transfer_fee::instruction;
-
     msg!("instruction_data: {:?}", instruction_data);
 
     let verified_accounts = verify_accounts(

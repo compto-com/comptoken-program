@@ -25,16 +25,17 @@ import { createDailyDistributionEventInstruction, createTestInstruction } from "
 
 /**
  * @param {ProgramTestContext} context
- * @param {BigInt} current_day
+ * @param {BigInt} new_day
  */
-async function advance_to_day(context, current_day) {
+async function advance_to_day(context, new_day) {
     const SLOTS_PER_DAY = 216_000n; // roughly a days worth of slots
-    const current_slot = SLOTS_PER_DAY * BigInt(current_day);
-    let new_clock = new Clock(current_slot, 0n, 0n, 0n, DEFAULT_START_TIME + (SEC_PER_DAY * BigInt(current_day)));
+    const current_slot = SLOTS_PER_DAY * BigInt(new_day);
+    let new_clock = new Clock(current_slot, 0n, 0n, 0n, DEFAULT_START_TIME + (SEC_PER_DAY * BigInt(new_day)));
     context.setClock(new_clock);
     return context;
 }
 
+// arbitrary function to produce "how many comptokens are minted on a given day" test data
 function get_comptokens_minted(current_day) {
     return 1n + (BigInt(current_day) / 10n);
 }
@@ -138,7 +139,8 @@ async function assert_day(context, result) {
         "oldestHistoricValue is updated"
     );
 
-    const current_supply = current_global_data_account.data.dailyDistributionData.yesterdaySupply; // yesterdaySupply stores the supply at the start of the day, which is now
+    // yesterdaySupply stores the supply at the start of the day, which is right now.
+    const current_supply = current_global_data_account.data.dailyDistributionData.yesterdaySupply;
     const yesterdays_supply = GLOBAL_YESTERDAYS_GLOBAL_DATA_ACCOUNT.data.dailyDistributionData.yesterdaySupply;
     const supply_increase = current_supply - yesterdays_supply;
 
@@ -149,7 +151,7 @@ async function assert_day(context, result) {
     Assert.assertEqual(
         supply_increase,
         get_comptokens_minted(GLOBAL_TODAY - 1n) + highwatermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER,
-        "supply should increase by comptokens_minted yesterday + high_watermark_increase * COMPTOKNE_DISTRIBUTION_MULTIPLIER"
+        "supply should increase by comptokens_minted yesterday + high_watermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER"
     );
 
     await assert_day_extra(context, result);

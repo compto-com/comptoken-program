@@ -1,5 +1,4 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { Clock, ProgramTestContext } from "solana-bankrun";
 import {
     get_default_comptoken_mint,
     get_default_comptoken_token_account,
@@ -8,36 +7,65 @@ import {
     get_default_unpaid_interest_bank,
     get_default_unpaid_verified_human_ubi_bank,
     GlobalDataAccount,
-    MintAccount,
 } from "../accounts.js";
-import { Assert, AssertionError } from "../assert.js";
+import { Assert, } from "../assert.js";
 import {
-    COMPTOKEN_DISTRIBUTION_MULTIPLIER,
-    comptoken_mint_pubkey,
-    DEFAULT_ANNOUNCE_TIME,
-    DEFAULT_DISTRIBUTION_TIME,
-    DEFAULT_START_TIME,
     global_data_account_pubkey,
-    SEC_PER_DAY,
 } from "../common.js";
-import { get_account, run_test, setup_test } from "../generic_test.js";
+import { DaysParameters, generic_daily_distribution_assertions, get_account, run_multiday_test, setup_test } from "../generic_test.js";
 import { createDailyDistributionEventInstruction, createTestInstruction } from "../instruction.js";
-
-/**
- * @param {ProgramTestContext} context
- * @param {BigInt} new_day
- */
-async function advance_to_day(context, new_day) {
-    const SLOTS_PER_DAY = 216_000n; // roughly a days worth of slots
-    const current_slot = SLOTS_PER_DAY * BigInt(new_day);
-    let new_clock = new Clock(current_slot, 0n, 0n, 0n, DEFAULT_START_TIME + (SEC_PER_DAY * BigInt(new_day)));
-    context.setClock(new_clock);
-    return context;
-}
 
 // arbitrary function to produce "how many comptokens are minted on a given day" test data
 function get_comptokens_minted(current_day) {
-    return 1n + (BigInt(current_day) / 10n);
+    // first 10 days mint 1 comptoken, next 10 days mint 2 comptokens, etc
+    return 1n + ((BigInt(current_day) - 1n) / 10n);
+}
+
+class MultidayDailyDistributionDaysParameters extends DaysParameters {
+    static yesterdays_global_daya_account = get_default_global_data();
+
+    testuser;
+    payer;
+    user_comptoken_token_account_address;
+
+    assert_fn = async (context, result) => {
+        await generic_daily_distribution_assertions(context, result, MultidayDailyDistributionDaysParameters.yesterdays_global_daya_account, this.day, get_comptokens_minted(this.day));
+
+        const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
+        const current_highwatermark = current_global_data_account.data.dailyDistributionData.highWaterMark;
+        const yesterdays_highwatermark = MultidayDailyDistributionDaysParameters.yesterdays_global_daya_account.data.dailyDistributionData.highWaterMark;
+        const highwatermark_increase = current_highwatermark - yesterdays_highwatermark;
+
+        // every 10 days the mining increases, so the highwatermark should increase, and comptokens should be distributed
+        if (this.day % 10n === 1n) {
+            Assert.assertEqual(highwatermark_increase, 1n, "highwatermark should increase by 1");
+        }
+        else {
+            Assert.assertEqual(highwatermark_increase, 0n, "highwatermark should increase by 0");
+        }
+
+        MultidayDailyDistributionDaysParameters.yesterdays_global_daya_account = current_global_data_account;
+    }
+
+    constructor(day, testuser, payer, user_comptoken_token_account_address) {
+        super(day);
+        this.testuser = testuser;
+        this.payer = payer;
+        this.user_comptoken_token_account_address = user_comptoken_token_account_address;
+    }
+
+    async get_setup_instructions() {
+        return [await createTestInstruction(this.testuser.publicKey, this.user_comptoken_token_account_address, get_comptokens_minted(this.day))];
+    }
+    async get_setup_signers() {
+        return [this.payer, this.testuser]
+    }
+    async get_instructions() {
+        return [await createDailyDistributionEventInstruction()];
+    }
+    async get_signers() {
+        return [this.payer];
+    }
 }
 
 async function test_multidayDailyDistribution() {
@@ -58,117 +86,11 @@ async function test_multidayDailyDistribution() {
 
     let context = await setup_test(existing_accounts);
 
-    let days_parameters_arr = Array.from({ length: 100 }, (_, i) => { return { comptokens_minted: get_comptokens_minted(i) } });
-    // first 10 days mint 1 comptoken, next 10 days mint 2 comptokens, etc
-
-    for (let days_parameters of days_parameters_arr) {
-        context = await test_day(context, days_parameters, user_comptoken_token_account.address, testuser);
-    }
-}
-
-let GLOBAL_TODAY = 1n;
-let GLOBAL_YESTERDAYS_GLOBAL_DATA_ACCOUNT = get_default_global_data();
-
-/**
- * @param {ProgramTestContext} context 
- * @param {{comptokens_minted: BigInt}} current_day 
- * @returns {ProgramTestContext}
- */
-async function test_day(context, days_parameters, user_comptoken_token_account_address, testuser) {
-    let mint_instructions = [await createTestInstruction(testuser.publicKey, user_comptoken_token_account_address, days_parameters.comptokens_minted)];
-    context = await run_test("multiday mint " + GLOBAL_TODAY, context, mint_instructions, [context.payer, testuser], false, async (context, result) => { });
-    console.log("minted %d on day %d", days_parameters.comptokens_minted, GLOBAL_TODAY);
-
-    GLOBAL_YESTERDAYS_GLOBAL_DATA_ACCOUNT = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
-    advance_to_day(context, GLOBAL_TODAY);
-
-    let instructions = [await createDailyDistributionEventInstruction()];
-    context = await run_test("multiday day " + GLOBAL_TODAY, context, instructions, [context.payer], false, async (context, result) => {
-        try {
-            await assert_day(context, result);
-        } catch (error) {
-            if (error instanceof AssertionError) {
-                throw error.addNote("current day: " + GLOBAL_TODAY);
-            }
-            throw error;
-        }
+    let days_parameters_arr = Array.from({ length: 100 }, (_, i) => {
+        return new MultidayDailyDistributionDaysParameters(i + 1, testuser, context.payer, user_comptoken_token_account.address);
     });
 
-    GLOBAL_TODAY++;
-    return context;
-}
-
-async function assert_day(context, result) {
-    const current_comptoken_mint = await get_account(context, comptoken_mint_pubkey, MintAccount);
-    const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
-
-    const current_valid_blockhash = current_global_data_account.data.validBlockhashes;
-    const yesterdays_valid_blockhash = GLOBAL_YESTERDAYS_GLOBAL_DATA_ACCOUNT.data.validBlockhashes;
-    Assert.assertEqual(
-        current_valid_blockhash.announcedBlockhashTime,
-        DEFAULT_ANNOUNCE_TIME + (SEC_PER_DAY * GLOBAL_TODAY),
-        "the announced blockhash time has been updated"
-    );
-    Assert.assertNotEqual(
-        current_valid_blockhash.announcedBlockhash,
-        yesterdays_valid_blockhash.announcedBlockhash,
-        "announced blockhash has changed"
-    ); // TODO: can the actual blockhash be predicted/gotten?
-    Assert.assertEqual(
-        current_valid_blockhash.validBlockhashTime,
-        DEFAULT_DISTRIBUTION_TIME + (SEC_PER_DAY * GLOBAL_TODAY),
-        "the valid blockhash time has been updated"
-    );
-    Assert.assertNotEqual(current_valid_blockhash.validBlockhash, yesterdays_valid_blockhash.validBlockhash, "valid blockhash has changed");
-
-    const current_daily_distribution_data = current_global_data_account.data.dailyDistributionData;
-    Assert.assertEqual(
-        current_daily_distribution_data.lastDailyDistributionTime,
-        DEFAULT_DISTRIBUTION_TIME + (SEC_PER_DAY * GLOBAL_TODAY),
-        "last daily distribution time has updated"
-    );
-    Assert.assertEqual(
-        current_daily_distribution_data.yesterdaySupply,
-        current_comptoken_mint.data.supply,
-        "yesterdays supply is where the mint is after"
-    );
-    Assert.assertEqual(
-        current_daily_distribution_data.oldestHistoricValue,
-        GLOBAL_TODAY % 365n,
-        "oldestHistoricValue is updated"
-    );
-
-    // yesterdaySupply stores the supply at the start of the day, which is right now.
-    const current_supply = current_global_data_account.data.dailyDistributionData.yesterdaySupply;
-    const yesterdays_supply = GLOBAL_YESTERDAYS_GLOBAL_DATA_ACCOUNT.data.dailyDistributionData.yesterdaySupply;
-    const supply_increase = current_supply - yesterdays_supply;
-
-    const current_highwatermark = current_global_data_account.data.dailyDistributionData.highWaterMark;
-    const yesterdays_highwatermark = GLOBAL_YESTERDAYS_GLOBAL_DATA_ACCOUNT.data.dailyDistributionData.highWaterMark;
-    const highwatermark_increase = current_highwatermark - yesterdays_highwatermark;
-
-    Assert.assertEqual(
-        supply_increase,
-        get_comptokens_minted(GLOBAL_TODAY - 1n) + highwatermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER,
-        "supply should increase by comptokens_minted yesterday + high_watermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER"
-    );
-
-    await assert_day_extra(context, result);
-}
-
-async function assert_day_extra(context, result) {
-    const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
-    const current_highwatermark = current_global_data_account.data.dailyDistributionData.highWaterMark;
-    const yesterdays_highwatermark = GLOBAL_YESTERDAYS_GLOBAL_DATA_ACCOUNT.data.dailyDistributionData.highWaterMark;
-    const highwatermark_increase = current_highwatermark - yesterdays_highwatermark;
-
-    // every 10 days the mining increases, so the highwatermark should increase, and comptokens should be distributed
-    if (GLOBAL_TODAY % 10n !== 1n) {
-        Assert.assertEqual(highwatermark_increase, 0n, "highwatermark should increase by 0");
-    }
-    else {
-        Assert.assertEqual(highwatermark_increase, 1n, "highwatermark should increase by 1");
-    }
+    await run_multiday_test("multiday_daily_distribution_1", context, days_parameters_arr);
 }
 
 (async () => { await test_multidayDailyDistribution(); })();

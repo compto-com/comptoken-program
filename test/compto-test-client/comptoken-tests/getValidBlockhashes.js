@@ -11,9 +11,8 @@ async function test_getValidBlockhashes() {
     let context = await setup_test(existing_accounts);
 
     let instructions = [await createGetValidBlockhashesInstruction()];
-    let result;
 
-    [context, result] = await run_test("getValidBlockhashes", context, instructions, [context.payer], false, async (context, result) => {
+    context = await run_test("getValidBlockhashes", context, instructions, [context.payer], false, async (context, result) => {
         const final_valid_blockhashes = {
             current_block: result.meta.returnData.data.slice(0, 32),
             announced_block: result.meta.returnData.data.slice(32, 64)

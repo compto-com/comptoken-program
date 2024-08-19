@@ -14,7 +14,7 @@ import { debug, log, print } from "./parse_args.js";
  * @param {boolean} should_fail
  * @param {boolean} args
  * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => null} assert_fn 
- * @returns {[ProgramTestContext, BanksTransactionResultWithMeta]}
+ * @returns {ProgramTestContext}
  */
 export async function run_test(name, context, instructions, signers, should_fail, assert_fn) {
     print("test " + name, "utf8");
@@ -51,7 +51,7 @@ export async function run_test(name, context, instructions, signers, should_fail
     await assert_fn(context, result);
 
     print("test %s passed", name);
-    return [context, result];
+    return context;
 }
 
 /**

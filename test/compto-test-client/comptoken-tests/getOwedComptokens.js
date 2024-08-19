@@ -52,9 +52,8 @@ async function test_getOwedComptokens() {
     let context = await setup_test(existing_accounts);
 
     let instructions = [await createGetOwedComptokensInstruction(user.publicKey, original_user_comptoken_wallet.address)];
-    let result;
 
-    [context, result] = await run_test("getOwedComptokens", context, instructions, [context.payer, user], false, async (context, result) => {
+    context = await run_test("getOwedComptokens", context, instructions, [context.payer, user], false, async (context, result) => {
         const final_user_comptoken_wallet = await get_account(context, original_user_comptoken_wallet.address, TokenAccount);
         Assert.assertEqual(final_user_comptoken_wallet.data.amount, 3n, "interest amount");
 

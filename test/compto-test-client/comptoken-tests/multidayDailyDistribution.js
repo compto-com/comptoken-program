@@ -57,13 +57,12 @@ async function test_multidayDailyDistribution() {
     ];
 
     let context = await setup_test(existing_accounts);
-    let result;
 
     let days_parameters_arr = Array.from({ length: 100 }, (_, i) => { return { comptokens_minted: get_comptokens_minted(i) } });
     // first 10 days mint 1 comptoken, next 10 days mint 2 comptokens, etc
 
     for (let days_parameters of days_parameters_arr) {
-        [context, result] = await test_day(context, days_parameters, user_comptoken_token_account.address, testuser);
+        context = await test_day(context, days_parameters, user_comptoken_token_account.address, testuser);
     }
 }
 
@@ -73,18 +72,18 @@ let GLOBAL_YESTERDAYS_GLOBAL_DATA_ACCOUNT = get_default_global_data();
 /**
  * @param {ProgramTestContext} context 
  * @param {{comptokens_minted: BigInt}} current_day 
- * @returns {[ProgramTestContext, BanksTransactionResultWithMeta]}
+ * @returns {ProgramTestContext}
  */
 async function test_day(context, days_parameters, user_comptoken_token_account_address, testuser) {
     let mint_instructions = [await createTestInstruction(testuser.publicKey, user_comptoken_token_account_address, days_parameters.comptokens_minted)];
-    await run_test("multiday mint " + GLOBAL_TODAY, context, mint_instructions, [context.payer, testuser], false, async (context, result) => { });
+    context = await run_test("multiday mint " + GLOBAL_TODAY, context, mint_instructions, [context.payer, testuser], false, async (context, result) => { });
     console.log("minted %d on day %d", days_parameters.comptokens_minted, GLOBAL_TODAY);
 
     GLOBAL_YESTERDAYS_GLOBAL_DATA_ACCOUNT = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
     advance_to_day(context, GLOBAL_TODAY);
 
     let instructions = [await createDailyDistributionEventInstruction()];
-    let result = await run_test("multiday day " + GLOBAL_TODAY, context, instructions, [context.payer], false, async (context, result) => {
+    context = await run_test("multiday day " + GLOBAL_TODAY, context, instructions, [context.payer], false, async (context, result) => {
         try {
             await assert_day(context, result);
         } catch (error) {
@@ -96,7 +95,7 @@ async function test_day(context, days_parameters, user_comptoken_token_account_a
     });
 
     GLOBAL_TODAY++;
-    return result;
+    return context;
 }
 
 async function assert_day(context, result) {

@@ -33,7 +33,7 @@ class MultidayDailyDistributionDaysParameters extends DaysParameters {
         await generic_daily_distribution_assertions(context, result, yesterdays_accounts, this.day, get_comptokens_minted(this.day));
         const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
         const current_highwatermark = current_global_data_account.data.dailyDistributionData.highWaterMark;
-        const yesterdays_highwatermark = MultidayDailyDistributionDaysParameters.yesterdays_accounts.global_data_account.data.dailyDistributionData.highWaterMark;
+        const yesterdays_highwatermark = yesterdays_accounts.global_data_account.data.dailyDistributionData.highWaterMark;
         const highwatermark_increase = current_highwatermark - yesterdays_highwatermark;
 
         // every 10 days the mining increases, so the highwatermark should increase, and comptokens should be distributed

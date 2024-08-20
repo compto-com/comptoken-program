@@ -174,10 +174,10 @@ export class Distribution {
 
         const comptokens_per_new_verified_human = yesterdays_accounts.unpaid_future_ubi_bank.data.amount / (BigInt(FUTURE_UBI_VERIFIED_HUMANS) - yesterdays_verified_humans);
 
-        const future_ubi_distributed = new_verified_humans * comptokens_per_new_verified_human;
+        const future_ubi_paid = new_verified_humans * comptokens_per_new_verified_human;
 
         Assert.assertEqual(
-            yesterdays_accounts.unpaid_future_ubi_bank.data.amount + this.future_ubi - future_ubi_distributed,
+            yesterdays_accounts.unpaid_future_ubi_bank.data.amount + this.future_ubi - future_ubi_paid,
             current_unpaid_future_ubi_bank.data.amount,
             "unpaid future ubi bank should increase by future_ubi"
         );

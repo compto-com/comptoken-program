@@ -5,8 +5,19 @@ import { BanksTransactionResultWithMeta, Clock, ProgramTestContext, start } from
 
 import { Account, GlobalDataAccount, MintAccount } from "./accounts.js";
 import { Assert, AssertionError } from "./assert.js";
-import { compto_program_id_pubkey, compto_transfer_hook_id_pubkey, COMPTOKEN_DISTRIBUTION_MULTIPLIER, comptoken_mint_pubkey, DEFAULT_ANNOUNCE_TIME, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME, global_data_account_pubkey, SEC_PER_DAY } from "./common.js";
-import { debug, log, print } from "./parse_args.js";
+import {
+    compto_program_id_pubkey,
+    compto_transfer_hook_id_pubkey,
+    COMPTOKEN_DISTRIBUTION_MULTIPLIER,
+    comptoken_mint_pubkey,
+    DEFAULT_ANNOUNCE_TIME,
+    DEFAULT_DISTRIBUTION_TIME,
+    DEFAULT_START_TIME,
+    FUTURE_UBI_VERIFIED_HUMANS,
+    global_data_account_pubkey,
+    SEC_PER_DAY,
+} from "./common.js";
+import { debug, info, log, print } from "./parse_args.js";
 import { enumerate } from "./utils.js";
 
 export class DaysParameters {
@@ -154,14 +165,15 @@ export async function run_multiday_test(name, context, days_parameters_arr) {
     }
 }
 
-export async function generic_daily_distribution_assertions(context, result, yesterdays_global_data_account, day, comptokens_minted) {
+export async function generic_daily_distribution_assertions(context, result, yesterdays_accounts, day, comptokens_minted) {
     comptokens_minted = BigInt(comptokens_minted);
     day = BigInt(day);
+
     const current_comptoken_mint = await get_account(context, comptoken_mint_pubkey, MintAccount);
     const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
 
     const current_valid_blockhash = current_global_data_account.data.validBlockhashes;
-    const yesterdays_valid_blockhash = yesterdays_global_data_account.data.validBlockhashes;
+    const yesterdays_valid_blockhash = yesterdays_accounts.global_data_account.data.validBlockhashes;
     Assert.assertEqual(
         current_valid_blockhash.announcedBlockhashTime,
         DEFAULT_ANNOUNCE_TIME + (SEC_PER_DAY * day),
@@ -197,12 +209,12 @@ export async function generic_daily_distribution_assertions(context, result, yes
     );
 
     // yesterdaySupply stores the supply at the start of the day, which is right now.
-    const current_supply = current_global_data_account.data.dailyDistributionData.yesterdaySupply;
-    const yesterdays_supply = yesterdays_global_data_account.data.dailyDistributionData.yesterdaySupply;
+    const current_supply = current_daily_distribution_data.yesterdaySupply;
+    const yesterdays_supply = yesterdays_accounts.global_data_account.data.dailyDistributionData.yesterdaySupply;
     const supply_increase = current_supply - yesterdays_supply;
 
     const current_highwatermark = current_global_data_account.data.dailyDistributionData.highWaterMark;
-    const yesterdays_highwatermark = yesterdays_global_data_account.data.dailyDistributionData.highWaterMark;
+    const yesterdays_highwatermark = yesterdays_accounts.global_data_account.data.dailyDistributionData.highWaterMark;
     const highwatermark_increase = current_highwatermark - yesterdays_highwatermark;
 
     Assert.assertEqual(

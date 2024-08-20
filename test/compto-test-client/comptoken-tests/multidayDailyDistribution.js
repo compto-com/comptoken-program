@@ -16,7 +16,7 @@ import {
     interest_bank_account_pubkey,
     verified_human_ubi_bank_account_pubkey,
 } from "../common.js";
-import { DaysParameters, Distribution, generic_daily_distribution_assertions, get_account, run_multiday_test, setup_test } from "../generic_test.js";
+import { DaysParameters, Distribution, generic_daily_distribution_assertions, get_account, run_multiday_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
 import { createDailyDistributionEventInstruction, createTestInstruction } from "../instruction.js";
 
 // arbitrary function to produce "how many comptokens are minted on a given day" test data
@@ -26,12 +26,7 @@ function get_comptokens_minted(current_day) {
 }
 
 class MultidayDailyDistributionDaysParameters extends DaysParameters {
-    static yesterdays_accounts = {
-        global_data_account: get_default_global_data(),
-        unpaid_interest_bank: get_default_unpaid_interest_bank(),
-        unpaid_verified_human_ubi_bank: get_default_unpaid_verified_human_ubi_bank(),
-        unpaid_future_ubi_bank: get_default_unpaid_future_ubi_bank(),
-    };
+    static yesterdays_accounts = new YesterdaysAccounts();
 
     testuser;
     payer;
@@ -77,12 +72,7 @@ class MultidayDailyDistributionDaysParameters extends DaysParameters {
             "unpaid future ubi bank should increase by future_ubi"
         );
 
-        MultidayDailyDistributionDaysParameters.yesterdays_accounts = {
-            global_data_account: current_global_data_account,
-            unpaid_interest_bank: current_unpaid_interest_bank,
-            unpaid_verified_human_ubi_bank: current_unpaid_verified_human_ubi_bank,
-            unpaid_future_ubi_bank: current_unpaid_future_ubi_bank,
-        }
+        MultidayDailyDistributionDaysParameters.yesterdays_accounts = await YesterdaysAccounts.get_accounts(context);
     }
 
     constructor(day, testuser, payer, user_comptoken_token_account_address) {

@@ -11,17 +11,12 @@ import {
 } from "../accounts.js";
 import { Assert } from "../assert.js";
 import { future_ubi_bank_account_pubkey, global_data_account_pubkey, interest_bank_account_pubkey, verified_human_ubi_bank_account_pubkey } from "../common.js";
-import { DaysParameters, Distribution, generic_daily_distribution_assertions, get_account, run_multiday_test, setup_test } from "../generic_test.js";
+import { DaysParameters, Distribution, generic_daily_distribution_assertions, get_account, run_multiday_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
 import { createDailyDistributionEventInstruction, createTestInstruction } from "../instruction.js";
 import { debug } from "../parse_args.js";
 
 class RandomMultidayDailyDistributionDaysParameters extends DaysParameters {
-    static yesterdays_accounts = {
-        global_data_account: get_default_global_data(),
-        unpaid_interest_bank: get_default_unpaid_interest_bank(),
-        unpaid_verified_human_ubi_bank: get_default_unpaid_verified_human_ubi_bank(),
-        unpaid_future_ubi_bank: get_default_unpaid_future_ubi_bank(),
-    };
+    static yesterdays_accounts = new YesterdaysAccounts();
 
     testuser;
     payer;
@@ -68,12 +63,7 @@ class RandomMultidayDailyDistributionDaysParameters extends DaysParameters {
             "unpaid future ubi bank should increase by future_ubi"
         );
 
-        RandomMultidayDailyDistributionDaysParameters.yesterdays_accounts = {
-            global_data_account: current_global_data_account,
-            unpaid_interest_bank: current_unpaid_interest_bank,
-            unpaid_verified_human_ubi_bank: current_unpaid_verified_human_ubi_bank,
-            unpaid_future_ubi_bank: current_unpaid_future_ubi_bank,
-        }
+        RandomMultidayDailyDistributionDaysParameters.yesterdays_accounts = await YesterdaysAccounts.get_accounts(context);
     }
 
     async get_setup_instructions() {

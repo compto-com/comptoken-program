@@ -3,7 +3,7 @@ import { format } from "node:util";
 import { Keypair, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BanksTransactionResultWithMeta, Clock, ProgramTestContext, start } from "solana-bankrun";
 
-import { Account, GlobalDataAccount, MintAccount } from "./accounts.js";
+import { Account, get_default_comptoken_mint, get_default_global_data, get_default_unpaid_future_ubi_bank, get_default_unpaid_interest_bank, get_default_unpaid_verified_human_ubi_bank, GlobalDataAccount, MintAccount, TokenAccount } from "./accounts.js";
 import { Assert, AssertionError } from "./assert.js";
 import {
     compto_program_id_pubkey,
@@ -13,9 +13,12 @@ import {
     DEFAULT_ANNOUNCE_TIME,
     DEFAULT_DISTRIBUTION_TIME,
     DEFAULT_START_TIME,
+    future_ubi_bank_account_pubkey,
     FUTURE_UBI_VERIFIED_HUMANS,
     global_data_account_pubkey,
+    interest_bank_account_pubkey,
     SEC_PER_DAY,
+    verified_human_ubi_bank_account_pubkey,
 } from "./common.js";
 import { debug, info, log, print } from "./parse_args.js";
 import { enumerate } from "./utils.js";
@@ -141,6 +144,38 @@ export class Distribution {
 
     total() {
         return this.interest + this.future_ubi + this.verified_human_ubi;
+    }
+}
+
+export class YesterdaysAccounts {
+    comptoken_mint;
+    global_data_account;
+    unpaid_interest_bank;
+    unpaid_verified_human_ubi_bank;
+    unpaid_future_ubi_bank;
+
+    constructor(
+        comptoken_mint = get_default_comptoken_mint(),
+        global_data_account = get_default_global_data(),
+        unpaid_interest_bank = get_default_unpaid_interest_bank(),
+        unpaid_verified_human_ubi_bank = get_default_unpaid_verified_human_ubi_bank(),
+        unpaid_future_ubi_bank = get_default_unpaid_future_ubi_bank(),
+    ) {
+        this.comptoken_mint = comptoken_mint;
+        this.global_data_account = global_data_account;
+        this.unpaid_interest_bank = unpaid_interest_bank;
+        this.unpaid_verified_human_ubi_bank = unpaid_verified_human_ubi_bank;
+        this.unpaid_future_ubi_bank = unpaid_future_ubi_bank;
+    }
+
+    static async get_accounts(context) {
+        return new YesterdaysAccounts(
+            await get_account(context, comptoken_mint_pubkey, MintAccount),
+            await get_account(context, global_data_account_pubkey, GlobalDataAccount),
+            await get_account(context, interest_bank_account_pubkey, TokenAccount),
+            await get_account(context, verified_human_ubi_bank_account_pubkey, TokenAccount),
+            await get_account(context, future_ubi_bank_account_pubkey, TokenAccount),
+        )
     }
 }
 
@@ -275,55 +310,6 @@ export async function generic_daily_distribution_assertions(context, result, yes
         comptokens_minted + distribution.total(),
         "supply should increase by comptokens_minted yesterday + high_watermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER"
     );
-}
-
-export class Distribution {
-    interest;
-    future_ubi;
-    verified_human_ubi;
-
-    constructor(daily_distribution_data, high_watermark_increase, unpaid_future_ubi_amount) {
-
-        daily_distribution_data.historicDistributions.forEach(element => {
-            info("interestRate: %f", element.interestRate);
-        });
-        const verified_humans = Number(daily_distribution_data.verifiedHumans);
-        const interest_rate = daily_distribution_data.historicDistributions[daily_distribution_data.oldestHistoricValue - 1n].interestRate - 1;
-        debug("interest_rate: %f", interest_rate);
-
-        const original_distribution = high_watermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER;
-        debug("original_distribution: %d", original_distribution);
-        let interest_distribution = original_distribution / 2n;
-        debug("interest_distribution before UBI Interest: %d", interest_distribution);
-        const ubi_distribution = original_distribution / 2n;
-        debug("ubi_distribution before UBI Interest: %d", ubi_distribution);
-
-        const unchecked_verified_human_proportion = 2 * verified_humans / (FUTURE_UBI_VERIFIED_HUMANS + verified_humans);
-        const verified_human_proportion = Math.min(unchecked_verified_human_proportion, 1);
-        debug("verified_human_proportion: %f", verified_human_proportion);
-        const verified_human_ubi_distribution = BigInt(Number(ubi_distribution) * verified_human_proportion);
-        debug("verified_human_ubi before UBI Interest: %d", verified_human_ubi_distribution);
-        let future_ubi_distribution = ubi_distribution - verified_human_ubi_distribution;
-        debug("future_ubi before UBI Interest: %d", future_ubi_distribution);
-
-        let future_ubi_interest = BigInt(round_ties_even(Number(unpaid_future_ubi_amount) * interest_rate));
-        future_ubi_distribution += future_ubi_interest;
-        interest_distribution -= future_ubi_interest;
-
-        debug("interest_distribution: %d", interest_distribution);
-        debug("ubi_distribution: %d", ubi_distribution + future_ubi_interest);
-        debug("verified_human_ubi: %d", verified_human_ubi_distribution);
-        debug("future_ubi: %d", future_ubi_distribution);
-
-
-        this.interest = interest_distribution;
-        this.future_ubi = future_ubi_distribution;
-        this.verified_human_ubi = verified_human_ubi_distribution;
-    }
-
-    total() {
-        return this.interest + this.future_ubi + this.verified_human_ubi;
-    }
 }
 
 function round_ties_even(number) {

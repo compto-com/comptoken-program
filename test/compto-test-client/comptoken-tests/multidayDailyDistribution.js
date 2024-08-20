@@ -7,14 +7,10 @@ import {
     get_default_unpaid_interest_bank,
     get_default_unpaid_verified_human_ubi_bank,
     GlobalDataAccount,
-    TokenAccount,
 } from "../accounts.js";
 import { Assert, } from "../assert.js";
 import {
-    future_ubi_bank_account_pubkey,
     global_data_account_pubkey,
-    interest_bank_account_pubkey,
-    verified_human_ubi_bank_account_pubkey,
 } from "../common.js";
 import { DaysParameters, Distribution, generic_daily_distribution_assertions, get_account, run_multiday_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
 import { createDailyDistributionEventInstruction, createTestInstruction } from "../instruction.js";
@@ -47,8 +43,6 @@ class MultidayDailyDistributionDaysParameters extends DaysParameters {
         else {
             Assert.assertEqual(highwatermark_increase, 0n, "highwatermark should increase by 0");
         }
-
-        const current_unpaid_future_ubi_bank = await get_account(context, future_ubi_bank_account_pubkey, TokenAccount);
 
         const distribution = new Distribution(current_global_data_account.data.dailyDistributionData, highwatermark_increase, yesterdays_accounts.unpaid_future_ubi_bank.data.amount);
 

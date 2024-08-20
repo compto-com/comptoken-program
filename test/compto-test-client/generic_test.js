@@ -122,7 +122,7 @@ export class Distribution {
         const unchecked_verified_human_proportion = 2 * verified_humans / (FUTURE_UBI_VERIFIED_HUMANS + verified_humans);
         const verified_human_proportion = Math.min(unchecked_verified_human_proportion, 1);
         debug("verified_human_proportion: %f", verified_human_proportion);
-        const verified_human_ubi_distribution = BigInt(Number(ubi_distribution) * verified_human_proportion);
+        const verified_human_ubi_distribution = BigInt(round_ties_even(Number(ubi_distribution) * verified_human_proportion));
         debug("verified_human_ubi before UBI Interest: %d", verified_human_ubi_distribution);
         let future_ubi_distribution = ubi_distribution - verified_human_ubi_distribution;
         debug("future_ubi before UBI Interest: %d", future_ubi_distribution);
@@ -345,7 +345,7 @@ export async function generic_daily_distribution_assertions(context, result, yes
     Assert.assertEqual(
         supply_increase,
         comptokens_minted + distribution.total(),
-        "supply should increase by comptokens_minted yesterday + high_watermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER"
+        "supply should increase by comptokens_minted yesterday + total distribution"
     );
 
     await distribution.assertFutureUBIDistribution(context, yesterdays_accounts);
@@ -362,8 +362,8 @@ function round_ties_even(number) {
 }
 
 function float_equals(a, b) {
-    const epsilon = 1e-10; // what copilot autofilled
-    return a < b + epsilon && a > b - epsilon;
+    const epsilon = 2.220446049250313e-16; // from https://doc.rust-lang.org/std/primitive.f64.html#associatedconstant.EPSILON
+    return Math.abs(a - b) < epsilon;
 }
 
 /**

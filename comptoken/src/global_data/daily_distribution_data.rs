@@ -31,7 +31,7 @@ impl DailyDistributionData {
 
         let daily_mining_total = mint.supply - self.yesterday_supply;
         if daily_mining_total == 0 {
-            self.insert(0., 0);
+            self.insert(1., 0);
             return DailyDistributionValues {
                 interest_distribution: 0,
                 ubi_for_verified_humans: 0,
@@ -42,11 +42,13 @@ impl DailyDistributionData {
         msg!("High water mark increase: {}", high_water_mark_increase);
         self.high_water_mark += high_water_mark_increase;
         let total_daily_distribution = high_water_mark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER;
+        msg!("Total daily distribution: {}", total_daily_distribution);
         let total_ubi_distribution = total_daily_distribution / 2;
         let verified_human_ubi_ratio = f64::min(
             1.,
             self.verified_humans as f64 * 2. / (FUTURE_UBI_VERIFIED_HUMANS as f64 + self.verified_humans as f64),
         );
+        msg!("Verified human UBI ratio: {}", verified_human_ubi_ratio);
         let mut distribution_values = DailyDistributionValues {
             interest_distribution: total_daily_distribution / 2,
             ubi_for_verified_humans: (total_ubi_distribution as f64 * verified_human_ubi_ratio) as u64,

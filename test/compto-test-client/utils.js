@@ -95,11 +95,18 @@ export function isArrayEqual(left, right) {
     return true;
 }
 
+/**
+ * @template T
+ * @param {Iterable<T>} iterable 
+ * @param {number} start 
+ * @param {number} step
+ * @yields {index: number, value: T}
+ */
 export function* enumerate(iterable, start = 0, step = 1) {
-    let i = start;
-    for (const x of iterable) {
-        yield [i, x];
-        i += step;
+    let index = start;
+    for (const value of iterable) {
+        yield { index, value };
+        index += step;
     }
 }
 

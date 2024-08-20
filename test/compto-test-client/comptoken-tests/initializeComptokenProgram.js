@@ -21,9 +21,8 @@ async function initialize_comptoken_program() {
     let context = await setup_test(existing_accounts);
 
     let instructions = [await createInitializeComptokenProgramInstruction(context)];
-    let result;
 
-    [context, result] = await run_test("initializeComptokenProgram", context, instructions, [context.payer], false, async (context, result) => {
+    context = await run_test("initializeComptokenProgram", context, instructions, [context.payer], false, async (context, result) => {
         const final_global_data = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
         Assert.assertEqual(final_global_data.data.validBlockhashes.announcedBlockhashTime, DEFAULT_ANNOUNCE_TIME, "announced blockhash time");
         Assert.assertEqual(final_global_data.data.validBlockhashes.validBlockhashTime, DEFAULT_DISTRIBUTION_TIME, "valid blockhash time");

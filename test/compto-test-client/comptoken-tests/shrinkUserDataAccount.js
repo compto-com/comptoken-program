@@ -22,9 +22,8 @@ async function test_failShrinkUserDataAccount() {
             context, new_user_data_size, context.payer.publicKey, user.publicKey, user_comptoken_wallet.address
         ),
     ];
-    let result;
 
-    [context, result] = await run_test("failShrinkUserDataAccount", context, instructions, [context.payer, user], true, async (context, result) => {
+    context = await run_test("failShrinkUserDataAccount", context, instructions, [context.payer, user], true, async (context, result) => {
         Assert.assertNotNull(result.result, "program should fail");
         Assert.assert(
             result.meta.logMessages.some((msg, i) => msg.includes("assertion failed: user_data_account.data_len() < new_size")),

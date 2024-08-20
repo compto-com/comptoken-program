@@ -35,9 +35,8 @@ async function test_dailyDistributionEvent() {
     let context = await setup_test(existing_accounts, new Clock(216_000n, 0n, 0n, 0n, DEFAULT_DISTRIBUTION_TIME + SEC_PER_DAY + 1n));
 
     let instructions = [await createDailyDistributionEventInstruction()];
-    let result;
 
-    [context, result] = await run_test("dailyDistributionEvent", context, instructions, [context.payer], false, async (context, result) => {
+    context = await run_test("dailyDistributionEvent", context, instructions, [context.payer], false, async (context, result) => {
         const final_comptoken_mint = await get_account(context, original_comptoken_mint.address, MintAccount);
         Assert.assert(final_comptoken_mint.data.supply > original_comptoken_mint.data.supply, "interest has been applied");
 

@@ -95,6 +95,55 @@ export class DaysParameters {
     }
 }
 
+export class Distribution {
+    interest;
+    future_ubi;
+    verified_human_ubi;
+
+    constructor(daily_distribution_data, high_watermark_increase, unpaid_future_ubi_amount) {
+
+        daily_distribution_data.historicDistributions.forEach(element => {
+            info("interestRate: %f", element.interestRate);
+        });
+        const verified_humans = Number(daily_distribution_data.verifiedHumans);
+        const interest_rate = daily_distribution_data.historicDistributions[daily_distribution_data.oldestHistoricValue - 1n].interestRate - 1;
+        debug("interest_rate: %f", interest_rate);
+
+        const original_distribution = high_watermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER;
+        debug("original_distribution: %d", original_distribution);
+        let interest_distribution = original_distribution / 2n;
+        debug("interest_distribution before UBI Interest: %d", interest_distribution);
+        const ubi_distribution = original_distribution / 2n;
+        debug("ubi_distribution before UBI Interest: %d", ubi_distribution);
+
+        const unchecked_verified_human_proportion = 2 * verified_humans / (FUTURE_UBI_VERIFIED_HUMANS + verified_humans);
+        const verified_human_proportion = Math.min(unchecked_verified_human_proportion, 1);
+        debug("verified_human_proportion: %f", verified_human_proportion);
+        const verified_human_ubi_distribution = BigInt(Number(ubi_distribution) * verified_human_proportion);
+        debug("verified_human_ubi before UBI Interest: %d", verified_human_ubi_distribution);
+        let future_ubi_distribution = ubi_distribution - verified_human_ubi_distribution;
+        debug("future_ubi before UBI Interest: %d", future_ubi_distribution);
+
+        let future_ubi_interest = BigInt(round_ties_even(Number(unpaid_future_ubi_amount) * interest_rate));
+        future_ubi_distribution += future_ubi_interest;
+        interest_distribution -= future_ubi_interest;
+
+        debug("interest_distribution: %d", interest_distribution);
+        debug("ubi_distribution: %d", ubi_distribution + future_ubi_interest);
+        debug("verified_human_ubi: %d", verified_human_ubi_distribution);
+        debug("future_ubi: %d", future_ubi_distribution);
+
+
+        this.interest = interest_distribution;
+        this.future_ubi = future_ubi_distribution;
+        this.verified_human_ubi = verified_human_ubi_distribution;
+    }
+
+    total() {
+        return this.interest + this.future_ubi + this.verified_human_ubi;
+    }
+}
+
 /**
  * @param {string} name 
  * @param {ProgramTestContext} context

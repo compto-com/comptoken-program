@@ -16,7 +16,7 @@ import {
     interest_bank_account_pubkey,
     verified_human_ubi_bank_account_pubkey,
 } from "../common.js";
-import { DaysParameters, generic_daily_distribution_assertions, get_account, run_multiday_test, setup_test } from "../generic_test.js";
+import { DaysParameters, Distribution, generic_daily_distribution_assertions, get_account, run_multiday_test, setup_test } from "../generic_test.js";
 import { createDailyDistributionEventInstruction, createTestInstruction } from "../instruction.js";
 
 // arbitrary function to produce "how many comptokens are minted on a given day" test data
@@ -56,6 +56,26 @@ class MultidayDailyDistributionDaysParameters extends DaysParameters {
         const current_unpaid_interest_bank = await get_account(context, interest_bank_account_pubkey, TokenAccount);
         const current_unpaid_verified_human_ubi_bank = await get_account(context, verified_human_ubi_bank_account_pubkey, TokenAccount);
         const current_unpaid_future_ubi_bank = await get_account(context, future_ubi_bank_account_pubkey, TokenAccount);
+
+        const distribution = new Distribution(current_global_data_account.data.dailyDistributionData, highwatermark_increase, MultidayDailyDistributionDaysParameters.yesterdays_accounts.unpaid_future_ubi_bank.data.amount);
+
+        Assert.assertEqual(
+            MultidayDailyDistributionDaysParameters.yesterdays_accounts.unpaid_interest_bank.data.amount + distribution.interest,
+            current_unpaid_interest_bank.data.amount,
+            "unpaid interest bank should increase by interest_distribution"
+        );
+
+        Assert.assertEqual(
+            MultidayDailyDistributionDaysParameters.yesterdays_accounts.unpaid_verified_human_ubi_bank.data.amount + distribution.verified_human_ubi,
+            current_unpaid_verified_human_ubi_bank.data.amount,
+            "unpaid verified human ubi bank should increase by verified_human_ubi"
+        );
+
+        Assert.assertEqual(
+            MultidayDailyDistributionDaysParameters.yesterdays_accounts.unpaid_future_ubi_bank.data.amount + distribution.future_ubi,
+            current_unpaid_future_ubi_bank.data.amount,
+            "unpaid future ubi bank should increase by future_ubi"
+        );
 
         MultidayDailyDistributionDaysParameters.yesterdays_accounts = {
             global_data_account: current_global_data_account,

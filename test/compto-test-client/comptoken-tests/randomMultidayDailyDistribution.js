@@ -32,36 +32,20 @@ class RandomMultidayDailyDistributionDaysParameters extends DaysParameters {
     }
 
     assert_fn = async (context, result) => {
-        await generic_daily_distribution_assertions(context, result, RandomMultidayDailyDistributionDaysParameters.yesterdays_accounts, this.day, this.comptokens_minted);
+        const yesterdays_accounts = RandomMultidayDailyDistributionDaysParameters.yesterdays_accounts;
+        await generic_daily_distribution_assertions(context, result, yesterdays_accounts, this.day, this.comptokens_minted);
 
         const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
-        const current_unpaid_interest_bank = await get_account(context, interest_bank_account_pubkey, TokenAccount);
-        const current_unpaid_verified_human_ubi_bank = await get_account(context, verified_human_ubi_bank_account_pubkey, TokenAccount);
-        const current_unpaid_future_ubi_bank = await get_account(context, future_ubi_bank_account_pubkey, TokenAccount);
 
         const current_highwatermark = current_global_data_account.data.dailyDistributionData.highWaterMark;
-        const yesterdays_highwatermark = RandomMultidayDailyDistributionDaysParameters.yesterdays_accounts.global_data_account.data.dailyDistributionData.highWaterMark;
+        const yesterdays_highwatermark = yesterdays_accounts.global_data_account.data.dailyDistributionData.highWaterMark;
         const highwatermark_increase = current_highwatermark - yesterdays_highwatermark;
 
-        const distribution = new Distribution(current_global_data_account.data.dailyDistributionData, highwatermark_increase, RandomMultidayDailyDistributionDaysParameters.yesterdays_accounts.unpaid_future_ubi_bank.data.amount);
+        const distribution = new Distribution(current_global_data_account.data.dailyDistributionData, highwatermark_increase, yesterdays_accounts.unpaid_future_ubi_bank.data.amount);
 
-        Assert.assertEqual(
-            RandomMultidayDailyDistributionDaysParameters.yesterdays_accounts.unpaid_interest_bank.data.amount + distribution.interest,
-            current_unpaid_interest_bank.data.amount,
-            "unpaid interest bank should increase by interest_distribution"
-        );
-
-        Assert.assertEqual(
-            RandomMultidayDailyDistributionDaysParameters.yesterdays_accounts.unpaid_verified_human_ubi_bank.data.amount + distribution.verified_human_ubi,
-            current_unpaid_verified_human_ubi_bank.data.amount,
-            "unpaid verified human ubi bank should increase by verified_human_ubi"
-        );
-
-        Assert.assertEqual(
-            RandomMultidayDailyDistributionDaysParameters.yesterdays_accounts.unpaid_future_ubi_bank.data.amount + distribution.future_ubi,
-            current_unpaid_future_ubi_bank.data.amount,
-            "unpaid future ubi bank should increase by future_ubi"
-        );
+        await distribution.assertInterestDistribution(context, yesterdays_accounts.unpaid_interest_bank, 0n);
+        await distribution.assertVerifiedHumanUBIDistribution(context, yesterdays_accounts.unpaid_verified_human_ubi_bank, 0n);
+        // future UBI checked in generic_daily_distribution
 
         RandomMultidayDailyDistributionDaysParameters.yesterdays_accounts = await YesterdaysAccounts.get_accounts(context);
     }

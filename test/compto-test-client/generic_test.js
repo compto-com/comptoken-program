@@ -145,6 +145,43 @@ export class Distribution {
     total() {
         return this.interest + this.future_ubi + this.verified_human_ubi;
     }
+
+    async assertInterestDistribution(context, yesterdays_unpaid_interest_bank, interest_paid) {
+        const current_unpaid_interest_bank = await get_account(context, interest_bank_account_pubkey, TokenAccount);
+        Assert.assertEqual(
+            yesterdays_unpaid_interest_bank.data.amount + this.interest - BigInt(interest_paid),
+            current_unpaid_interest_bank.data.amount,
+            "unpaid interest bank should increase by interest_distribution"
+        );
+    }
+
+    async assertVerifiedHumanUBIDistribution(context, yesterdays_unpaid_verified_human_ubi_bank, verified_human_ubi_paid) {
+        const current_unpaid_verified_human_ubi_bank = await get_account(context, verified_human_ubi_bank_account_pubkey, TokenAccount);
+        Assert.assertEqual(
+            yesterdays_unpaid_verified_human_ubi_bank.data.amount + this.verified_human_ubi - verified_human_ubi_paid,
+            current_unpaid_verified_human_ubi_bank.data.amount,
+            "unpaid verified human ubi bank should increase by verified_human_ubi"
+        );
+    }
+
+    async assertFutureUBIDistribution(context, yesterdays_accounts) {
+        const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
+        const current_unpaid_future_ubi_bank = await get_account(context, future_ubi_bank_account_pubkey, TokenAccount);
+
+        const current_verified_humans = current_global_data_account.data.dailyDistributionData.verifiedHumans;
+        const yesterdays_verified_humans = yesterdays_accounts.global_data_account.data.dailyDistributionData.verifiedHumans;
+        const new_verified_humans = current_verified_humans - yesterdays_verified_humans;
+
+        const comptokens_per_new_verified_human = yesterdays_accounts.unpaid_future_ubi_bank.data.amount / (BigInt(FUTURE_UBI_VERIFIED_HUMANS) - yesterdays_verified_humans);
+
+        const future_ubi_distributed = new_verified_humans * comptokens_per_new_verified_human;
+
+        Assert.assertEqual(
+            yesterdays_accounts.unpaid_future_ubi_bank.data.amount + this.future_ubi - future_ubi_distributed,
+            current_unpaid_future_ubi_bank.data.amount,
+            "unpaid future ubi bank should increase by future_ubi"
+        );
+    }
 }
 
 export class YesterdaysAccounts {
@@ -310,6 +347,8 @@ export async function generic_daily_distribution_assertions(context, result, yes
         comptokens_minted + distribution.total(),
         "supply should increase by comptokens_minted yesterday + high_watermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER"
     );
+
+    await distribution.assertFutureUBIDistribution(context, yesterdays_accounts);
 }
 
 function round_ties_even(number) {

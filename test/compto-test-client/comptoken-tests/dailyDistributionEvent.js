@@ -37,7 +37,7 @@ async function test_dailyDistributionEvent() {
     let instructions = [await createDailyDistributionEventInstruction()];
 
     context = await run_test("dailyDistributionEvent", context, instructions, [context.payer], false, async (context, result) => {
-        await generic_daily_distribution_assertions(context, result, yesterdays_accounts, 1n, comptokens_minted);
+        await generic_daily_distribution_assertions(context, result, yesterdays_accounts, 1n, comptokens_minted, 0n, 0n);
 
         const final_comptoken_mint = await get_account(context, original_comptoken_mint.address, MintAccount);
         Assert.assert(final_comptoken_mint.data.supply > original_comptoken_mint.data.supply, "interest has been applied");
@@ -50,9 +50,6 @@ async function test_dailyDistributionEvent() {
 
         const high_watermark_increase = comptokens_minted;
         const distribution = new Distribution(final_daily_distribution_data, high_watermark_increase, yesterdays_accounts.unpaid_future_ubi_bank.data.amount);
-
-        await distribution.assertInterestDistribution(context, yesterdays_accounts.unpaid_interest_bank, 0n);
-        await distribution.assertVerifiedHumanUBIDistribution(context, yesterdays_accounts.unpaid_verified_human_ubi_bank, 0n);
     });
 }
 

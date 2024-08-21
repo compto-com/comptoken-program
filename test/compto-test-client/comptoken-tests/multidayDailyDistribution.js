@@ -30,7 +30,7 @@ class MultidayDailyDistributionDaysParameters extends DaysParameters {
 
     assert_fn = async (context, result) => {
         const yesterdays_accounts = MultidayDailyDistributionDaysParameters.yesterdays_accounts;
-        await generic_daily_distribution_assertions(context, result, yesterdays_accounts, this.day, get_comptokens_minted(this.day));
+        await generic_daily_distribution_assertions(context, result, yesterdays_accounts, this.day, get_comptokens_minted(this.day), 0n, 0n);
         const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
         const current_highwatermark = current_global_data_account.data.dailyDistributionData.highWaterMark;
         const yesterdays_highwatermark = yesterdays_accounts.global_data_account.data.dailyDistributionData.highWaterMark;

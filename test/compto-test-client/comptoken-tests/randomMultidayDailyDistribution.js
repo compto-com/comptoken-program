@@ -31,7 +31,7 @@ class RandomMultidayDailyDistributionDaysParameters extends DaysParameters {
 
     assert_fn = async (context, result) => {
         const yesterdays_accounts = RandomMultidayDailyDistributionDaysParameters.yesterdays_accounts;
-        await generic_daily_distribution_assertions(context, result, yesterdays_accounts, this.day, this.comptokens_minted);
+        await generic_daily_distribution_assertions(context, result, yesterdays_accounts, this.day, this.comptokens_minted, 0n, 0n);
 
         const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
 

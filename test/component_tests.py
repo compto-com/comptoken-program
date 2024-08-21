@@ -130,8 +130,8 @@ def parseArgs():
 
 if __name__ == "__main__":
     comptoken_tests: list[str] = [
-        "mint",
         "initializeComptokenProgram",
+        "mint", # testing to see if the timeout problem is mint or first test
         "createUserDataAccount",
         "proofSubmission",
         "getValidBlockhashes",

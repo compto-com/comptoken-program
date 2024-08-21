@@ -202,6 +202,8 @@ impl RoundEven for f64 {
 
 fn about_equal(left: f64, right: f64) -> bool {
     // this is technically wrong, but becuase it is only used for comparing against 0.5 it's good enough
+    // a more correct implementation would use relative error to accurately compare across a larger range
+    // of floats, but absolute error is fine for our purposes
     (left - right).abs() < f64::EPSILON
 }
 

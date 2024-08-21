@@ -286,9 +286,11 @@ export async function run_multiday_test(name, context, days_parameters_arr) {
     }
 }
 
-export async function generic_daily_distribution_assertions(context, result, yesterdays_accounts, day, comptokens_minted) {
+export async function generic_daily_distribution_assertions(context, result, yesterdays_accounts, day, comptokens_minted, interest_paid, verified_human_ubi_paid) {
     comptokens_minted = BigInt(comptokens_minted);
     day = BigInt(day);
+    interest_paid = BigInt(interest_paid);
+    verified_human_ubi_paid = BigInt(verified_human_ubi_paid);
 
     const current_comptoken_mint = await get_account(context, comptoken_mint_pubkey, MintAccount);
     const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
@@ -348,6 +350,8 @@ export async function generic_daily_distribution_assertions(context, result, yes
         "supply should increase by comptokens_minted yesterday + total distribution"
     );
 
+    await distribution.assertInterestDistribution(context, yesterdays_accounts.unpaid_interest_bank, interest_paid);
+    await distribution.assertVerifiedHumanUBIDistribution(context, yesterdays_accounts.unpaid_verified_human_ubi_bank, verified_human_ubi_paid);
     await distribution.assertFutureUBIDistribution(context, yesterdays_accounts);
 }
 

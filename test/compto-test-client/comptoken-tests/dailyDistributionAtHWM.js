@@ -17,7 +17,7 @@ import {
 import { generic_daily_distribution_assertions, get_account, run_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
 import { createDailyDistributionEventInstruction } from "../instruction.js";
 
-async function test_dailyDistributionEvent_noMining() {
+async function test_dailyDistributionEvent_atHWM() {
     const initial_supply = 1_000_000_000n;
     const comptokens_minted = 6_750n;
     const high_watermark = 6_750n; // 6_750n is arbitrary, but it should be a reasonably accurate representation of the highwater mark when the supply is 1_000_000_000
@@ -70,4 +70,4 @@ async function test_dailyDistributionEvent_noMining() {
     });
 }
 
-(async () => { await test_dailyDistributionEvent_noMining(); })();
+(async () => { await test_dailyDistributionEvent_atHWM(); })();

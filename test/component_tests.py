@@ -142,6 +142,9 @@ if __name__ == "__main__":
         "shrinkUserDataAccount",
         "multidayDailyDistribution",
         "randomMultidayDailyDistribution",
+        "dailyDistributionNoMining",
+        "dailyDistributionUnderHWM",
+        "dailyDistributionAtHWM",
     ]
     transfer_hook_tests: list[str] = [
         "initialize_extra_account_meta_list",

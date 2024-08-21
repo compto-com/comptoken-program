@@ -147,6 +147,7 @@ if __name__ == "__main__":
         "dailyDistributionAtHWM",
         "dailyDistributionBelowMaxHWM",
         "dailyDistributionAtMaxHWM",
+        "dailyDistributionAboveMaxHWM",
     ]
     transfer_hook_tests: list[str] = [
         "initialize_extra_account_meta_list",

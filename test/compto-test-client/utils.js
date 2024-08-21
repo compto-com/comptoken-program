@@ -127,3 +127,14 @@ export function* zip(...iterables) {
         yield result;
     }
 }
+
+export function* take(num, iterable) {
+    let i = 0;
+    for (const elem of iterable) {
+        if (i == num) {
+            return;
+        }
+        yield elem
+        ++i;
+    }
+}

@@ -12,6 +12,7 @@ import { global_data_account_pubkey } from "../common.js";
 import { DaysParameters, Distribution, generic_daily_distribution_assertions, get_account, run_multiday_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
 import { createDailyDistributionEventInstruction, createTestInstruction } from "../instruction.js";
 import { debug } from "../parse_args.js";
+import { take } from "../utils.js";
 
 class RandomMultidayDailyDistributionDaysParameters extends DaysParameters {
     static yesterdays_accounts = new YesterdaysAccounts();
@@ -94,15 +95,21 @@ async function test_multidayDailyDistribution() {
 (async () => { await test_multidayDailyDistribution(); })();
 
 function generate_random_walk(length, max_step = 1, min = -Infinity, max = Infinity, bias = 0, start = 0) {
-    let arr = new Array(length);
+    return [...take(length, random_walk_generator(max_step, min, max, bias, start))];
+}
+
+function* random_walk_generator(max_step, min, max, bias, start) {
     let current = start;
-    for (let i = 0; i < length; ++i) {
+    while (true) {
         let step = Math.floor(rng() * (max_step * 2 + bias)) - max_step;
         current += step;
-        current = Math.max(Math.min(current, max), min);
-        arr[i] = current;
+        current = clamp(min, current, max);
+        yield current;
     }
-    return arr;
+}
+
+function clamp(min, val, max) {
+    return Math.max(Math.min(val, max), min)
 }
 
 /**

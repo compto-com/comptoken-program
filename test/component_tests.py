@@ -138,16 +138,18 @@ if __name__ == "__main__":
         "comptoken-tests/initializeComptokenProgram",
         "comptoken-tests/mint",  # testing to see if the timeout problem is mint or first test
         "comptoken-tests/createUserDataAccount",
+        "comptoken-tests/growUserDataAccount",
+        "comptoken-tests/shrinkUserDataAccount",
         "comptoken-tests/proofSubmission",
         "comptoken-tests/getValidBlockhashes",
         "comptoken-tests/getOwedComptokens",
         "comptoken-tests/earlyDailyDistributionEvent",
         "comptoken-tests/dailyDistributionEvent",
-        "comptoken-tests/growUserDataAccount",
-        "comptoken-tests/shrinkUserDataAccount",
+        "comptoken-tests/dailyDistributionTests",
         "comptoken-tests/multidayDailyDistribution",
         "comptoken-tests/randomMultidayDailyDistribution",
-        "comptoken-tests/dailyDistributionTests",
+        "comptoken-tests/definedMultidayDailyDistribution",
+
         "transfer-hook-tests/initialize_extra_account_meta_list",
         "transfer-hook-tests/execute",
     ]

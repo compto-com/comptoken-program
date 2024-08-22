@@ -10,7 +10,7 @@ import {
 import { DaysParameters, generic_daily_distribution_assertions, run_multiday_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
 import { createDailyDistributionEventInstruction, createTestInstruction } from "../instruction.js";
 import { debug } from "../parse_args.js";
-import { take } from "../utils.js";
+import { clamp, take } from "../utils.js";
 
 class RandomMultidayDailyDistributionDaysParameters extends DaysParameters {
     static yesterdays_accounts = new YesterdaysAccounts();
@@ -94,12 +94,7 @@ function* random_walk_generator(max_step, min, max, bias, start) {
     }
 }
 
-function clamp(min, val, max) {
-    return Math.max(Math.min(val, max), min)
-}
-
 /**
- * 
  * @param {number[]} random_walk 
  */
 function log_random_walk_stats(random_walk) {

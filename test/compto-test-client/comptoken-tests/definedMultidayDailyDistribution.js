@@ -186,6 +186,42 @@ async function test_multidayDailyDistribution() {
                 );
             }),
         // hwm: 6802
+        new_days_parameters(6805n, 17n) // 3 * 146000 distributed
+            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+                Assert.assertEqual(
+                    todays_accounts.comptoken_mint.data.supply,
+                    yesterdays_accounts.comptoken_mint.data.supply + 6805n + 3n * 146_000n,
+                    "supply has increased by 146000"
+                );
+            }),
+        // hwm: 6805
+        new_days_parameters(6806n, 17n) // 1 * 146000 distributed
+            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+                Assert.assertEqual(
+                    todays_accounts.comptoken_mint.data.supply,
+                    yesterdays_accounts.comptoken_mint.data.supply + 6806n + 1n * 146_000n,
+                    "supply has increased by 146000"
+                );
+            }),
+        // hwm: 6806
+        new_days_parameters(6805n, 17n) // no distribution
+            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+                Assert.assertEqual(
+                    todays_accounts.comptoken_mint.data.supply,
+                    yesterdays_accounts.comptoken_mint.data.supply + 6805n,
+                    "supply has increased by 146000"
+                );
+            }),
+        // hwm: 6806
+        new_days_parameters(6810n, 17n) // 4 * 146000 distributed
+            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+                Assert.assertEqual(
+                    todays_accounts.comptoken_mint.data.supply,
+                    yesterdays_accounts.comptoken_mint.data.supply + 6810n + 4n * 146_000n,
+                    "supply has increased by 146000"
+                );
+            }),
+        // hwm: 6810
     ];
 
     await run_multiday_test("multiday_daily_distribution_1", context, days_parameters_arr);

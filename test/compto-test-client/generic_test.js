@@ -3,7 +3,18 @@ import { format } from "node:util";
 import { Keypair, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BanksTransactionResultWithMeta, Clock, ProgramTestContext, start } from "solana-bankrun";
 
-import { Account, get_default_comptoken_mint, get_default_global_data, get_default_unpaid_future_ubi_bank, get_default_unpaid_interest_bank, get_default_unpaid_verified_human_ubi_bank, GlobalDataAccount, MintAccount, TokenAccount } from "./accounts.js";
+import {
+    Account,
+    get_default_comptoken_mint,
+    get_default_global_data,
+    get_default_unpaid_future_ubi_bank,
+    get_default_unpaid_interest_bank,
+    get_default_unpaid_verified_human_ubi_bank,
+    GlobalData,
+    GlobalDataAccount,
+    MintAccount,
+    TokenAccount,
+} from "./accounts.js";
 import { Assert, AssertionError } from "./assert.js";
 import {
     compto_program_id_pubkey,
@@ -109,7 +120,11 @@ export class Distribution {
             info("interestRate: %f", element.interestRate);
         });
         const verified_humans = Number(daily_distribution_data.verifiedHumans);
-        const interest_rate = daily_distribution_data.historicDistributions[daily_distribution_data.oldestHistoricValue - 1n].interestRate - 1;
+        let index = daily_distribution_data.oldestHistoricValue - 1n;
+        if (index < 0n) {
+            index += BigInt(GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE);
+        }
+        const interest_rate = daily_distribution_data.historicDistributions[index].interestRate - 1;
         debug("interest_rate: %f", interest_rate);
 
         const original_distribution = high_watermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER;

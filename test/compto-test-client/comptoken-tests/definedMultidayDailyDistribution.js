@@ -21,6 +21,7 @@ class DefinedMultidayDailyDistributionDaysParameters extends DaysParameters {
     user_comptoken_token_account_address;
     comptokens_minted;
     max_hwm_increase;
+    added_asserts = [];
 
     assert_fn = async (context, result) => {
         const yesterdays_accounts = DefinedMultidayDailyDistributionDaysParameters.yesterdays_accounts;
@@ -71,6 +72,10 @@ class DefinedMultidayDailyDistributionDaysParameters extends DaysParameters {
             yesterdays_unpaid_future_ubi_bank.data.amount + total_ubi_distribution + future_ubi_interest, // no verified humans so all ubi goes to future
             "future UBI bank has increased");
 
+        for (const added_assert of this.added_asserts) {
+            added_assert(context, result, yesterdays_accounts, todays_accounts);
+        }
+
         DefinedMultidayDailyDistributionDaysParameters.yesterdays_accounts = todays_accounts;
     }
 
@@ -94,6 +99,11 @@ class DefinedMultidayDailyDistributionDaysParameters extends DaysParameters {
     }
     async get_signers() {
         return [this.payer];
+    }
+
+    add_asserts(assert_fn) {
+        this.added_asserts.push(assert_fn);
+        return this;
     }
 }
 
@@ -133,7 +143,49 @@ async function test_multidayDailyDistribution() {
     DefinedMultidayDailyDistributionDaysParameters.yesterdays_accounts = new YesterdaysAccounts(original_comptoken_mint, original_global_data_account, original_unpaid_interest_bank, original_unpaid_verified_human_ubi_bank, original_unpaid_future_ubi_bank);
 
     let days_parameters_arr = [
-        new_days_parameters(0n, 17n),
+        // hwm: 6,750
+        new_days_parameters(0n, 17n), // no distribution
+        // hwm: 6,750
+        new_days_parameters(6749n, 17n), // no distribution
+        // hwm: 6,750
+        new_days_parameters(6750n, 17n), // no distribution
+        // hwm: 6750
+        new_days_parameters(6751n, 17n) // 146,000 distributed
+            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+                Assert.assertEqual(
+                    todays_accounts.comptoken_mint.data.supply,
+                    yesterdays_accounts.comptoken_mint.data.supply + 6751n + 146_000n,
+                    "supply has increased by 146000"
+                );
+            }),
+        // hwm: 6751
+        new_days_parameters(6768n, 17n) // 17 * 146000 distributed
+            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+                Assert.assertEqual(
+                    todays_accounts.comptoken_mint.data.supply,
+                    yesterdays_accounts.comptoken_mint.data.supply + 6768n + 17n * 146_000n,
+                    "supply has increased by 146000"
+                );
+            }),
+        // hwm: 6768
+        new_days_parameters(6786n, 17n) // 17 * 146000 distributed
+            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+                Assert.assertEqual(
+                    todays_accounts.comptoken_mint.data.supply,
+                    yesterdays_accounts.comptoken_mint.data.supply + 6786n + 17n * 146_000n,
+                    "supply has increased by 146000"
+                );
+            }),
+        // hwm: 6785
+        new_days_parameters(7000n, 17n) // 17 * 146000 distributed
+            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+                Assert.assertEqual(
+                    todays_accounts.comptoken_mint.data.supply,
+                    yesterdays_accounts.comptoken_mint.data.supply + 7000n + 17n * 146_000n,
+                    "supply has increased by 146000"
+                );
+            }),
+        // hwm: 6802
     ];
 
     await run_multiday_test("multiday_daily_distribution_1", context, days_parameters_arr);

@@ -3,10 +3,24 @@ import { format } from "node:util";
 import { Keypair, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BanksTransactionResultWithMeta, Clock, ProgramTestContext, start } from "solana-bankrun";
 
-import { Account, GlobalDataAccount, MintAccount } from "./accounts.js";
+import { Account, get_default_comptoken_mint, get_default_global_data, get_default_unpaid_future_ubi_bank, get_default_unpaid_interest_bank, get_default_unpaid_verified_human_ubi_bank, GlobalDataAccount, MintAccount, TokenAccount } from "./accounts.js";
 import { Assert, AssertionError } from "./assert.js";
-import { compto_program_id_pubkey, compto_transfer_hook_id_pubkey, COMPTOKEN_DISTRIBUTION_MULTIPLIER, comptoken_mint_pubkey, DEFAULT_ANNOUNCE_TIME, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME, global_data_account_pubkey, SEC_PER_DAY } from "./common.js";
-import { debug, log, print } from "./parse_args.js";
+import {
+    compto_program_id_pubkey,
+    compto_transfer_hook_id_pubkey,
+    COMPTOKEN_DISTRIBUTION_MULTIPLIER,
+    comptoken_mint_pubkey,
+    DEFAULT_ANNOUNCE_TIME,
+    DEFAULT_DISTRIBUTION_TIME,
+    DEFAULT_START_TIME,
+    future_ubi_bank_account_pubkey,
+    FUTURE_UBI_VERIFIED_HUMANS,
+    global_data_account_pubkey,
+    interest_bank_account_pubkey,
+    SEC_PER_DAY,
+    verified_human_ubi_bank_account_pubkey,
+} from "./common.js";
+import { debug, info, log, print } from "./parse_args.js";
 import { enumerate } from "./utils.js";
 
 export class DaysParameters {
@@ -84,6 +98,124 @@ export class DaysParameters {
     }
 }
 
+export class Distribution {
+    interest;
+    future_ubi;
+    verified_human_ubi;
+
+    constructor(daily_distribution_data, high_watermark_increase, unpaid_future_ubi_amount) {
+
+        daily_distribution_data.historicDistributions.forEach(element => {
+            info("interestRate: %f", element.interestRate);
+        });
+        const verified_humans = Number(daily_distribution_data.verifiedHumans);
+        const interest_rate = daily_distribution_data.historicDistributions[daily_distribution_data.oldestHistoricValue - 1n].interestRate - 1;
+        debug("interest_rate: %f", interest_rate);
+
+        const original_distribution = high_watermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER;
+        debug("original_distribution: %d", original_distribution);
+        let interest_distribution = original_distribution / 2n;
+        debug("interest_distribution before UBI Interest: %d", interest_distribution);
+        const ubi_distribution = original_distribution / 2n;
+        debug("ubi_distribution before UBI Interest: %d", ubi_distribution);
+
+        const unchecked_verified_human_proportion = 2 * verified_humans / (FUTURE_UBI_VERIFIED_HUMANS + verified_humans);
+        const verified_human_proportion = Math.min(unchecked_verified_human_proportion, 1);
+        debug("verified_human_proportion: %f", verified_human_proportion);
+        const verified_human_ubi_distribution = BigInt(round_ties_even(Number(ubi_distribution) * verified_human_proportion));
+        debug("verified_human_ubi before UBI Interest: %d", verified_human_ubi_distribution);
+        let future_ubi_distribution = ubi_distribution - verified_human_ubi_distribution;
+        debug("future_ubi before UBI Interest: %d", future_ubi_distribution);
+
+        let future_ubi_interest = BigInt(round_ties_even(Number(unpaid_future_ubi_amount) * interest_rate));
+        future_ubi_distribution += future_ubi_interest;
+        interest_distribution -= future_ubi_interest;
+
+        debug("interest_distribution: %d", interest_distribution);
+        debug("ubi_distribution: %d", ubi_distribution + future_ubi_interest);
+        debug("verified_human_ubi: %d", verified_human_ubi_distribution);
+        debug("future_ubi: %d", future_ubi_distribution);
+
+
+        this.interest = interest_distribution;
+        this.future_ubi = future_ubi_distribution;
+        this.verified_human_ubi = verified_human_ubi_distribution;
+    }
+
+    total() {
+        return this.interest + this.future_ubi + this.verified_human_ubi;
+    }
+
+    async assertInterestDistribution(context, yesterdays_unpaid_interest_bank, interest_paid) {
+        const current_unpaid_interest_bank = await get_account(context, interest_bank_account_pubkey, TokenAccount);
+        Assert.assertEqual(
+            yesterdays_unpaid_interest_bank.data.amount + this.interest - BigInt(interest_paid),
+            current_unpaid_interest_bank.data.amount,
+            "unpaid interest bank should increase by interest_distribution"
+        );
+    }
+
+    async assertVerifiedHumanUBIDistribution(context, yesterdays_unpaid_verified_human_ubi_bank, verified_human_ubi_paid) {
+        const current_unpaid_verified_human_ubi_bank = await get_account(context, verified_human_ubi_bank_account_pubkey, TokenAccount);
+        Assert.assertEqual(
+            yesterdays_unpaid_verified_human_ubi_bank.data.amount + this.verified_human_ubi - verified_human_ubi_paid,
+            current_unpaid_verified_human_ubi_bank.data.amount,
+            "unpaid verified human ubi bank should increase by verified_human_ubi"
+        );
+    }
+
+    async assertFutureUBIDistribution(context, yesterdays_accounts) {
+        const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
+        const current_unpaid_future_ubi_bank = await get_account(context, future_ubi_bank_account_pubkey, TokenAccount);
+
+        const current_verified_humans = current_global_data_account.data.dailyDistributionData.verifiedHumans;
+        const yesterdays_verified_humans = yesterdays_accounts.global_data_account.data.dailyDistributionData.verifiedHumans;
+        const new_verified_humans = current_verified_humans - yesterdays_verified_humans;
+
+        const comptokens_per_new_verified_human = yesterdays_accounts.unpaid_future_ubi_bank.data.amount / (BigInt(FUTURE_UBI_VERIFIED_HUMANS) - yesterdays_verified_humans);
+
+        const future_ubi_paid = new_verified_humans * comptokens_per_new_verified_human;
+
+        Assert.assertEqual(
+            yesterdays_accounts.unpaid_future_ubi_bank.data.amount + this.future_ubi - future_ubi_paid,
+            current_unpaid_future_ubi_bank.data.amount,
+            "unpaid future ubi bank should increase by future_ubi"
+        );
+    }
+}
+
+export class YesterdaysAccounts {
+    comptoken_mint;
+    global_data_account;
+    unpaid_interest_bank;
+    unpaid_verified_human_ubi_bank;
+    unpaid_future_ubi_bank;
+
+    constructor(
+        comptoken_mint = get_default_comptoken_mint(),
+        global_data_account = get_default_global_data(),
+        unpaid_interest_bank = get_default_unpaid_interest_bank(),
+        unpaid_verified_human_ubi_bank = get_default_unpaid_verified_human_ubi_bank(),
+        unpaid_future_ubi_bank = get_default_unpaid_future_ubi_bank(),
+    ) {
+        this.comptoken_mint = comptoken_mint;
+        this.global_data_account = global_data_account;
+        this.unpaid_interest_bank = unpaid_interest_bank;
+        this.unpaid_verified_human_ubi_bank = unpaid_verified_human_ubi_bank;
+        this.unpaid_future_ubi_bank = unpaid_future_ubi_bank;
+    }
+
+    static async get_accounts(context) {
+        return new YesterdaysAccounts(
+            await get_account(context, comptoken_mint_pubkey, MintAccount),
+            await get_account(context, global_data_account_pubkey, GlobalDataAccount),
+            await get_account(context, interest_bank_account_pubkey, TokenAccount),
+            await get_account(context, verified_human_ubi_bank_account_pubkey, TokenAccount),
+            await get_account(context, future_ubi_bank_account_pubkey, TokenAccount),
+        )
+    }
+}
+
 /**
  * @param {string} name 
  * @param {ProgramTestContext} context
@@ -154,14 +286,17 @@ export async function run_multiday_test(name, context, days_parameters_arr) {
     }
 }
 
-export async function generic_daily_distribution_assertions(context, result, yesterdays_global_data_account, day, comptokens_minted) {
+export async function generic_daily_distribution_assertions(context, result, yesterdays_accounts, day, comptokens_minted, interest_paid, verified_human_ubi_paid) {
     comptokens_minted = BigInt(comptokens_minted);
     day = BigInt(day);
+    interest_paid = BigInt(interest_paid);
+    verified_human_ubi_paid = BigInt(verified_human_ubi_paid);
+
     const current_comptoken_mint = await get_account(context, comptoken_mint_pubkey, MintAccount);
     const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
 
     const current_valid_blockhash = current_global_data_account.data.validBlockhashes;
-    const yesterdays_valid_blockhash = yesterdays_global_data_account.data.validBlockhashes;
+    const yesterdays_valid_blockhash = yesterdays_accounts.global_data_account.data.validBlockhashes;
     Assert.assertEqual(
         current_valid_blockhash.announcedBlockhashTime,
         DEFAULT_ANNOUNCE_TIME + (SEC_PER_DAY * day),
@@ -197,19 +332,42 @@ export async function generic_daily_distribution_assertions(context, result, yes
     );
 
     // yesterdaySupply stores the supply at the start of the day, which is right now.
-    const current_supply = current_global_data_account.data.dailyDistributionData.yesterdaySupply;
-    const yesterdays_supply = yesterdays_global_data_account.data.dailyDistributionData.yesterdaySupply;
+    const current_supply = current_daily_distribution_data.yesterdaySupply;
+    const yesterdays_supply = yesterdays_accounts.global_data_account.data.dailyDistributionData.yesterdaySupply;
     const supply_increase = current_supply - yesterdays_supply;
 
     const current_highwatermark = current_global_data_account.data.dailyDistributionData.highWaterMark;
-    const yesterdays_highwatermark = yesterdays_global_data_account.data.dailyDistributionData.highWaterMark;
+    const yesterdays_highwatermark = yesterdays_accounts.global_data_account.data.dailyDistributionData.highWaterMark;
     const highwatermark_increase = current_highwatermark - yesterdays_highwatermark;
+
+    const distribution = new Distribution(current_daily_distribution_data, highwatermark_increase, yesterdays_accounts.unpaid_future_ubi_bank.data.amount);
+
+    debug("distribution: %d", distribution.total());
 
     Assert.assertEqual(
         supply_increase,
-        comptokens_minted + highwatermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER,
-        "supply should increase by comptokens_minted yesterday + high_watermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER"
+        comptokens_minted + distribution.total(),
+        "supply should increase by comptokens_minted yesterday + total distribution"
     );
+
+    await distribution.assertInterestDistribution(context, yesterdays_accounts.unpaid_interest_bank, interest_paid);
+    await distribution.assertVerifiedHumanUBIDistribution(context, yesterdays_accounts.unpaid_verified_human_ubi_bank, verified_human_ubi_paid);
+    await distribution.assertFutureUBIDistribution(context, yesterdays_accounts);
+}
+
+function round_ties_even(number) {
+    const result = Math.round(number);
+    const fract = Math.abs(number - result);
+    if (float_equals(fract, 0.5) && result % 2 !== 0) {
+        return Math.trunc(number);
+    } else {
+        return result;
+    }
+}
+
+function float_equals(a, b) {
+    const epsilon = 2.220446049250313e-16; // from https://doc.rust-lang.org/std/primitive.f64.html#associatedconstant.EPSILON
+    return Math.abs(a - b) < epsilon;
 }
 
 /**

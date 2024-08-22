@@ -31,7 +31,7 @@ impl DailyDistributionData {
 
         let daily_mining_total = mint.supply - self.yesterday_supply;
         if daily_mining_total == 0 {
-            self.insert(0., 0);
+            self.insert(1., 0);
             return DailyDistributionValues {
                 interest_distribution: 0,
                 ubi_for_verified_humans: 0,
@@ -42,15 +42,19 @@ impl DailyDistributionData {
         msg!("High water mark increase: {}", high_water_mark_increase);
         self.high_water_mark += high_water_mark_increase;
         let total_daily_distribution = high_water_mark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER;
+        msg!("Total daily distribution: {}", total_daily_distribution);
         let total_ubi_distribution = total_daily_distribution / 2;
         let verified_human_ubi_ratio = f64::min(
             1.,
             self.verified_humans as f64 * 2. / (FUTURE_UBI_VERIFIED_HUMANS as f64 + self.verified_humans as f64),
         );
+        msg!("Verified human UBI ratio: {}", verified_human_ubi_ratio);
+        let ubi_for_verified_humans =
+            (total_ubi_distribution as f64 * verified_human_ubi_ratio).round_ties_even() as u64;
         let mut distribution_values = DailyDistributionValues {
             interest_distribution: total_daily_distribution / 2,
-            ubi_for_verified_humans: (total_ubi_distribution as f64 * verified_human_ubi_ratio) as u64,
-            future_ubi_distribution: (total_ubi_distribution as f64 * (1. - verified_human_ubi_ratio)) as u64,
+            ubi_for_verified_humans,
+            future_ubi_distribution: total_ubi_distribution - ubi_for_verified_humans,
         };
         let todays_interest_rate = distribution_values.interest_distribution as f64 / mint.supply as f64;
         msg!("Interest: {}", todays_interest_rate);
@@ -188,12 +192,19 @@ pub trait RoundEven {
 impl RoundEven for f64 {
     fn round_ties_even(self) -> Self {
         let res = self.round();
-        if (self - res).abs() == 0.5 && res % 2. != 0. {
+        if about_equal((self - res).abs(), 0.5) && res % 2. != 0. {
             self.trunc()
         } else {
             res
         }
     }
+}
+
+fn about_equal(left: f64, right: f64) -> bool {
+    // this is technically wrong, but becuase it is only used for comparing against 0.5 it's good enough
+    // a more correct implementation would use relative error to accurately compare across a larger range
+    // of floats, but absolute error is fine for our purposes
+    (left - right).abs() < f64::EPSILON
 }
 
 #[cfg(test)]

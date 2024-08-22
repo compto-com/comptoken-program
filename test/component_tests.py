@@ -6,6 +6,9 @@ from contextlib import contextmanager
 
 from common import *
 
+ANSI_GREEN = "\033[92m"
+ANSI_RED = "\033[91m"
+ANSI_RESET = "\033[0m"
 
 def createDirIfNotExists(path: str | Path):
     run(f"[ -d {path} ] || mkdir {path} ")
@@ -90,10 +93,10 @@ def runTest(args: Namespace, file: str) -> bool:
             logfilePath = args.log_directory / f"{file}.log" if args.log_directory else None
             with file_or_stdout(logfilePath) as logfile:
                 logfile.write(stdout)
-        print(f"✅ \033[92m{file}\033[0m passed")
+        print(f"✅ {ANSI_GREEN}{file}{ANSI_RESET} passed")
         return True
     except SubprocessFailedException as e:
-        print(f"❌ \033[91m{file}\033[0m failed")
+        print(f"❌ {ANSI_RED}{file}{ANSI_RESET} failed")
         logfilePath = args.log_directory / f"{file}.log" if args.log_directory else None
         with file_or_stdout(logfilePath) as logfile:
             logfile.write(str(e))
@@ -108,7 +111,10 @@ def runTests(args: Namespace, tests: list[str]):
         passed += runTest(args, test)
     failed = len(tests) - passed
     print()
-    print(f"passed: {passed}    failed: {failed}")
+    color = ANSI_GREEN if failed == 0 else ANSI_RED
+    print(f"{color}passed: {passed}    failed: {failed}{ANSI_RESET}")
+    if failed > 0:
+        sys.exit(1)
 
 @contextmanager
 def file_or_stdout(outfile: Path | None):

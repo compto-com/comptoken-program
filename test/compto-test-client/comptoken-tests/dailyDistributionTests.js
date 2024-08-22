@@ -98,7 +98,7 @@ export async function testDailyDistributionEvent(inputs) {
     });
 }
 
-(async () => {
+await (async () => {
     await testDailyDistributionEvent({
         testname: "dailyDistribution No Mining",
         initial_supply: 1_000_000_000n,
@@ -110,7 +110,7 @@ export async function testDailyDistributionEvent(inputs) {
     });
 })();
 
-(async () => {
+await (async () => {
     await testDailyDistributionEvent({
         testname: "dailyDistribution Under HWM",
         initial_supply: 1_000_000_000n,
@@ -122,7 +122,7 @@ export async function testDailyDistributionEvent(inputs) {
     });
 })();
 
-(async () => {
+await (async () => {
     await testDailyDistributionEvent({
         testname: "dailyDistribution At HWM",
         initial_supply: 1_000_000_000n,
@@ -134,7 +134,7 @@ export async function testDailyDistributionEvent(inputs) {
     });
 })();
 
-(async () => {
+await (async () => {
     await testDailyDistributionEvent({
         testname: "dailyDistribution Below Max HWM",
         initial_supply: 1_000_000_000n,
@@ -146,7 +146,7 @@ export async function testDailyDistributionEvent(inputs) {
     });
 })();
 
-(async () => {
+await (async () => {
     await testDailyDistributionEvent({
         testname: "dailyDistribution At Max HWM",
         initial_supply: 1_000_000_000n,
@@ -158,7 +158,7 @@ export async function testDailyDistributionEvent(inputs) {
     });
 })();
 
-(async () => {
+await (async () => {
     await testDailyDistributionEvent({
         testname: "dailyDistribution Above Max HWM",
         initial_supply: 1_000_000_000n,

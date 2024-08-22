@@ -134,33 +134,23 @@ def parseArgs():
     return parser.parse_args()
 
 if __name__ == "__main__":
-    comptoken_tests: list[str] = [
-        "initializeComptokenProgram",
-        "mint",  # testing to see if the timeout problem is mint or first test
-        "createUserDataAccount",
-        "proofSubmission",
-        "getValidBlockhashes",
-        "getOwedComptokens",
-        "earlyDailyDistributionEvent",
-        "dailyDistributionEvent",
-        "growUserDataAccount",
-        "shrinkUserDataAccount",
-        "multidayDailyDistribution",
-        "randomMultidayDailyDistribution",
-        "dailyDistributionNoMining",
-        "dailyDistributionUnderHWM",
-        "dailyDistributionAtHWM",
-        "dailyDistributionBelowMaxHWM",
-        "dailyDistributionAtMaxHWM",
-        "dailyDistributionAboveMaxHWM",
+    tests: list[str] = [
+        "comptoken-tests/initializeComptokenProgram",
+        "comptoken-tests/mint",  # testing to see if the timeout problem is mint or first test
+        "comptoken-tests/createUserDataAccount",
+        "comptoken-tests/proofSubmission",
+        "comptoken-tests/getValidBlockhashes",
+        "comptoken-tests/getOwedComptokens",
+        "comptoken-tests/earlyDailyDistributionEvent",
+        "comptoken-tests/dailyDistributionEvent",
+        "comptoken-tests/growUserDataAccount",
+        "comptoken-tests/shrinkUserDataAccount",
+        "comptoken-tests/multidayDailyDistribution",
+        "comptoken-tests/randomMultidayDailyDistribution",
+        "comptoken-tests/dailyDistributionTests",
+        "transfer-hook-tests/initialize_extra_account_meta_list",
+        "transfer-hook-tests/execute",
     ]
-    transfer_hook_tests: list[str] = [
-        "initialize_extra_account_meta_list",
-        "execute",
-    ]
-
-    tests = list(map(lambda test: "comptoken-tests/" + test, comptoken_tests)
-                 ) + list(map(lambda test: "transfer-hook-tests/" + test, transfer_hook_tests))
 
     args = parseArgs()
     generateDirectories(args)

@@ -18,20 +18,28 @@ import {
 } from "../common.js";
 import { generic_daily_distribution_assertions, get_account, run_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
 import { createDailyDistributionEventInstruction } from "../instruction.js";
+import { clamp } from "../utils.js";
 
-export async function testDailyDistributionEvent({
-    testname,
-    initial_supply,
-    comptokens_minted,
-    high_watermark,
-    max_hwm_increase,
-    initial_unpaid_interest_bank,
-    initial_unpaid_future_ubi_bank,
-}) {
-    let high_watermark_increase = 0n;
-    if (comptokens_minted > high_watermark) {
-        high_watermark_increase = BigInt(comptokens_minted - high_watermark < max_hwm_increase ? comptokens_minted - high_watermark : max_hwm_increase);
-    }
+/**
+ * @param {{testname: string,
+ *          initial_supply: BigInt | number,
+ *          comptokens_minted: BigInt | number,
+ *          high_watermark: BigInt | number,
+ *          max_hwm_increase: BigInt | number,
+ *          initial_unpaid_interest_bank: BigInt | number,
+ *          initial_unpaid_future_ubi_bank: BigInt | number,
+ *        }} inputs 
+ */
+export async function testDailyDistributionEvent(inputs) {
+    const testname = inputs.testname
+    const initial_supply = BigInt(inputs.initial_supply);
+    const comptokens_minted = BigInt(inputs.comptokens_minted);
+    const high_watermark = BigInt(inputs.high_watermark);
+    const max_hwm_increase = BigInt(inputs.max_hwm_increase);
+    const initial_unpaid_interest_bank = BigInt(inputs.initial_unpaid_interest_bank);
+    const initial_unpaid_future_ubi_bank = BigInt(inputs.initial_unpaid_future_ubi_bank);
+
+    const high_watermark_increase = clamp(0n, comptokens_minted - high_watermark, max_hwm_increase);
 
     let original_comptoken_mint = get_default_comptoken_mint();
     original_comptoken_mint.data.supply = initial_supply + comptokens_minted;
@@ -58,8 +66,6 @@ export async function testDailyDistributionEvent({
         await generic_daily_distribution_assertions(context, result, yesterdays_accounts, 1n, comptokens_minted, 0n, 0n);
 
         const final_comptoken_mint = await get_account(context, original_comptoken_mint.address, MintAccount);
-        // Assert.assertEqual(final_comptoken_mint.data.supply, original_comptoken_mint.data.supply, "wrong number of comptokens distributed");
-
         const final_global_data_account = await get_account(context, original_global_data_account.address, GlobalDataAccount);
 
         const actual_hwm_increase = final_global_data_account.data.dailyDistributionData.highWaterMark - original_global_data_account.data.dailyDistributionData.highWaterMark;

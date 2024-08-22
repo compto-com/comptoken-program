@@ -19,7 +19,7 @@ import { createDailyDistributionEventInstruction } from "../instruction.js";
 
 async function test_dailyDistributionEvent_aboveMaxHWM() {
     const initial_supply = 1_000_000_000n;
-    const comptokens_minted = 100_000n;
+    const comptokens_minted = 6_768n;
     const high_watermark = 6_750n; // 6_750n is arbitrary, but it should be a reasonably accurate representation of the highwater mark when the supply is 1_000_000_000
     const high_watermark_increase_uncapped = comptokens_minted - high_watermark;
     const max_hwm_increase = 17n;
@@ -75,7 +75,8 @@ async function test_dailyDistributionEvent_aboveMaxHWM() {
         const distribution_split = (supply_increase / 2n);
         const naive_interest_distribution = distribution_split;
         const total_ubi_distribution = distribution_split;
-        const future_ubi_interest = 1_187_518n; // interest_distribution / total_supply * future_ubi_amount
+        const future_ubi_interest = BigInt(Math.round((Number(naive_interest_distribution) / Number(initial_supply + comptokens_minted)) * Number(initial_unpaid_future_ubi_bank)));
+        console.log("future_ubi_interest", future_ubi_interest);
         Assert.assertEqual(
             final_unpaid_interest_bank.data.amount,
             original_unpaid_interest_bank.data.amount + naive_interest_distribution - future_ubi_interest,

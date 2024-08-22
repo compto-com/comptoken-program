@@ -21,7 +21,7 @@ async function test_dailyDistributionEvent_noMining() {
     const initial_supply = 1_000_000_000n;
     const comptokens_minted = 0n;
     const high_watermark = 6_750n; // 6_750n is arbitrary, but it should be a reasonably accurate representation of the highwater mark when the supply is 1_000_000_000
-    // max hwm increase is 110
+    // max hwm increase is 17
     const initial_unpaid_interest_bank = 17_000_000n; // again arbitrary, but roughly accurate, assuming no payouts
     const initial_unpaid_future_ubi_bank = 957_000_000n; // again arbitrary, but roughly accurate, assuming no payouts
     // bank values estimated using random walk simulation

@@ -7,6 +7,8 @@ import {
     get_default_global_data,
     get_default_unpaid_future_ubi_bank,
     get_default_user_data_account,
+    GlobalDataAccount,
+    TokenAccount,
     UserDataAccount
 } from "../accounts.js";
 import { Assert } from "../assert.js";
@@ -41,6 +43,16 @@ async function test_createUserDataAccount() {
     context = await run_test("createUserDataAccount", context, instructions, [context.payer, user], false, async (context, result) => {
         const final_user_data_account = await get_account(context, user_data_pda, UserDataAccount);
         Assert.assert(final_user_data_account.data.isVerifiedHuman, "user data isVerifiedHuman");
+
+        const final_user_comptoken_wallet = await get_account(context, original_user_comptoken_wallet.address, TokenAccount);
+        Assert.assertEqual(final_user_comptoken_wallet.data.amount, original_user_comptoken_wallet.data.amount + 1n, "user comptoken wallet amount");
+
+        const final_global_data = await get_account(context, original_global_data.address, GlobalDataAccount);
+        Assert.assertEqual(
+            final_global_data.data.dailyDistributionData.verifiedHumans,
+            original_global_data.data.dailyDistributionData.verifiedHumans + 1n,
+            "global data totalVerifiedHumans"
+        );
     });
 }
 

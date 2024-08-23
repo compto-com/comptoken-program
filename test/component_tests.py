@@ -159,6 +159,8 @@ if __name__ == "__main__":
 
         "transfer-hook-tests/initialize_extra_account_meta_list",
         "transfer-hook-tests/execute",
+
+        #"comptoken-tests/verifyHuman",
     ]
 
     args = parseArgs()

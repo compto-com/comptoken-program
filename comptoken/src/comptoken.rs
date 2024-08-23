@@ -668,7 +668,8 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
     let transfer_hook_program = verified_accounts.transfer_hook_program.unwrap();
     let extra_account_metas_account = verified_accounts.extra_account_metas.unwrap();
 
-    // todo!("cpi to worldcoin to verify human");
+    todo!("cpi to worldcoin to verify human");
+    // TODO
     // also... what about when people die?
     // also... what happens about double attempts to verify?
 

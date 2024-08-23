@@ -54,6 +54,8 @@ async function test_createUserDataAccount() {
             "global data totalVerifiedHumans"
         );
     });
+
+    Assert.assert(false, "this test is currently for manual verification only");
 }
 
 (async () => { await test_createUserDataAccount(); })();

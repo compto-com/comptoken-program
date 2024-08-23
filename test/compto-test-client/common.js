@@ -14,7 +14,7 @@ export const BIG_NUMBER = 1_000_000_000;
 export const COMPTOKEN_DECIMALS = 2; // MAGIC NUMBER: remain consistent with comptoken.rs and common.py
 export const COMPTOKEN_DISTRIBUTION_MULTIPLIER = 146000n; // MAGIC NUMBER: remain consistent with constants.rs
 export const FUTURE_UBI_VERIFIED_HUMANS = 1_000_000_000; // MAGIC NUMBER: remain consistent with constants.rs
-export const MINING_AMOUNT = 100n; // MAGIC NUMBER: remain consistent with constants.rs
+export const MINING_AMOUNT = 10000n; // MAGIC NUMBER: remain consistent with constants.rs
 
 // Read Cache Files
 import global_data_account from "../.cache/compto_global_data_account.json" assert { type: "json" };
@@ -38,7 +38,6 @@ const compto_program_id_str = compto_program_id["programId"];
 import compto_transfer_hook_id from "../.cache/compto_transfer_hook_id.json" assert { type: "json" };
 const compto_transfer_hook_id_str = compto_transfer_hook_id["programId"];
 
-import exp from "constants";
 import compto_extra_account_metas_account from "../.cache/compto_extra_account_metas_account.json" assert { type: "json" };
 const compto_extra_account_metas_account_str = compto_extra_account_metas_account["address"];
 

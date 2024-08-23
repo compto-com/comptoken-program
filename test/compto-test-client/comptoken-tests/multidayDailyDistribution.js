@@ -37,12 +37,7 @@ class MultidayDailyDistributionDaysParameters extends DaysParameters {
         const highwatermark_increase = current_highwatermark - yesterdays_highwatermark;
 
         // every 10 days the mining increases, so the highwatermark should increase, and comptokens should be distributed
-        if (this.day % 10n === 1n) {
-            Assert.assertEqual(highwatermark_increase, 1n, "highwatermark should increase by 1");
-        }
-        else {
-            Assert.assertEqual(highwatermark_increase, 0n, "highwatermark should increase by 0");
-        }
+        Assert.assertEqual(highwatermark_increase, BigInt(this.day % 10n === 1n), "highwatermark should increase by " + (this.day % 10n === 1n));
 
         MultidayDailyDistributionDaysParameters.yesterdays_accounts = await YesterdaysAccounts.get_accounts(context);
     }

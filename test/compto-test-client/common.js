@@ -11,9 +11,10 @@ export const DEFAULT_DISTRIBUTION_TIME = 1_721_865_600n; // DEFAULT_START_TIME -
 export const DEFAULT_ANNOUNCE_TIME = 1_721_865_300n; // DEFAULT_DISTRIBUTION_TIME - (5 * 60) <-- 5 minutes before distribution
 export const SEC_PER_DAY = 86_400n;
 export const BIG_NUMBER = 1_000_000_000;
-export const COMPTOKEN_DECIMALS = 0; // MAGIC NUMBER: remain consistent with comptoken.rs and full_deploy_test.py
+export const COMPTOKEN_DECIMALS = 2; // MAGIC NUMBER: remain consistent with comptoken.rs and common.py
 export const COMPTOKEN_DISTRIBUTION_MULTIPLIER = 146000n; // MAGIC NUMBER: remain consistent with constants.rs
 export const FUTURE_UBI_VERIFIED_HUMANS = 1_000_000_000; // MAGIC NUMBER: remain consistent with constants.rs
+export const MINING_AMOUNT = 10000n; // MAGIC NUMBER: remain consistent with constants.rs
 
 // Read Cache Files
 import global_data_account from "../.cache/compto_global_data_account.json" assert { type: "json" };

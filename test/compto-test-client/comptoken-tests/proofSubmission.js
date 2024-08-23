@@ -10,7 +10,7 @@ import {
     UserDataAccount,
 } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_program_id_pubkey } from "../common.js";
+import { compto_program_id_pubkey, MINING_AMOUNT } from "../common.js";
 import { ComptokenProof } from "../comptoken_proof.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 import { createProofSubmissionInstruction } from "../instruction.js";
@@ -39,8 +39,8 @@ async function test_proofSubmission() {
         Assert.assert(final_comptoken_mint_account.data.supply > original_comptoken_mint.data.supply, "comptokens have been minted");
 
         const final_user_comptoken_wallet = await get_account(context, original_user_comptoken_wallet.address, TokenAccount);
-        Assert.assert(
-            final_user_comptoken_wallet.data.amount > original_user_comptoken_wallet.data.amount,
+        Assert.assertEqual(
+            final_user_comptoken_wallet.data.amount, original_user_comptoken_wallet.data.amount + MINING_AMOUNT,
             "destination wallet has gained some comptokens"
         );
 

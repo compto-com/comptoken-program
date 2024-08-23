@@ -637,6 +637,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
     //      [w] User's Data
     //      [] transfer hook program
     //      [] extra account metas account
+    //      [] Solana Token 2022 Program
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -652,6 +653,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
             user_data: Some((true, (false, true))),
             transfer_hook_program: Some((false, false)),
             extra_account_metas: Some((false, false)),
+            solana_token_2022_program: Some((false, false)),
             ..Default::default()
         },
     )?;
@@ -669,7 +671,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
     let unpaid_future_ubi_bank_data = unpaid_future_ubi_bank_account.try_borrow_data().unwrap();
     let unpaid_future_ubi_bank = StateWithExtensions::<Account>::unpack(&unpaid_future_ubi_bank_data).unwrap().base;
 
-    todo!("cpi to worldcoin to verify human");
+    // todo!("cpi to worldcoin to verify human");
     // also... what about when people die?
     // also... what happens about double attempts to verify?
 

@@ -10,10 +10,17 @@ use spl_token_2022::{
     instruction::mint_to,
     onchain,
     solana_program::{
-        account_info::AccountInfo, entrypoint, entrypoint::MAX_PERMITTED_DATA_INCREASE, hash::HASH_BYTES,
-        instruction::AccountMeta, msg, program::set_return_data, program_error::ProgramError, pubkey::Pubkey,
+        account_info::AccountInfo,
+        entrypoint::{self, MAX_PERMITTED_DATA_INCREASE},
+        hash::HASH_BYTES,
+        instruction::AccountMeta,
+        msg,
+        program::set_return_data,
+        program_error::ProgramError,
+        pubkey::Pubkey,
         system_instruction,
     },
+    solana_zk_token_sdk::instruction::transfer,
     state::{Account, Mint},
 };
 
@@ -72,6 +79,10 @@ pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instru
         7 => {
             msg!("Grow User Data Acccount");
             realloc_user_data(program_id, accounts, &instruction_data[1..])
+        }
+        8 => {
+            msg!("Verify Human");
+            verify_human(program_id, accounts, &instruction_data[1..])
         }
         255 => {
             msg!("Test Mint");
@@ -619,6 +630,77 @@ pub fn realloc_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instruct
         &[],
     )?;
     user_data_account.realloc(new_size, false)
+}
+
+pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_data: &[u8]) -> ProgramResult {
+    //  Account Order
+    //      [] Comptoken Program
+    //      [] Comptoken Mint
+    //      [] Comptoken Global Data (also mint authority)
+    //      [w] Comptoken Future UBI Bank
+    //      [] Comptoken Future UBI Bank Data
+    //      [s] User Solana Wallet
+    //      [w] User's Comptoken Token Account
+    //      [w] User's Data
+    //      [] transfer hook program
+    //      [] extra account metas account
+
+    let verified_accounts = verify_accounts(
+        accounts,
+        program_id,
+        AccountsToVerify {
+            comptoken_program: Some((false, false)),
+            comptoken_mint: Some((false, false)),
+            global_data: Some((false, false)),
+            future_ubi_bank: Some((false, true)),
+            future_ubi_bank_data: Some((false, false)),
+            user_wallet: Some((true, false)),
+            user_comptoken_token_account: Some((false, true)),
+            user_data: Some((true, (false, true))),
+            transfer_hook_program: Some((false, false)),
+            extra_account_metas: Some((false, false)),
+            ..Default::default()
+        },
+    )?;
+
+    let comptoken_program = verified_accounts.comptoken_program.unwrap();
+    let comptoken_mint = verified_accounts.comptoken_mint.unwrap();
+    let global_data_account = verified_accounts.global_data.unwrap();
+    let unpaid_future_ubi_bank_account = verified_accounts.future_ubi_bank.unwrap();
+    let future_ubi_bank_data = verified_accounts.future_ubi_bank_data.unwrap();
+    let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
+    let user_data_account = verified_accounts.user_data.unwrap();
+    let transfer_hook_program = verified_accounts.transfer_hook_program.unwrap();
+    let extra_account_metas_account = verified_accounts.extra_account_metas.unwrap();
+
+    let unpaid_future_ubi_bank_data = unpaid_future_ubi_bank_account.try_borrow_data().unwrap();
+    let unpaid_future_ubi_bank = StateWithExtensions::<Account>::unpack(&unpaid_future_ubi_bank_data).unwrap().base;
+
+    todo!("cpi to worldcoin to verify human");
+
+    let user_data: &mut UserData = (&user_data_account).into();
+    user_data.is_verified_human = true;
+
+    let global_data: &mut GlobalData = (&global_data_account).into();
+
+    let amount = unpaid_future_ubi_bank.amount / global_data.daily_distribution_data.verified_humans;
+    transfer(
+        &unpaid_future_ubi_bank_account,
+        &user_comptoken_token_account,
+        &comptoken_mint,
+        &global_data_account,
+        &[
+            &extra_account_metas_account,
+            &transfer_hook_program,
+            &comptoken_program,
+            &user_data_account,
+            &future_ubi_bank_data,
+        ],
+        amount,
+    )?;
+
+    global_data.daily_distribution_data.verified_humans += 1;
+    Ok(())
 }
 
 fn mint(

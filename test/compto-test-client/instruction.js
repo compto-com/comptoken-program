@@ -293,7 +293,7 @@ export async function createVerifyHumanInstruction(user_wallet_address, user_com
             //  Comptoken Mint lets the token program know what kind of token to move
             { pubkey: comptoken_mint_pubkey, isSigner: false, isWritable: false },
             //  Comptoken Global Data (also mint authority) stores interest data
-            { pubkey: global_data_account_pubkey, isSigner: false, isWritable: false },
+            { pubkey: global_data_account_pubkey, isSigner: false, isWritable: true },
             //  Comptoken Future UBI Bank stores comptokens owed to future verified humans
             { pubkey: future_ubi_bank_account_pubkey, isSigner: false, isWritable: true },
             //  needed by the transfer hook program (doesn't really exist)

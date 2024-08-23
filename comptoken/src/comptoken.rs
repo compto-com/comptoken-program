@@ -629,7 +629,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
     //  Account Order
     //      [] Comptoken Program
     //      [] Comptoken Mint
-    //      [] Comptoken Global Data (also mint authority)
+    //      [w] Comptoken Global Data (also mint authority)
     //      [w] Comptoken Future UBI Bank
     //      [] Comptoken Future UBI Bank Data
     //      [s] User Solana Wallet
@@ -645,7 +645,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
         AccountsToVerify {
             comptoken_program: Some((false, false)),
             comptoken_mint: Some((false, false)),
-            global_data: Some((false, false)),
+            global_data: Some((false, true)),
             future_ubi_bank: Some((false, true)),
             future_ubi_bank_data: Some((false, false)),
             user_wallet: Some((true, false)),
@@ -668,21 +668,30 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
     let transfer_hook_program = verified_accounts.transfer_hook_program.unwrap();
     let extra_account_metas_account = verified_accounts.extra_account_metas.unwrap();
 
-    let unpaid_future_ubi_bank_data = unpaid_future_ubi_bank_account.try_borrow_data().unwrap();
-    let unpaid_future_ubi_bank = StateWithExtensions::<Account>::unpack(&unpaid_future_ubi_bank_data).unwrap().base;
-
     // todo!("cpi to worldcoin to verify human");
     // also... what about when people die?
     // also... what happens about double attempts to verify?
 
-    let user_data: &mut UserData = (&user_data_account).into();
-    user_data.is_verified_human = true;
+    // scoping to prevent reborrowing issues
+    let verified_humans;
+    let future_ubi_amount;
+    {
+        let user_data: &mut UserData = (&user_data_account).into();
+        assert!(user_data.is_current(), "user data account is not current");
+        user_data.is_verified_human = true;
 
-    let global_data: &mut GlobalData = (&global_data_account).into();
+        let global_data: &mut GlobalData = (&global_data_account).into();
+        verified_humans = global_data.daily_distribution_data.verified_humans;
+        global_data.daily_distribution_data.verified_humans += 1;
 
-    if global_data.daily_distribution_data.verified_humans <= FUTURE_UBI_VERIFIED_HUMANS {
-        let amount = unpaid_future_ubi_bank.amount
-            / (FUTURE_UBI_VERIFIED_HUMANS - global_data.daily_distribution_data.verified_humans);
+        let unpaid_future_ubi_bank_data = unpaid_future_ubi_bank_account.try_borrow_data().unwrap();
+        let unpaid_future_ubi_bank = StateWithExtensions::<Account>::unpack(&unpaid_future_ubi_bank_data).unwrap().base;
+
+        future_ubi_amount = unpaid_future_ubi_bank.amount;
+    }
+
+    if verified_humans <= FUTURE_UBI_VERIFIED_HUMANS {
+        let amount = future_ubi_amount / (FUTURE_UBI_VERIFIED_HUMANS - verified_humans);
         transfer(
             &unpaid_future_ubi_bank_account,
             &user_comptoken_token_account,
@@ -698,7 +707,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
             amount,
         )?;
     }
-    global_data.daily_distribution_data.verified_humans += 1;
+
     Ok(())
 }
 

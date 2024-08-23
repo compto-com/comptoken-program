@@ -6,6 +6,9 @@ from contextlib import contextmanager
 
 from common import *
 
+ANSI_GREEN = "\033[92m"
+ANSI_RED = "\033[91m"
+ANSI_RESET = "\033[0m"
 
 def createDirIfNotExists(path: str | Path):
     run(f"[ -d {path} ] || mkdir {path} ")
@@ -90,10 +93,10 @@ def runTest(args: Namespace, file: str) -> bool:
             logfilePath = args.log_directory / f"{file}.log" if args.log_directory else None
             with file_or_stdout(logfilePath) as logfile:
                 logfile.write(stdout)
-        print(f"✅ \033[92m{file}\033[0m passed")
+        print(f"✅ {ANSI_GREEN}{file}{ANSI_RESET} passed")
         return True
     except SubprocessFailedException as e:
-        print(f"❌ \033[91m{file}\033[0m failed")
+        print(f"❌ {ANSI_RED}{file}{ANSI_RESET} failed")
         logfilePath = args.log_directory / f"{file}.log" if args.log_directory else None
         with file_or_stdout(logfilePath) as logfile:
             logfile.write(str(e))
@@ -108,7 +111,10 @@ def runTests(args: Namespace, tests: list[str]):
         passed += runTest(args, test)
     failed = len(tests) - passed
     print()
-    print(f"passed: {passed}    failed: {failed}")
+    color = ANSI_GREEN if failed == 0 else ANSI_RED
+    print(f"{color}passed: {passed}    failed: {failed}{ANSI_RESET}")
+    if failed > 0:
+        sys.exit(1)
 
 @contextmanager
 def file_or_stdout(outfile: Path | None):
@@ -138,16 +144,18 @@ if __name__ == "__main__":
         "comptoken-tests/initializeComptokenProgram",
         "comptoken-tests/mint",  # testing to see if the timeout problem is mint or first test
         "comptoken-tests/createUserDataAccount",
+        "comptoken-tests/growUserDataAccount",
+        "comptoken-tests/shrinkUserDataAccount",
         "comptoken-tests/proofSubmission",
         "comptoken-tests/getValidBlockhashes",
         "comptoken-tests/getOwedComptokens",
         "comptoken-tests/earlyDailyDistributionEvent",
         "comptoken-tests/dailyDistributionEvent",
-        "comptoken-tests/growUserDataAccount",
-        "comptoken-tests/shrinkUserDataAccount",
+        "comptoken-tests/dailyDistributionTests",
         "comptoken-tests/multidayDailyDistribution",
         "comptoken-tests/randomMultidayDailyDistribution",
-        "comptoken-tests/dailyDistributionTests",
+        "comptoken-tests/definedMultidayDailyDistribution",
+
         "transfer-hook-tests/initialize_extra_account_meta_list",
         "transfer-hook-tests/execute",
     ]

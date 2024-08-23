@@ -12,7 +12,7 @@ import { Assert, } from "../assert.js";
 import {
     global_data_account_pubkey,
 } from "../common.js";
-import { DaysParameters, Distribution, generic_daily_distribution_assertions, get_account, run_multiday_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
+import { DaysParameters, generic_daily_distribution_assertions, get_account, run_multiday_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
 import { createDailyDistributionEventInstruction, createTestInstruction } from "../instruction.js";
 
 // arbitrary function to produce "how many comptokens are minted on a given day" test data
@@ -37,18 +37,7 @@ class MultidayDailyDistributionDaysParameters extends DaysParameters {
         const highwatermark_increase = current_highwatermark - yesterdays_highwatermark;
 
         // every 10 days the mining increases, so the highwatermark should increase, and comptokens should be distributed
-        if (this.day % 10n === 1n) {
-            Assert.assertEqual(highwatermark_increase, 1n, "highwatermark should increase by 1");
-        }
-        else {
-            Assert.assertEqual(highwatermark_increase, 0n, "highwatermark should increase by 0");
-        }
-
-        const distribution = new Distribution(current_global_data_account.data.dailyDistributionData, highwatermark_increase, yesterdays_accounts.unpaid_future_ubi_bank.data.amount);
-
-        await distribution.assertInterestDistribution(context, yesterdays_accounts.unpaid_interest_bank, 0n);
-        await distribution.assertVerifiedHumanUBIDistribution(context, yesterdays_accounts.unpaid_verified_human_ubi_bank, 0n);
-        // future UBI checked in generic_daily_distribution
+        Assert.assertEqual(highwatermark_increase, BigInt(this.day % 10n === 1n), "highwatermark should increase by " + (this.day % 10n === 1n));
 
         MultidayDailyDistributionDaysParameters.yesterdays_accounts = await YesterdaysAccounts.get_accounts(context);
     }

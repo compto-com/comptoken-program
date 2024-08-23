@@ -30,7 +30,7 @@ COMPTO_FUTURE_UBI_BANK_ACCOUNT_JSON = CACHE_PATH / "compto_future_ubi_bank_accou
 EXTRA_ACCOUNT_METAS_ACCOUNT_JSON = CACHE_PATH / "compto_extra_account_metas_account.json"
 COMPTO_MD5_JSON = CACHE_PATH / "compto_md5sum.json"
 
-MINT_DECIMALS = 0  # MAGIC NUMBER ensure this remains consistent with constants.rs
+MINT_DECIMALS = 2  # MAGIC NUMBER ensure this remains consistent with constants.rs
 TOKEN_2022_PROGRAM_ID = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 
 class SubprocessFailedException(Exception):

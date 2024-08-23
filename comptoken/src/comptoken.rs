@@ -163,14 +163,14 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     );
 
     msg!("data/accounts verified");
-    let amount = 2;
+
     // now save the hash to the account, returning an error if the hash already exists
     store_hash(proof, &user_data_account);
     msg!("stored the proof");
     mint(
         &global_data_account,
         &user_comptoken_token_account,
-        amount,
+        MINING_AMOUNT,
         &[&comptoken_mint_account, &user_comptoken_token_account, &global_data_account],
     )?;
 

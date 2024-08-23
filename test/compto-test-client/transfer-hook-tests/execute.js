@@ -54,7 +54,7 @@ async function test_execute() {
         {
             instruction: TokenInstruction.TransferChecked,
             amount: 1n,
-            MINT_DECIMALS: COMPTOKEN_DECIMALS,
+            decimals: COMPTOKEN_DECIMALS,
         },
         data
     );

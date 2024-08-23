@@ -10,17 +10,10 @@ use spl_token_2022::{
     instruction::mint_to,
     onchain,
     solana_program::{
-        account_info::AccountInfo,
-        entrypoint::{self, MAX_PERMITTED_DATA_INCREASE},
-        hash::HASH_BYTES,
-        instruction::AccountMeta,
-        msg,
-        program::set_return_data,
-        program_error::ProgramError,
-        pubkey::Pubkey,
+        account_info::AccountInfo, entrypoint, entrypoint::MAX_PERMITTED_DATA_INCREASE, hash::HASH_BYTES,
+        instruction::AccountMeta, msg, program::set_return_data, program_error::ProgramError, pubkey::Pubkey,
         system_instruction,
     },
-    solana_zk_token_sdk::instruction::transfer,
     state::{Account, Mint},
 };
 
@@ -677,28 +670,32 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
     let unpaid_future_ubi_bank = StateWithExtensions::<Account>::unpack(&unpaid_future_ubi_bank_data).unwrap().base;
 
     todo!("cpi to worldcoin to verify human");
+    // also... what about when people die?
+    // also... what happens about double attempts to verify?
 
     let user_data: &mut UserData = (&user_data_account).into();
     user_data.is_verified_human = true;
 
     let global_data: &mut GlobalData = (&global_data_account).into();
 
-    let amount = unpaid_future_ubi_bank.amount / global_data.daily_distribution_data.verified_humans;
-    transfer(
-        &unpaid_future_ubi_bank_account,
-        &user_comptoken_token_account,
-        &comptoken_mint,
-        &global_data_account,
-        &[
-            &extra_account_metas_account,
-            &transfer_hook_program,
-            &comptoken_program,
-            &user_data_account,
-            &future_ubi_bank_data,
-        ],
-        amount,
-    )?;
-
+    if global_data.daily_distribution_data.verified_humans <= FUTURE_UBI_VERIFIED_HUMANS {
+        let amount = unpaid_future_ubi_bank.amount
+            / (FUTURE_UBI_VERIFIED_HUMANS - global_data.daily_distribution_data.verified_humans);
+        transfer(
+            &unpaid_future_ubi_bank_account,
+            &user_comptoken_token_account,
+            &comptoken_mint,
+            &global_data_account,
+            &[
+                &extra_account_metas_account,
+                &transfer_hook_program,
+                &comptoken_program,
+                &user_data_account,
+                &future_ubi_bank_data,
+            ],
+            amount,
+        )?;
+    }
     global_data.daily_distribution_data.verified_humans += 1;
     Ok(())
 }

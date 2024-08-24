@@ -63,9 +63,13 @@ def getTransferHookProgramIdIfExists() -> str | None:
 def getTransferHookProgramId():
     return run(f"solana address -k {TRANSFER_HOOK_KEYPAIR}")
 
+def getGlobalData():
+    with open(COMPTO_GLOBAL_DATA_ACCOUNT_JSON, "r") as file:
+        return json.load(file).get("address")
+
 def createToken():
     run(
-        f"{SPL_TOKEN_CMD} create-token -v --decimals {MINT_DECIMALS} --transfer-hook {getTransferHookProgramId()} --output json > {COMPTOKEN_MINT_JSON}"
+        f"{SPL_TOKEN_CMD} create-token -v --decimals {MINT_DECIMALS} --transfer-hook {getTransferHookProgramId()} --mint-authority {getGlobalData()} --output json {MINT_KEYPAIR} > {COMPTOKEN_MINT_JSON}"
     )
 
 def createComptoAccount():
@@ -103,7 +107,7 @@ def deployTransferHook():
 # ========================
 
 def getTokenAddress():
-    return (json.loads(COMPTOKEN_MINT_JSON.read_text()).get("commandOutput").get("address"))
+    return run(f"solana address -k {MINT_KEYPAIR}")
 
 def runTestClient():
     return run("node --trace-warnings compto-test-client/test_client.js", TEST_PATH)
@@ -132,12 +136,15 @@ if __name__ == "__main__":
 
     print("Creating Validator...")
     with createTestValidator() as validator:
-        createToken()
-        mintAddress = getTokenAddress()
         print("Checking Compto Program for hardcoded Comptoken Address and static seed...")
 
         if args.generate:
+            createKeyPair(MINT_KEYPAIR)
+            mintAddress = getTokenAddress()
             generateFiles(comptokenProgramId, transferHookId, mintAddress)
+
+        createToken()
+
         if args.build:
             buildTransferHook()
             buildCompto()

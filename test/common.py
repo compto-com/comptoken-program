@@ -23,6 +23,7 @@ COMPTO_SO = DEPLOY_PATH / "comptoken.so"
 COMPTO_KEYPAIR = DEPLOY_PATH / "comptoken-keypair.json"
 TRANSFER_HOOK_SO = DEPLOY_PATH / "comptoken_transfer_hook.so"
 TRANSFER_HOOK_KEYPAIR = DEPLOY_PATH / "comptoken_transfer_hook-keypair.json"
+MINT_KEYPAIR = CACHE_PATH / "comptoken_mint-keypair.json"
 
 COMPTO_PROGRAM_ID_JSON = CACHE_PATH / "compto_program_id.json"
 COMPTO_TRANSFER_HOOK_ID_JSON = CACHE_PATH / "compto_transfer_hook_id.json"

@@ -16,6 +16,7 @@ def generateMockFiles():
     mintAddress = generateMockMint()
     return (comptokenProgramId, transferHookId, mintAddress)
 
+
 def generateMockComptokenProgramIdFile():
     programId = randAddress()
     write(COMPTO_PROGRAM_ID_JSON, json.dumps({"programId": programId}))
@@ -107,6 +108,8 @@ if __name__ == "__main__":
         "comptoken-tests/definedMultidayDailyDistribution",
         "transfer-hook-tests/initialize_extra_account_meta_list",
         "transfer-hook-tests/execute",
+        # commented out until WorldCoin integration is implemented
+        #"comptoken-tests/verifyHuman",
     ]
 
     args = parseArgs()

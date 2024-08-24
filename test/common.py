@@ -144,8 +144,8 @@ def write(path: Path, data: str):
         file.write(data)
 
 def generateComptokenAddressFile(
-    globalDataSeed: int, interestBankSeed: int, verifiedHumanUBIBankSeed: int, futureUBIBankSeed: int,
-    mint_address: str, transfer_hook_address: str
+    globalDataSeed: int, interestBankSeed: int, verifiedHumanUBIBankSeed: int, futureUBIBankSeed: int, mintAddress: str,
+    transferHookAddress: str
 ):
     print(f"Generating {COMPTO_GENERATED_RS_FILE}...")
     file_data = f"""\
@@ -163,9 +163,9 @@ def generateComptokenAddressFile(
 
 use spl_token_2022::solana_program::{{pubkey, pubkey::Pubkey}};
 
-pub const COMPTOKEN_MINT_ADDRESS: Pubkey = pubkey!("{mint_address}");
+pub const COMPTOKEN_MINT_ADDRESS: Pubkey = pubkey!("{mintAddress}");
 
-pub const TRANSFER_HOOK_ID: Pubkey = pubkey!("{transfer_hook_address}");
+pub const TRANSFER_HOOK_ID: Pubkey = pubkey!("{transferHookAddress}");
 
 pub const COMPTO_GLOBAL_DATA_ACCOUNT_BUMP: u8 = {globalDataSeed};
 pub const COMPTO_INTEREST_BANK_ACCOUNT_BUMP: u8 = {interestBankSeed};
@@ -175,7 +175,8 @@ pub const COMPTO_FUTURE_UBI_BANK_ACCOUNT_BUMP: u8 = {futureUBIBankSeed};\
     write(COMPTO_GENERATED_RS_FILE, file_data)
 
 def generateTransferHookAddressFile(
-    comptoken_address: str, extraAccountMetasSeed: int, mint_address: str, interest_address: str, ubi_address: str, _
+    comptokenAddress: str, extraAccountMetasSeed: int, mintAddress: str, interestBankAddress: str,
+    verifiedHumanUBIBankAddress: str, futureUBIBankAddress: str
 ):
     print(f"Generating {TRANSFER_HOOK_GENERATED_RS_FILE}...")
     file_data = f"""\
@@ -193,13 +194,14 @@ def generateTransferHookAddressFile(
 
 use spl_token_2022::solana_program::{{pubkey, pubkey::Pubkey}};
 
-pub const COMPTOKEN_ID: Pubkey = pubkey!("{comptoken_address}");
+pub const COMPTOKEN_ID: Pubkey = pubkey!("{comptokenAddress}");
 
-pub const EXTRA_ACCOUNT_METAS_BUMP: u8 = {extraAccountMetasSeed};\
-pub const MINT_ADDRESS: Pubkey = pubkey!("{mint_address}");
+pub const EXTRA_ACCOUNT_METAS_BUMP: u8 = {extraAccountMetasSeed};
+pub const MINT_ADDRESS: Pubkey = pubkey!("{mintAddress}");
 
-pub const COMPTO_INTEREST_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("{interest_address}");
-pub const COMPTO_UBI_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("{ubi_address}");
+pub const COMPTO_INTEREST_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("{interestBankAddress}");
+pub const COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("{verifiedHumanUBIBankAddress}");
+pub const COMPTO_FUTURE_UBI_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("{futureUBIBankAddress}");\
 """
     write(TRANSFER_HOOK_GENERATED_RS_FILE, file_data)
 
@@ -251,6 +253,7 @@ def generateFiles(comptokenProgramId: str, transferHookId: str, mintAddress: str
     verifiedHumanUBIBankAddress = verifiedHumanUBIBankPDA["address"]
     futureUBIBankPDA = setFutureUBIBankPDA(comptokenProgramId)
     futureUBIBankSeed = futureUBIBankPDA["bumpSeed"]
+    futureUBIBankAddress = futureUBIBankPDA["address"]
 
     extraAccountMetasSeed = setExtraAccountMetasPDA(transferHookId, Pubkey(mintAddress))["bumpSeed"]
     # test user
@@ -260,7 +263,7 @@ def generateFiles(comptokenProgramId: str, transferHookId: str, mintAddress: str
         globalDataSeed, interestBankSeed, verifiedHumanUBIBankSeed, futureUBIBankSeed, mintAddress, transferHookId
     )
     generateTransferHookAddressFile(
-        comptokenProgramId, extraAccountMetasSeed, mintAddress, interestBankAddress, verifiedHumanUBIBankAddress, ""
+        comptokenProgramId, extraAccountMetasSeed, mintAddress, interestBankAddress, verifiedHumanUBIBankAddress, futureUBIBankAddress
     )
     print("done generating files")
 

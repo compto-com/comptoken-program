@@ -16,8 +16,8 @@ use spl_transfer_hook_interface::instruction::{ExecuteInstruction, TransferHookI
 use comptoken_utils::{create_pda, user_data::UserData};
 
 use generated::{
-    COMPTOKEN_ID, COMPTO_INTEREST_BANK_ACCOUNT_PUBKEY, COMPTO_UBI_BANK_ACCOUNT_PUBKEY,
-    EXTRA_ACCOUNT_METAS_ACCOUNT_SEEDS,
+    COMPTOKEN_ID, COMPTO_FUTURE_UBI_BANK_ACCOUNT_PUBKEY, COMPTO_INTEREST_BANK_ACCOUNT_PUBKEY,
+    COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_PUBKEY, EXTRA_ACCOUNT_METAS_ACCOUNT_SEEDS,
 };
 use verify_accounts::{
     verify_account_meta_storage_account, verify_comptoken_mint, verify_comptoken_program, verify_destination_account,
@@ -144,5 +144,7 @@ fn process_initialize_extra_account_meta_list(
 }
 
 fn is_bank(address: &Pubkey) -> bool {
-    *address == COMPTO_INTEREST_BANK_ACCOUNT_PUBKEY || *address == COMPTO_UBI_BANK_ACCOUNT_PUBKEY
+    *address == COMPTO_INTEREST_BANK_ACCOUNT_PUBKEY
+        || *address == COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_PUBKEY
+        || *address == COMPTO_FUTURE_UBI_BANK_ACCOUNT_PUBKEY
 }

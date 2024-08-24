@@ -47,8 +47,6 @@ console.log("comptoken mint: " + comptoken_mint_pubkey);
 console.log("compto program id: " + compto_program_id_pubkey);
 console.log("global data account: " + global_data_account_pubkey);
 
-
-
 let connection = new Connection('http://localhost:8899', 'recent');
 
 (async () => {

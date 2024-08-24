@@ -102,12 +102,10 @@ def deployTransferHook():
         print(f"new Exception: Type:`{type(ex)}' value: `{ex}'")
         raise ex
 
-# ==== SHELL COMMANDS ====
-
-# ========================
-
 def getTokenAddress():
     return run(f"solana address -k {MINT_KEYPAIR}")
+
+# ========================
 
 def runTestClient():
     return run("node --trace-warnings compto-test-client/test_client.js", TEST_PATH)

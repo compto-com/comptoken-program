@@ -50,11 +50,6 @@ console.log("global data account: " + global_data_account_pubkey);
 
 
 let connection = new Connection('http://localhost:8899', 'recent');
-const rent = {
-    minimumBalance: async function (dataLen) {
-        return BigInt(await connection.getMinimumBalanceForRentExemption(Number(dataLen)));
-    }
-};
 
 (async () => {
     await airdrop(testUser_keypair.publicKey);
@@ -116,7 +111,7 @@ async function createGlobalDataAccount() {
     let createGlobalDataAccountTransaction = new Transaction();
     createGlobalDataAccountTransaction
         .add(
-            await createInitializeComptokenProgramInstruction(rent, testUser_keypair.publicKey),
+            await createInitializeComptokenProgramInstruction(connection, testUser_keypair.publicKey),
         );
     let createGlobalDataAccountResult = await sendAndConfirmTransaction(connection, createGlobalDataAccountTransaction, [testUser_keypair, testUser_keypair]);
     console.log("createGlobalDataAccount transaction confirmed", createGlobalDataAccountResult);
@@ -125,7 +120,7 @@ async function createGlobalDataAccount() {
 async function createUserDataAccount() {
     let createUserDataAccountTransaction = new Transaction();
     createUserDataAccountTransaction.add(
-        await createCreateUserDataAccountInstruction(rent, 88n, testUser_keypair.publicKey, testUser_keypair.publicKey, testuser_pubkey),
+        await createCreateUserDataAccountInstruction(connection, 88, testUser_keypair.publicKey, testUser_keypair.publicKey, testuser_pubkey),
     );
     let createUserDataAccountResult = await sendAndConfirmTransaction(connection, createUserDataAccountTransaction, [testUser_keypair]);
     console.log("createUserDataAccount transaction confirmed", createUserDataAccountResult);

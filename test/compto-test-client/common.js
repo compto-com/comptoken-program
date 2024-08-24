@@ -41,11 +41,11 @@ const compto_transfer_hook_id_str = compto_transfer_hook_id["programId"];
 import compto_extra_account_metas_account from "../.cache/compto_extra_account_metas_account.json" assert { type: "json" };
 const compto_extra_account_metas_account_str = compto_extra_account_metas_account["address"];
 
-//import testuser_comptoken_wallet_ from "../.cache/test_user_account.json" assert { type: "json" };
-//const testuser_comptoken_wallet_num_arr = testuser_comptoken_wallet_;
+import testUser from "../.cache/test_user_account.json" assert { type: "json" };
+const testUser_num_arr = testUser;
 
 // Pubkeys
-//export const testuser_comptoken_wallet_pubkey = Keypair.fromSecretKey(new Uint8Array(testuser_comptoken_wallet_num_arr)).publicKey;
+export const testUser_keypair = Keypair.fromSecretKey(new Uint8Array(testUser_num_arr));
 export const compto_program_id_pubkey = new PublicKey(bs58.decode(compto_program_id_str));
 export const comptoken_mint_pubkey = new PublicKey(bs58.decode(comptoken_mint_str));
 export const global_data_account_pubkey = new PublicKey(bs58.decode(global_data_account_str));

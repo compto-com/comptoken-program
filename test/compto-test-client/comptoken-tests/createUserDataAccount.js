@@ -21,8 +21,15 @@ async function test_createUserDataAccount() {
 
     let context = await setup_test(existing_accounts);
 
+    const rent = {
+        getMinimumBalanceForRentExemption: async function (dataLength, commitment) {
+            let rent = await context.banksClient.getRent();
+            return Number(rent.minimumBalance(BigInt(dataLength)));
+        }
+    }
+
     const instructions = [
-        await createCreateUserDataAccountInstruction(context, BigInt(UserData.MIN_SIZE), context.payer.publicKey, user.publicKey, original_user_comptoken_wallet.address),
+        await createCreateUserDataAccountInstruction(rent, UserData.MIN_SIZE, context.payer.publicKey, user.publicKey, original_user_comptoken_wallet.address),
     ];
 
     context = await run_test("createUserDataAccount", context, instructions, [context.payer, user], false, async (context, result) => {

@@ -2,6 +2,7 @@ import json
 import os
 import signal
 import subprocess
+from argparse import ArgumentParser
 from functools import reduce
 from pathlib import Path
 from types import TracebackType
@@ -9,6 +10,7 @@ from typing import Any, Mapping, Self, Type
 
 TEST_PATH = Path(__file__).parent
 PROJECT_PATH = TEST_PATH.parent
+DEPLOY_PATH = PROJECT_PATH / "target/deploy"
 COMPTOKEN_SRC_PATH = PROJECT_PATH / "comptoken"
 TRANSFER_HOOK_SRC_PATH = PROJECT_PATH / "comptoken-transfer-hook"
 CACHE_PATH = TEST_PATH / ".cache"
@@ -17,7 +19,10 @@ TRANSFER_HOOK_GENERATED_PATH = TRANSFER_HOOK_SRC_PATH / "src/generated"
 
 COMPTO_GENERATED_RS_FILE = COMPTOKEN_GENERATED_PATH / "comptoken_generated.rs"
 TRANSFER_HOOK_GENERATED_RS_FILE = TRANSFER_HOOK_GENERATED_PATH / "comptoken_generated.rs"
-COMPTO_SO = PROJECT_PATH / "target/deploy/comptoken.so"
+COMPTO_SO = DEPLOY_PATH / "comptoken.so"
+COMPTO_KEYPAIR = DEPLOY_PATH / "comptoken-keypair.json"
+TRANSFER_HOOK_SO = DEPLOY_PATH / "comptoken_transfer_hook.so"
+TRANSFER_HOOK_KEYPAIR = DEPLOY_PATH / "comptoken_transfer_hook-keypair.json"
 
 COMPTO_PROGRAM_ID_JSON = CACHE_PATH / "compto_program_id.json"
 COMPTO_TRANSFER_HOOK_ID_JSON = CACHE_PATH / "compto_transfer_hook_id.json"
@@ -63,6 +68,9 @@ class BackgroundProcess:
     def checkIfProcessRunning(self):
         return self._process is not None and self._process.poll() is None
 
+    def __repr__(self) -> str:
+        return f"BackgroundProcess{{_cmd: {self._cmd}, _kwargs: {self._kwargs}, _process: {self._process}}}"
+
 class Pubkey(str):
     pass
 
@@ -84,6 +92,21 @@ class PDA(dict[str, Any]):
 
         super().__init__(json.loads(run(f"solana find-program-derived-address {programId} {seeds_str} --output json")))
 
+def createDirIfNotExists(path: str | Path):
+    run(f"[ -d {path} ] || mkdir {path} ")
+
+import argparse
+
+
+def generateDirectories(args: argparse.Namespace):
+    createDirIfNotExists(CACHE_PATH)
+    createDirIfNotExists(COMPTOKEN_GENERATED_PATH)
+    createDirIfNotExists(TRANSFER_HOOK_GENERATED_PATH)
+    if args.log_directory:
+        createDirIfNotExists(args.log_directory)
+        createDirIfNotExists(args.log_directory / "comptoken-tests")
+        createDirIfNotExists(args.log_directory / "transfer-hook-tests")
+
 def run(
     command: str | list[str],
     cwd: Path | None = None,
@@ -104,10 +127,16 @@ def run(
         )
     return result.stdout.rstrip()
 
-def build():
-    print("building...")
-    run('cargo build-sbf --features testmode -- -v', PROJECT_PATH)
-    print("done buiding")
+def build(package: str):
+    print(f"Building {package}...")
+    run(f'cargo build-sbf --features testmode -- -v -p {package}', PROJECT_PATH)
+    print(f"Done Building {package}")
+
+def buildCompto():
+    build("comptoken")
+
+def buildTransferHook():
+    build("comptoken-transfer-hook")
 
 def write(path: Path, data: str):
     with open(path, "w") as file:
@@ -145,7 +174,7 @@ pub const COMPTO_FUTURE_UBI_BANK_ACCOUNT_BUMP: u8 = {futureUBIBankSeed};\
     write(COMPTO_GENERATED_RS_FILE, file_data)
 
 def generateTransferHookAddressFile(
-    comptoken_address: str, extraAccountMetasSeed: int, mint_address: str, interest_address: str, ubi_address: str
+    comptoken_address: str, extraAccountMetasSeed: int, mint_address: str, interest_address: str, ubi_address: str, _
 ):
     print(f"Generating {TRANSFER_HOOK_GENERATED_RS_FILE}...")
     file_data = f"""\
@@ -207,3 +236,48 @@ def createKeyPair(outfile: Path):
 
 def generateTestUser():
     createKeyPair(TEST_USER_ACCOUNT_JSON)
+
+def generateFiles(comptokenProgramId: str, transferHookId: str, mintAddress: str):
+    print("generating files...")
+    # pdas
+    globalDataSeed = setGlobalDataPDA(comptokenProgramId)["bumpSeed"]
+
+    interestBankPDA = setInterestBankPDA(comptokenProgramId)
+    interestBankSeed = interestBankPDA["bumpSeed"]
+    interestBankAddress = interestBankPDA["address"]
+    verifiedHumanUBIBankPDA = setVerifiedHumanUBIBankPDA(comptokenProgramId)
+    verifiedHumanUBIBankSeed = verifiedHumanUBIBankPDA["bumpSeed"]
+    verifiedHumanUBIBankAddress = verifiedHumanUBIBankPDA["address"]
+    futureUBIBankPDA = setFutureUBIBankPDA(comptokenProgramId)
+    futureUBIBankSeed = futureUBIBankPDA["bumpSeed"]
+
+    extraAccountMetasSeed = setExtraAccountMetasPDA(transferHookId, Pubkey(mintAddress))["bumpSeed"]
+    # test user
+    generateTestUser()
+    # rust file
+    generateComptokenAddressFile(
+        globalDataSeed, interestBankSeed, verifiedHumanUBIBankSeed, futureUBIBankSeed, mintAddress, transferHookId
+    )
+    generateTransferHookAddressFile(
+        comptokenProgramId, extraAccountMetasSeed, mintAddress, interestBankAddress, verifiedHumanUBIBankAddress, ""
+    )
+    print("done generating files")
+
+def parseArgs():
+    parser = ArgumentParser(prog="comptoken component tests")
+    parser.add_argument("--verbose", "-v", action="count", default=0)
+    parser.add_argument("--log-directory", type=Path, help="logs test output to the specified directory")
+    parser.add_argument(
+        "--log",
+        action="store_const",
+        const=CACHE_PATH / "logs",
+        dest="log_directory",
+        help="logs test output to the test/.cache/logs directory"
+    )
+    parser.add_argument("--no-build", action="store_false", dest="build", help="skip building, implies --no-generate")
+    parser.add_argument("--no-generate", action="store_false", dest="generate", help="skip generating files")
+
+    args = parser.parse_args()
+    if not args.build:
+        args.generate = False
+    return args

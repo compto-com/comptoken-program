@@ -1,7 +1,7 @@
 import json
 import os
 import sys
-from argparse import ArgumentParser, Namespace
+from argparse import Namespace
 from contextlib import contextmanager
 
 from common import *
@@ -10,56 +10,21 @@ ANSI_GREEN = "\033[92m"
 ANSI_RED = "\033[91m"
 ANSI_RESET = "\033[0m"
 
-def createDirIfNotExists(path: str | Path):
-    run(f"[ -d {path} ] || mkdir {path} ")
+def generateMockFiles():
+    comptokenProgramId = generateMockComptokenProgramIdFile()
+    transferHookId = generateMockTransferHookProgramIdFile()
+    mintAddress = generateMockMint()
+    return (comptokenProgramId, transferHookId, mintAddress)
 
-def generateDirectories(args: Namespace):
-    createDirIfNotExists(CACHE_PATH)
-    createDirIfNotExists(COMPTOKEN_GENERATED_PATH)
-    createDirIfNotExists(TRANSFER_HOOK_GENERATED_PATH)
-    if args.log_directory:
-        createDirIfNotExists(args.log_directory)
-        createDirIfNotExists(args.log_directory / "comptoken-tests")
-        createDirIfNotExists(args.log_directory / "transfer-hook-tests")
-
-def generateFiles():
-    print("generating files...")
-    # programId
-    comptokenProgramId = randAddress()
-    transferHookId = randAddress()
-    generateMockComptokenProgramIdFile(comptokenProgramId)
-    generateMockTransferHookProgramIdFile(transferHookId)
-    # mint
-    mint_address = generateMockMint()
-    # pdas
-    globalDataSeed = setGlobalDataPDA(comptokenProgramId)["bumpSeed"]
-
-    interestBankPDA = setInterestBankPDA(comptokenProgramId)
-    interestBankSeed = interestBankPDA["bumpSeed"]
-    interestBankAddress = interestBankPDA["address"]
-    verifiedHumanUBIBankPDA = setVerifiedHumanUBIBankPDA(comptokenProgramId)
-    verifiedHumanUBIBankSeed = verifiedHumanUBIBankPDA["bumpSeed"]
-    verifiedHumanUBIBankAddress = verifiedHumanUBIBankPDA["address"]
-    futureUBIBankPDA = setFutureUBIBankPDA(comptokenProgramId)
-    futureUBIBankSeed = futureUBIBankPDA["bumpSeed"]
-
-    extraAccountMetasSeed = setExtraAccountMetasPDA(transferHookId, Pubkey(mint_address))["bumpSeed"]
-    # test user
-    generateTestUser()
-    # rust file
-    generateComptokenAddressFile(
-        globalDataSeed, interestBankSeed, verifiedHumanUBIBankSeed, futureUBIBankSeed, mint_address, transferHookId
-    )
-    generateTransferHookAddressFile(
-        comptokenProgramId, extraAccountMetasSeed, mint_address, interestBankAddress, verifiedHumanUBIBankAddress
-    )
-    print("done generating files")
-
-def generateMockComptokenProgramIdFile(programId: str):
+def generateMockComptokenProgramIdFile():
+    programId = randAddress()
     write(COMPTO_PROGRAM_ID_JSON, json.dumps({"programId": programId}))
+    return programId
 
-def generateMockTransferHookProgramIdFile(programId: str):
+def generateMockTransferHookProgramIdFile():
+    programId = randAddress()
     write(COMPTO_TRANSFER_HOOK_ID_JSON, json.dumps({"programId": programId}))
+    return programId
 
 def generateMockMint() -> str:
     address = randAddress()
@@ -124,21 +89,6 @@ def file_or_stdout(outfile: Path | None):
     else:
         yield sys.stdout
 
-def parseArgs():
-    parser = ArgumentParser(prog="comptoken component tests")
-    parser.add_argument("--verbose", "-v", action="count", default=0)
-    parser.add_argument("--log-directory", type=Path, help="logs test output to the specified directory")
-    parser.add_argument(
-        "--log",
-        action="store_const",
-        const=CACHE_PATH / "logs",
-        dest="log_directory",
-        help="logs test output to the test/.cache/logs directory"
-    )
-    parser.add_argument("--no-build", action="store_false", dest="build")
-
-    return parser.parse_args()
-
 if __name__ == "__main__":
     tests: list[str] = [
         "comptoken-tests/initializeComptokenProgram",
@@ -155,16 +105,18 @@ if __name__ == "__main__":
         "comptoken-tests/multidayDailyDistribution",
         "comptoken-tests/randomMultidayDailyDistribution",
         "comptoken-tests/definedMultidayDailyDistribution",
-
         "transfer-hook-tests/initialize_extra_account_meta_list",
         "transfer-hook-tests/execute",
     ]
 
     args = parseArgs()
     generateDirectories(args)
+    if args.generate:
+        (comptokenProgramId, transferHookId, mintAddress) = generateMockFiles()
+        generateFiles(comptokenProgramId, transferHookId, mintAddress)
     if args.build:
-        generateFiles()
-        build()
+        buildCompto()
+        buildTransferHook()
     else:
         print("skipping generating files")
         print("skipping building")

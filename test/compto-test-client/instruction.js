@@ -25,6 +25,7 @@ export const Instruction = {
     GET_VALID_BLOCKHASHES: 5,
     GET_OWED_COMPTOKENS: 6,
     GROW_USER_DATA_ACCOUNT: 7,
+    VERIFY_HUMAN: 8,
     TEST: 255,
 };
 
@@ -275,4 +276,41 @@ export async function createGrowUserDataAccountInstruction(context, new_user_dat
             ...bigintAsU64ToBytes(new_user_data_size),
         ]),
     })
+}
+
+/**
+ * @param {PublicKey} user_wallet_address
+ * @param {PublicKey} user_comptoken_token_account_address
+ * @returns {TransactionInstruction}
+ */
+export async function createVerifyHumanInstruction(user_wallet_address, user_comptoken_token_account_address) {
+    const user_data_account_address = PublicKey.findProgramAddressSync([user_comptoken_token_account_address.toBytes()], compto_program_id_pubkey)[0];
+    return new TransactionInstruction({
+        programId: compto_program_id_pubkey,
+        keys: [
+            //  needed by the transfer hook program
+            { pubkey: compto_program_id_pubkey, isSigner: false, isWritable: false },
+            //  Comptoken Mint lets the token program know what kind of token to move
+            { pubkey: comptoken_mint_pubkey, isSigner: false, isWritable: false },
+            //  Comptoken Global Data (also mint authority) stores interest data
+            { pubkey: global_data_account_pubkey, isSigner: false, isWritable: true },
+            //  Comptoken Future UBI Bank stores comptokens owed to future verified humans
+            { pubkey: future_ubi_bank_account_pubkey, isSigner: false, isWritable: true },
+            //  needed by the transfer hook program (doesn't really exist)
+            { pubkey: PublicKey.findProgramAddressSync([future_ubi_bank_account_pubkey.toBytes()], compto_program_id_pubkey)[0], isSigner: false, isWritable: false },
+            // the owner of the Comptoken Token Account
+            { pubkey: user_wallet_address, isSigner: true, isWritable: false },
+            //  User's Comptoken Token Account is the account to send the comptokens to
+            { pubkey: user_comptoken_token_account_address, isSigner: false, isWritable: true },
+            //  User's Data Account stores how long it's been since they received owed comptokens
+            { pubkey: user_data_account_address, isSigner: false, isWritable: true },
+            //  compto transfer hook program is called by the transfer that gives the owed comptokens
+            { pubkey: compto_transfer_hook_id_pubkey, isSigner: false, isWritable: false },
+            //  stores account metas to add to transfer instructions
+            { pubkey: compto_extra_account_metas_account_pubkey, isSigner: false, isWritable: false },
+            //  Token 2022 Program moves the tokens
+            { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+        ],
+        data: Buffer.from([Instruction.VERIFY_HUMAN]),
+    });
 }

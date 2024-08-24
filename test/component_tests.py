@@ -42,6 +42,7 @@ def generateFiles():
     verifiedHumanUBIBankAddress = verifiedHumanUBIBankPDA["address"]
     futureUBIBankPDA = setFutureUBIBankPDA(comptokenProgramId)
     futureUBIBankSeed = futureUBIBankPDA["bumpSeed"]
+    futureUBIBankAddress = futureUBIBankPDA["address"]
 
     extraAccountMetasSeed = setExtraAccountMetasPDA(transferHookId, Pubkey(mint_address))["bumpSeed"]
     # test user
@@ -51,7 +52,8 @@ def generateFiles():
         globalDataSeed, interestBankSeed, verifiedHumanUBIBankSeed, futureUBIBankSeed, mint_address, transferHookId
     )
     generateTransferHookAddressFile(
-        comptokenProgramId, extraAccountMetasSeed, mint_address, interestBankAddress, verifiedHumanUBIBankAddress
+        comptokenProgramId, extraAccountMetasSeed, mint_address, interestBankAddress, verifiedHumanUBIBankAddress,
+        futureUBIBankAddress
     )
     print("done generating files")
 
@@ -155,9 +157,10 @@ if __name__ == "__main__":
         "comptoken-tests/multidayDailyDistribution",
         "comptoken-tests/randomMultidayDailyDistribution",
         "comptoken-tests/definedMultidayDailyDistribution",
-
         "transfer-hook-tests/initialize_extra_account_meta_list",
         "transfer-hook-tests/execute",
+        # commented out until WorldCoin integration is implemented
+        #"comptoken-tests/verifyHuman",
     ]
 
     args = parseArgs()

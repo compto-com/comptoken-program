@@ -16,7 +16,7 @@ import { compto_program_id_pubkey } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 import { createVerifyHumanInstruction } from "../instruction.js";
 
-async function test_createUserDataAccount() {
+async function testVerifyHuman() {
     const user = Keypair.generate();
     let original_comptoken_mint = get_default_comptoken_mint();
     original_comptoken_mint.data.supply = 1_000_000_000n;
@@ -40,11 +40,12 @@ async function test_createUserDataAccount() {
         await createVerifyHumanInstruction(user.publicKey, original_user_comptoken_wallet.address),
     ];
 
-    context = await run_test("createUserDataAccount", context, instructions, [context.payer, user], false, async (context, result) => {
+    context = await run_test("VerifyHuman", context, instructions, [context.payer, user], false, async (context, result) => {
         const final_user_data_account = await get_account(context, user_data_pda, UserDataAccount);
         Assert.assert(final_user_data_account.data.isVerifiedHuman, "user data isVerifiedHuman");
 
         const final_user_comptoken_wallet = await get_account(context, original_user_comptoken_wallet.address, TokenAccount);
+        // one billionth of one billion tokens
         Assert.assertEqual(final_user_comptoken_wallet.data.amount, original_user_comptoken_wallet.data.amount + 1n, "user comptoken wallet amount");
 
         const final_global_data = await get_account(context, original_global_data.address, GlobalDataAccount);
@@ -58,4 +59,4 @@ async function test_createUserDataAccount() {
     Assert.assert(false, "this test is currently for manual verification only");
 }
 
-(async () => { await test_createUserDataAccount(); })();
+(async () => { await testVerifyHuman(); })();

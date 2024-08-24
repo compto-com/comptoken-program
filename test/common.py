@@ -114,8 +114,8 @@ def write(path: Path, data: str):
         file.write(data)
 
 def generateComptokenAddressFile(
-    globalDataSeed: int, interestBankSeed: int, verifiedHumanUBIBankSeed: int, futureUBIBankSeed: int,
-    mintAddress: str, transferHookAddress: str
+    globalDataSeed: int, interestBankSeed: int, verifiedHumanUBIBankSeed: int, futureUBIBankSeed: int, mintAddress: str,
+    transferHookAddress: str
 ):
     print(f"Generating {COMPTO_GENERATED_RS_FILE}...")
     file_data = f"""\
@@ -145,7 +145,8 @@ pub const COMPTO_FUTURE_UBI_BANK_ACCOUNT_BUMP: u8 = {futureUBIBankSeed};\
     write(COMPTO_GENERATED_RS_FILE, file_data)
 
 def generateTransferHookAddressFile(
-    comptokenAddress: str, extraAccountMetasSeed: int, mintAddress: str, interestBankSeed: str, verifiedHumanUBIBankAddress: str, futureUBIBankAddress: str
+    comptokenAddress: str, extraAccountMetasSeed: int, mintAddress: str, interestBankAddress: str,
+    verifiedHumanUBIBankAddress: str, futureUBIBankAddress: str
 ):
     print(f"Generating {TRANSFER_HOOK_GENERATED_RS_FILE}...")
     file_data = f"""\
@@ -168,7 +169,7 @@ pub const COMPTOKEN_ID: Pubkey = pubkey!("{comptokenAddress}");
 pub const EXTRA_ACCOUNT_METAS_BUMP: u8 = {extraAccountMetasSeed};
 pub const MINT_ADDRESS: Pubkey = pubkey!("{mintAddress}");
 
-pub const COMPTO_INTEREST_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("{interestBankSeed}");
+pub const COMPTO_INTEREST_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("{interestBankAddress}");
 pub const COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("{verifiedHumanUBIBankAddress}");
 pub const COMPTO_FUTURE_UBI_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("{futureUBIBankAddress}");\
 """

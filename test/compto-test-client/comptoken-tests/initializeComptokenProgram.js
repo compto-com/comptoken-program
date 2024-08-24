@@ -19,8 +19,14 @@ async function initialize_comptoken_program() {
     const existing_accounts = [get_default_comptoken_mint()];
 
     let context = await setup_test(existing_accounts);
+    const connection = {
+        getMinimumBalanceForRentExemption: async function (dataLength, commitment) {
+            let rent = await context.banksClient.getRent();
+            return Number(rent.minimumBalance(BigInt(dataLength)));
+        }
+    }
 
-    let instructions = [await createInitializeComptokenProgramInstruction(context)];
+    let instructions = [await createInitializeComptokenProgramInstruction(connection, context.payer.publicKey)];
 
     context = await run_test("initializeComptokenProgram", context, instructions, [context.payer], false, async (context, result) => {
         const final_global_data = await get_account(context, global_data_account_pubkey, GlobalDataAccount);

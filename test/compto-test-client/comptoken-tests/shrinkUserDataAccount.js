@@ -15,11 +15,17 @@ async function test_failShrinkUserDataAccount() {
     const accounts = [get_default_comptoken_mint(), get_default_global_data(), user_comptoken_wallet, user_data_account];
 
     let context = await setup_test(accounts);
+    let connection = {
+        async getMinimumBalanceForRentExemption(dataLength, commitment) {
+            let rent = await context.banksClient.getRent();
+            return rent.minimumBalance(BigInt(dataLength));
+        }
+    }
 
     let new_user_data_size = BigInt(UserData.MIN_SIZE);
     let instructions = [
         await createGrowUserDataAccountInstruction(
-            context, new_user_data_size, context.payer.publicKey, user.publicKey, user_comptoken_wallet.address
+            connection, new_user_data_size, context.payer.publicKey, user.publicKey, user_comptoken_wallet.address
         ),
     ];
 

@@ -1,10 +1,9 @@
-import { TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
-import { PublicKey, Transaction, TransactionInstruction, sendAndConfirmTransaction } from '@solana/web3.js';
+import { PublicKey, sendAndConfirmTransaction, Transaction } from '@solana/web3.js';
 import { assert } from "console";
 import { createHash } from "crypto";
 
-import { bs58, compto_program_id_pubkey, comptoken_mint_pubkey, global_data_account_pubkey } from "./common.js";
-import { Instruction } from "./instruction.js";
+import { bs58, testUser_keypair } from "./common.js";
+import { createProofSubmissionInstruction } from "./instruction.js";
 
 const MIN_NUM_ZEROED_BITS = 3;
 
@@ -86,27 +85,14 @@ export class ComptokenProof {
     }
 }
 
-export async function mintComptokens(connection, destination_pubkey, temp_keypair, current_block) {
-    let proof = new ComptokenProof(destination_pubkey, bs58.decode(current_block));
+export async function mintComptokens(connection, testuser_pubkey, current_block) {
+    let proof = new ComptokenProof(testuser_pubkey, bs58.decode(current_block));
     proof.mine();
-    let data = Buffer.concat([
-        Buffer.from([Instruction.PROOF_SUBMISSION]),
-        proof.serializeData(),
-    ]);
-    let user_data_pda = PublicKey.findProgramAddressSync([destination_pubkey.toBytes()], compto_program_id_pubkey)[0];
-    let keys = [
-        { pubkey: comptoken_mint_pubkey, isSigner: false, isWritable: true },
-        { pubkey: destination_pubkey, isSigner: false, isWritable: true },
-        { pubkey: global_data_account_pubkey, isSigner: false, isWritable: false},
-        { pubkey: user_data_pda, isSigner: false, isWritable: true },
-        { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
-    ];
+
     let mintComptokensTransaction = new Transaction();
-    mintComptokensTransaction.add(new TransactionInstruction({
-        keys: keys,
-        programId: compto_program_id_pubkey,
-        data: data,
-    }));
-    let mintComptokensResult = await sendAndConfirmTransaction(connection, mintComptokensTransaction, [temp_keypair, temp_keypair]);
+    mintComptokensTransaction.add(
+        await createProofSubmissionInstruction(proof, testUser_keypair.publicKey, testuser_pubkey),
+    );
+    let mintComptokensResult = await sendAndConfirmTransaction(connection, mintComptokensTransaction, [testUser_keypair, testUser_keypair]);
     console.log("mintComptokens transaction confirmed", mintComptokensResult);
 }

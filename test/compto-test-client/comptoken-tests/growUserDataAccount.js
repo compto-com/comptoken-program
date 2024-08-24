@@ -1,5 +1,6 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 
+import { getMinimumBalanceForRentExemptAccount } from "@solana/spl-token";
 import { get_default_comptoken_mint, get_default_comptoken_token_account, get_default_global_data, get_default_user_data_account, UserData } from "../accounts.js";
 import { Assert } from "../assert.js";
 import { compto_program_id_pubkey } from "../common.js";
@@ -18,10 +19,16 @@ async function test_growUserDataAccount() {
     ];
 
     let context = await setup_test(existing_accounts);
+    let connection = {
+        async getMinimumBalanceForRentExemption(dataLength, commitment) {
+            let rent = await context.banksClient.getRent();
+            return rent.minimumBalance(BigInt(dataLength));
+        }
+    }
 
     const new_user_data_size = BigInt(UserData.MIN_SIZE + 32 * 10);
     let instructions = [
-        await createGrowUserDataAccountInstruction(context, new_user_data_size, context.payer.publicKey, user.publicKey, user_comptoken_wallet.address)
+        await createGrowUserDataAccountInstruction(connection, new_user_data_size, context.payer.publicKey, user.publicKey, user_comptoken_wallet.address)
     ];
 
     context = await run_test("growUserDataAccount", context, instructions, [context.payer, user], false, async (context, result) => {

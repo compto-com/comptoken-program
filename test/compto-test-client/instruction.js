@@ -1,5 +1,4 @@
-import { PublicKey, SystemProgram, SYSVAR_SLOT_HASHES_PUBKEY, TransactionInstruction } from "@solana/web3.js";
-import { ProgramTestContext } from "solana-bankrun";
+import { Connection, PublicKey, SystemProgram, SYSVAR_SLOT_HASHES_PUBKEY, TransactionInstruction } from "@solana/web3.js";
 
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { COMPTOKEN_WALLET_SIZE, GlobalData } from "./accounts.js";
@@ -86,16 +85,16 @@ export async function createProofSubmissionInstruction(comptoken_proof, user_wal
 }
 
 /**
- * @param {ProgramTestContext} context 
+ * @param {Connection} connection 
+ * @param {PublicKey} payer 
  * @returns {TransactionInstruction}
  */
-export async function createInitializeComptokenProgramInstruction(context) {
-    const rent = await context.banksClient.getRent();
+export async function createInitializeComptokenProgramInstruction(connection, payer) {
     return new TransactionInstruction({
         programId: compto_program_id_pubkey,
         keys: [
             // the payer of the rent for the account
-            { pubkey: context.payer.publicKey, isSigner: true, isWritable: true },
+            { pubkey: payer, isSigner: true, isWritable: true },
             // the comptoken mint account
             { pubkey: comptoken_mint_pubkey, isSigner: false, isWritable: false },
             // the address of the global data account to be created
@@ -119,24 +118,23 @@ export async function createInitializeComptokenProgramInstruction(context) {
         ],
         data: Buffer.from([
             Instruction.INITIALIZE_COMPTOKEN_PROGRAM,
-            ...bigintAsU64ToBytes(await rent.minimumBalance(BigInt(GlobalData.LAYOUT.span))),
-            ...bigintAsU64ToBytes(await rent.minimumBalance(BigInt(COMPTOKEN_WALLET_SIZE))),
-            ...bigintAsU64ToBytes(await rent.minimumBalance(BigInt(COMPTOKEN_WALLET_SIZE))),
-            ...bigintAsU64ToBytes(await rent.minimumBalance(BigInt(COMPTOKEN_WALLET_SIZE))),
+            ...bigintAsU64ToBytes(BigInt(await connection.getMinimumBalanceForRentExemption(GlobalData.LAYOUT.span))),
+            ...bigintAsU64ToBytes(BigInt(await connection.getMinimumBalanceForRentExemption(COMPTOKEN_WALLET_SIZE))),
+            ...bigintAsU64ToBytes(BigInt(await connection.getMinimumBalanceForRentExemption(COMPTOKEN_WALLET_SIZE))),
+            ...bigintAsU64ToBytes(BigInt(await connection.getMinimumBalanceForRentExemption(COMPTOKEN_WALLET_SIZE))),
         ]),
     });
 }
 
 /**
- * @param {ProgramTestContext} context
- * @param {BigInt} user_data_size
+ * @param {Connection} connection
+ * @param {Number} user_data_size
  * @param {PublicKey} payer_address
  * @param {PublicKey} user_wallet_address
  * @param {PublicKey} user_comptoken_token_account_address
  * @returns {TransactionInstruction}
  */
-export async function createCreateUserDataAccountInstruction(context, user_data_size, payer_address, user_wallet_address, user_comptoken_token_account_address) {
-    const rent = await context.banksClient.getRent();
+export async function createCreateUserDataAccountInstruction(connection, user_data_size, payer_address, user_wallet_address, user_comptoken_token_account_address) {
     const user_data_account_address = PublicKey.findProgramAddressSync([user_comptoken_token_account_address.toBytes()], compto_program_id_pubkey)[0];
     return new TransactionInstruction({
         programId: compto_program_id_pubkey,
@@ -154,8 +152,8 @@ export async function createCreateUserDataAccountInstruction(context, user_data_
         ],
         data: Buffer.from([
             Instruction.CREATE_USER_DATA_ACCOUNT,
-            ...bigintAsU64ToBytes(await rent.minimumBalance(user_data_size)),
-            ...bigintAsU64ToBytes(user_data_size),
+            ...bigintAsU64ToBytes(BigInt(await connection.getMinimumBalanceForRentExemption(user_data_size))),
+            ...bigintAsU64ToBytes(BigInt(user_data_size)),
         ]),
     });
 }
@@ -246,15 +244,14 @@ export async function createGetOwedComptokensInstruction(user_wallet_address, us
 }
 
 /**
- * @param {ProgramTestContext} context 
- * @param {BigInt} new_user_data_size 
+ * @param {Connection} connection 
+ * @param {Number} new_user_data_size 
  * @param {PublicKey} payer_address 
  * @param {PublicKey} user_wallet_address 
  * @param {PublicKey} user_comptoken_wallet_address 
  * @returns {TransactionInstruction}
  */
-export async function createGrowUserDataAccountInstruction(context, new_user_data_size, payer_address, user_wallet_address, user_comptoken_wallet_address) {
-    const rent = await context.banksClient.getRent();
+export async function createGrowUserDataAccountInstruction(connection, new_user_data_size, payer_address, user_wallet_address, user_comptoken_wallet_address) {
     const user_data_account_address = PublicKey.findProgramAddressSync([user_comptoken_wallet_address.toBytes()], compto_program_id_pubkey)[0];
     return new TransactionInstruction({
         programId: compto_program_id_pubkey,
@@ -272,8 +269,8 @@ export async function createGrowUserDataAccountInstruction(context, new_user_dat
         ],
         data: Buffer.from([
             Instruction.GROW_USER_DATA_ACCOUNT,
-            ...bigintAsU64ToBytes(await rent.minimumBalance(new_user_data_size)),
-            ...bigintAsU64ToBytes(new_user_data_size),
+            ...bigintAsU64ToBytes(BigInt(await connection.getMinimumBalanceForRentExemption(new_user_data_size))),
+            ...bigintAsU64ToBytes(BigInt(new_user_data_size)),
         ]),
     })
 }

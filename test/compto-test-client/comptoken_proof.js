@@ -5,7 +5,7 @@ import { createHash } from "crypto";
 import { bs58, testUser_keypair } from "./common.js";
 import { createProofSubmissionInstruction } from "./instruction.js";
 
-const MIN_NUM_ZEROED_BITS = 3;
+const MIN_NUM_ZEROED_BITS = 12;
 
 // Ensure changes to this class remain consistent with comptoken_proof.rs
 export class ComptokenProof {

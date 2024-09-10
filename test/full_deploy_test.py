@@ -8,6 +8,7 @@ from time import sleep, time
 from common import *
 
 SPL_TOKEN_CMD = f"spl-token --program-id {TOKEN_2022_PROGRAM_ID}"
+DEPLOY_CMD = "solana program deploy -v -u localhost"
 
 @contextmanager
 def createTestValidator():
@@ -85,22 +86,13 @@ def getAccountBalance(pubkey: str):
 
 def deployCompto():
     print("Deploying Compto...")
-    run(f"solana program deploy -v {COMPTO_SO} --output json > {COMPTO_PROGRAM_ID_JSON}")
+    run(f"{DEPLOY_CMD} {COMPTO_SO} --output json > {COMPTO_PROGRAM_ID_JSON}")
     print("Deployed Compto")
 
 def deployTransferHook():
     print("Deploying Transfer Hook...")
-    run(f"solana program deploy -v {TRANSFER_HOOK_SO} --output json > {COMPTO_TRANSFER_HOOK_ID_JSON}")
+    run(f"{DEPLOY_CMD} {TRANSFER_HOOK_SO} --output json > {COMPTO_TRANSFER_HOOK_ID_JSON}")
     print("Deployed Transfer Hook")
-    # TODO: find a more efficient way to do this
-    try:
-        json.loads(run(f"{SPL_TOKEN_CMD} display {getTokenAddress()} --output json")).get("MintAuthority")
-        return True
-    except (FileNotFoundError, SubprocessFailedException, json.decoder.JSONDecodeError):
-        return False
-    except Exception as ex:
-        print(f"new Exception: Type:`{type(ex)}' value: `{ex}'")
-        raise ex
 
 def getTokenAddress():
     return run(f"solana address -k {MINT_KEYPAIR}")
@@ -114,9 +106,6 @@ if __name__ == "__main__":
     args = parseArgs()
     # create cache if it doesn't exist
     generateDirectories(args=argparse.Namespace(log_directory=None, verbose=0))
-    # If ProgramId doesn't exist, we need to build WITHOUT the testmode feature.
-    # This is because the static seed in testmode depends on ProgramId and ProgramId
-    # is generated on the first build.
     print("Checking if Comptoken ProgramId exists...")
     comptokenProgramId = getComptoProgramIdIfExists()
     if comptokenProgramId is None:

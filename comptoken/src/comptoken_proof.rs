@@ -1,7 +1,5 @@
-use std::mem;
-
 use spl_token_2022::solana_program::{
-    hash::{Hash, Hasher, HASH_BYTES},
+    hash::{Hash, Hasher},
     pubkey::Pubkey,
 };
 
@@ -9,76 +7,89 @@ use comptoken_utils::verify_accounts::VerifiedAccountInfo;
 
 use crate::global_data::valid_blockhashes::ValidBlockhashes;
 
-// ensure this remains consistent with comptoken_proof.js
-const MIN_NUM_ZEROED_BITS: u32 = 12; // TODO: replace with permanent value
-
-pub const PROOF_DATA_SIZE: usize = HASH_BYTES + mem::size_of::<u64>() + HASH_BYTES;
-
 // Ensure changes to this struct remain consistent with comptoken_proof.js
 #[derive(Debug)]
-pub struct ComptokenProof<'a> {
-    pub pubkey: &'a Pubkey,
-    pub recent_block_hash: Hash,
-    pub nonce: u64,
+pub struct ComptokenProof {
+    pub pubkey: Pubkey,
     pub hash: Hash,
 }
 
-impl<'a> ComptokenProof<'a> {
-    pub fn from_bytes(key: &'a Pubkey, bytes: &[u8; PROOF_DATA_SIZE]) -> Self {
-        // ensure this remains consistent with comptoken_proof.js
-        let range_1 = 0..HASH_BYTES;
-        let range_2 = range_1.end..range_1.end + mem::size_of::<u64>();
-        let range_3 = range_2.end..range_2.end + HASH_BYTES;
+// 4 bytes: <version>
+// 32 bytes: <previous block hash according to the compto program>
+// 32 bytes: <merkle root>
+//     32 bytes: <unspecified data>
+//     32 bytes: solana public key
+// 4 bytes: <timestamp>
+// 4 bytes: <bits> <-- defined to ...
+// 4 bytes: <nonce>
+impl ComptokenProof {
+    pub const SUBMITTED_DATA_SIZE: usize = 76;
 
-        let recent_block_hash = Hash::new_from_array(bytes[range_1].try_into().unwrap());
-        // this nonce is what the miner incremented to find a valid proof
-        let nonce = u64::from_le_bytes(bytes[range_2].try_into().unwrap());
-        let hash = Hash::new_from_array(bytes[range_3].try_into().unwrap());
-
-        ComptokenProof { pubkey: key, recent_block_hash, nonce, hash }
-    }
-
-    pub fn leading_zeroes(hash: &Hash) -> u32 {
-        let mut leading_zeroes: u32 = 0;
-        for byte in hash.to_bytes() {
-            if byte == 0 {
-                leading_zeroes += 8;
-            } else {
-                let mut mask = 0x80;
-                while mask > 0 && (mask & byte) == 0 {
-                    leading_zeroes += 1;
-                    mask >>= 1;
-                }
-                break;
-            }
+    pub fn from_bytes(
+        data: &[u8; Self::SUBMITTED_DATA_SIZE], valid_blockhashes: &ValidBlockhashes,
+    ) -> Result<Self, &'static str> {
+        if data.len() != 76 {
+            return Err("Invalid byte slice length");
         }
-        leading_zeroes
+
+        let pubkey_bytes: [u8; 32] = data[0..32].try_into().map_err(|_| "Failed to parse pubkey")?;
+        let extra_data: [u8; 32] = data[32..64].try_into().map_err(|_| "Failed to parse extra_data")?;
+        let nonce: [u8; 4] = data[64..68].try_into().map_err(|_| "Failed to parse nonce")?;
+        let version: [u8; 4] = data[68..72].try_into().map_err(|_| "Failed to parse version")?;
+        let timestamp: [u8; 4] = data[72..76].try_into().map_err(|_| "Failed to parse timestamp")?;
+
+        let mut merkleroot_hasher = Hasher::default();
+
+        merkleroot_hasher.hash(&extra_data);
+        merkleroot_hasher.hash(&pubkey_bytes);
+        let merkleroot_hash1 = merkleroot_hasher.result();
+        merkleroot_hasher = Hasher::default();
+        merkleroot_hasher.hash(&merkleroot_hash1.to_bytes());
+        let merkleroot_hash2 = merkleroot_hasher.result();
+        let mut hasher = Hasher::default();
+        hasher.hash(&version);
+        hasher.hash(&valid_blockhashes.valid_blockhash.to_bytes());
+        hasher.hash(&merkleroot_hash2.to_bytes());
+        hasher.hash(&timestamp);
+        hasher.hash(&nonce);
+        hasher.hash(&nonce);
+        let hash1 = hasher.result();
+        hasher = Hasher::default();
+        hasher.hash(&hash1.to_bytes());
+        let hash2 = hasher.result();
+        let pubkey = Pubkey::new_from_array(pubkey_bytes);
+
+        Ok(Self { pubkey, hash: hash2 })
     }
 
-    pub fn generate_hash(&self) -> Hash {
-        // ensure this remains consistent with comptoken_proof.js
-        let mut hasher = Hasher::default();
-        hasher.hash(&self.pubkey.to_bytes());
-        hasher.hash(&self.recent_block_hash.to_bytes());
-        hasher.hash(&self.nonce.to_le_bytes());
-        hasher.result()
+    pub fn is_hash_lower_than_target(hash: &Hash) -> bool {
+        // The target is 0x0eadd8000000000000000000000000000000000000000000
+        // Represent it as a byte array for comparison
+        let target_bytes: [u8; 32] = [
+            0x0e, 0xad, 0xd8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        // Get the byte array from the hash
+        let hash_bytes = hash.to_bytes();
+        // Compare the hash byte array to the target byte array
+        // This will compare the arrays lexicographically (byte by byte)
+        hash_bytes < target_bytes
     }
 
     pub fn verify_submitted_proof(
-        comptoken_wallet: &'a VerifiedAccountInfo, data: &[u8; PROOF_DATA_SIZE], valid_blockhashes: &ValidBlockhashes,
+        comptoken_wallet: &VerifiedAccountInfo, data: &[u8; Self::SUBMITTED_DATA_SIZE],
+        valid_blockhashes: &ValidBlockhashes,
     ) -> Self {
-        let proof = ComptokenProof::from_bytes(comptoken_wallet.key, data);
-        assert!(proof.verify_proof(valid_blockhashes), "invalid proof");
+        let proof_result = ComptokenProof::from_bytes(data, valid_blockhashes);
+        let proof = proof_result.expect("invalid proof");
+        proof.verify_proof(valid_blockhashes, comptoken_wallet);
         proof
     }
 
-    fn verify_proof(&self, valid_blockhashes: &ValidBlockhashes) -> bool {
-        let leading_zeros: bool = ComptokenProof::leading_zeroes(&self.hash) >= MIN_NUM_ZEROED_BITS;
-        let recent_blockhash: bool = self.recent_block_hash == valid_blockhashes.valid_blockhash;
-        let equal_hash: bool = self.generate_hash() == self.hash;
-        let valid_hash_is_fresh: bool = !valid_blockhashes.is_valid_blockhash_stale();
-        // hash duplicate check is part of inserting
-        leading_zeros && recent_blockhash && equal_hash && valid_hash_is_fresh
+    fn verify_proof(&self, valid_blockhashes: &ValidBlockhashes, comptoken_wallet: &VerifiedAccountInfo) {
+        assert!(ComptokenProof::is_hash_lower_than_target(&self.hash));
+        assert!(!valid_blockhashes.is_valid_blockhash_stale());
+        assert_eq!(comptoken_wallet.key, &self.pubkey);
     }
 }
 

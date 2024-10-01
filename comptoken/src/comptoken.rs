@@ -3,8 +3,6 @@ mod constants;
 mod global_data;
 mod verify_accounts;
 
-extern crate bs58;
-
 use ethnum::u256;
 use spl_token_2022::{
     extension::StateWithExtensions,
@@ -31,9 +29,9 @@ use comptoken_utils::{
     SEC_PER_DAY,
 };
 
-use comptoken_proof::{ComptokenProof, PROOF_DATA_SIZE};
+use comptoken_proof::ComptokenProof;
 use constants::*;
-use global_data::{daily_distribution_data::DailyDistributionValues, GlobalData};
+use global_data::{daily_distribution_data::DailyDistributionValues, valid_blockhashes::ValidBlockhashes, GlobalData};
 use verify_accounts::*;
 
 // declare and export the program's entrypoint
@@ -104,8 +102,8 @@ pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data
     //      [s] User Wallet
     //      [] User Comptoken Token Account
     //      [] Solana Token 2022
-    //  data:
-    //      8 bytes - amount
+
+    msg!("instruction_data: {:?}", instruction_data);
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -124,9 +122,7 @@ pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data
     let global_data_account = verified_accounts.global_data.unwrap();
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
 
-    let (amount, instruction_data) =
-        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
-    assert!(instruction_data.is_empty(), "incorrect instruction data");
+    let amount = u64::from_le_bytes(instruction_data[0..8].try_into().expect("correct size"));
 
     mint(
         &global_data_account,
@@ -174,21 +170,23 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
     let user_data_account = verified_accounts.user_data.unwrap();
 
-    let (submitted_proof, instruction_data) =
-        get_next_data(instruction_data, PROOF_DATA_SIZE, |b| b.try_into().expect("correct size"));
-    assert!(instruction_data.is_empty(), "incorrect instruction data");
+    assert!(
+        instruction_data.len() == ComptokenProof::SUBMITTED_DATA_SIZE,
+        "comptoken proof data must be {} bytes",
+        ComptokenProof::SUBMITTED_DATA_SIZE
+    );
 
     let global_data: &mut GlobalData = (&global_data_account).into();
     let proof = ComptokenProof::verify_submitted_proof(
         &user_comptoken_token_account,
-        submitted_proof,
+        instruction_data.try_into().expect("correct size"),
         &global_data.valid_blockhashes,
     );
 
     msg!("data/accounts verified");
 
     // now save the hash to the account, returning an error if the hash already exists
-    store_hash(proof, &user_data_account);
+    store_hash(proof, &user_data_account, &global_data.valid_blockhashes);
     msg!("stored the proof");
     mint(
         &global_data_account,
@@ -373,6 +371,7 @@ pub fn create_user_data_account(
     let (space, instruction_data) =
         get_next_data(instruction_data, 8, |b| usize::from_le_bytes(b.try_into().expect("correct size")));
     assert!(instruction_data.is_empty(), "incorrect instruction data");
+
     msg!("space: {}", space);
     assert!(space >= USER_DATA_MIN_SIZE);
     assert!((space - USER_DATA_MIN_SIZE) % HASH_BYTES == 0);
@@ -890,9 +889,9 @@ fn init_comptoken_account<'a>(
     invoke_signed_verified(&init_comptoken_account_instr, &[account, mint], signer_seeds)
 }
 
-fn store_hash(proof: ComptokenProof, data_account: &VerifiedAccountInfo) {
+fn store_hash(proof: ComptokenProof, data_account: &VerifiedAccountInfo, validhash: &ValidBlockhashes) {
     let user_data: &mut UserData = data_account.into();
-    user_data.insert(&proof.hash, &proof.recent_block_hash)
+    user_data.insert(&proof.hash, &validhash.valid_blockhash);
 }
 
 fn hash_to_field(val: &[u8]) -> [u8; 32] {

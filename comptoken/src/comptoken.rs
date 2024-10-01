@@ -27,6 +27,7 @@ use comptoken_proof::ComptokenProof;
 use constants::*;
 use global_data::{daily_distribution_data::DailyDistributionValues, GlobalData};
 use verify_accounts::*;
+use crate::global_data::valid_blockhashes::ValidBlockhashes;
 
 // declare and export the program's entrypoint
 entrypoint!(process_instruction);
@@ -169,7 +170,7 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     msg!("data/accounts verified");
 
     // now save the hash to the account, returning an error if the hash already exists
-    store_hash(proof, &user_data_account);
+    store_hash(proof, &user_data_account, &global_data.valid_blockhashes);
     msg!("stored the proof");
     mint(
         &global_data_account,
@@ -758,7 +759,7 @@ fn init_comptoken_account<'a>(
     invoke_signed_verified(&init_comptoken_account_instr, &[account, mint], signer_seeds)
 }
 
-fn store_hash(proof: ComptokenProof, data_account: &VerifiedAccountInfo) {
+fn store_hash(proof: ComptokenProof, data_account: &VerifiedAccountInfo, validhash: &ValidBlockhashes) {
     let user_data: &mut UserData = data_account.into();
-    user_data.insert(&proof.hash, &proof.recent_block_hash)
+    user_data.insert(&proof.hash, &validhash.valid_blockhash);
 }

@@ -14,7 +14,7 @@ use comptoken_utils::verify_accounts::VerifiedAccountInfo;
 use crate::global_data::valid_blockhashes::ValidBlockhashes;
 
 // ensure this remains consistent with comptoken_proof.js
-const MIN_NUM_ZEROED_BITS: u32 = 3; // TODO: replace with permanent value
+const MIN_NUM_ZEROED_BITS: u32 = 12; // TODO: replace with permanent value
 
 pub const VERIFY_DATA_SIZE: usize = HASH_BYTES + mem::size_of::<u64>() + HASH_BYTES;
 

@@ -7,14 +7,16 @@ mod comptoken_generated;
 mod comptoken_generated {
     use solana_program::{pubkey, pubkey::Pubkey};
 
-    pub const COMPTOKEN_ID: Pubkey = pubkey!("11111111111111111111111111111111");
+    pub const COMPTOKEN_ID: Pubkey = pubkey!("6351sU4nPxMuxGNYNVK17DXC2fP2juh8YHfiMYCR7Zvh"); // devnet
 
-    pub const EXTRA_ACCOUNT_METAS_BUMP: u8 = 255;
-    pub const MINT_ADDRESS: Pubkey = pubkey!("11111111111111111111111111111111");
+    pub const EXTRA_ACCOUNT_METAS_BUMP: u8 = 251; // devnet
+    pub const MINT_ADDRESS: Pubkey = pubkey!("76KRec9fujGWqdCuPzwiMgxFzQyYMSZa9HeySkbsyufV"); // devnet
 
-    pub const COMPTO_INTEREST_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("11111111111111111111111111111111");
-    pub const COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("11111111111111111111111111111111");
-    pub const COMPTO_FUTURE_UBI_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("11111111111111111111111111111111");
+    pub const COMPTO_INTEREST_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("EaZvWXqhb6kX1rdZkr9yCBRcCTpnYwubSyhxrZtzcfhf"); // devnet
+    pub const COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_PUBKEY: Pubkey =
+        pubkey!("GoAPpRxCpRgVU6VCW3RAVf9fg4Jysuxt4PqSUpG3H9Xd"); // devnet
+    pub const COMPTO_FUTURE_UBI_BANK_ACCOUNT_PUBKEY: Pubkey = pubkey!("2DXVGENSY9vTdozeFL888yPffC7nrakQAzdxSHanTHmN");
+    // devnet
 }
 pub use comptoken_generated::*;
 

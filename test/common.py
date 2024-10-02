@@ -14,6 +14,7 @@ DEPLOY_PATH = PROJECT_PATH / "target/deploy"
 COMPTOKEN_SRC_PATH = PROJECT_PATH / "comptoken"
 TRANSFER_HOOK_SRC_PATH = PROJECT_PATH / "comptoken-transfer-hook"
 CACHE_PATH = TEST_PATH / ".cache"
+LOGS_PATH = CACHE_PATH / "logs"
 COMPTOKEN_GENERATED_PATH = COMPTOKEN_SRC_PATH / "src/generated"
 TRANSFER_HOOK_GENERATED_PATH = TRANSFER_HOOK_SRC_PATH / "src/generated"
 
@@ -274,7 +275,7 @@ def parseArgs():
     parser.add_argument(
         "--log",
         action="store_const",
-        const=CACHE_PATH / "logs",
+        const=LOGS_PATH,
         dest="log_directory",
         help="logs test output to the test/.cache/logs directory"
     )

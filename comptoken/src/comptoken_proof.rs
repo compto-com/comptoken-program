@@ -1,9 +1,13 @@
 use std::mem;
-
+use hex;
+use solana_program::msg;
 use spl_token_2022::solana_program::{
     hash::{Hash, Hasher, HASH_BYTES},
     pubkey::Pubkey,
 };
+use byteorder::{LittleEndian, WriteBytesExt};
+use sha2::{Sha256, Digest};
+use std::io::Cursor;
 
 use comptoken_utils::verify_accounts::VerifiedAccountInfo;
 
@@ -42,56 +46,65 @@ impl ComptokenProof {
         let nonce: [u8; 4] = data[64..68].try_into().map_err(|_| "Failed to parse nonce")?;
         let version: [u8; 4] = data[68..72].try_into().map_err(|_| "Failed to parse version")?;
         let timestamp: [u8; 4] = data[72..76].try_into().map_err(|_| "Failed to parse timestamp")?; 
-        
+
+        let mut valid_blockhash_bytes = valid_blockhashes.valid_blockhash.to_bytes();
+        valid_blockhash_bytes.reverse();
+
         let mut merkleroot_hasher = Hasher::default();
-        
         merkleroot_hasher.hash(&extra_data);
+        msg!("extra_data: {:?}", hex::encode(extra_data));
         merkleroot_hasher.hash(&pubkey_bytes);
+        msg!("pubkey_bytes: {:?}", hex::encode(pubkey_bytes));
         let merkleroot_hash1 = merkleroot_hasher.result();
         merkleroot_hasher = Hasher::default();
         merkleroot_hasher.hash(&merkleroot_hash1.to_bytes());
         let merkleroot_hash2 = merkleroot_hasher.result();
-        let mut hasher = Hasher::default(); 
-        hasher.hash(&version);
-        hasher.hash(&valid_blockhashes.valid_blockhash.to_bytes());
-        hasher.hash(&merkleroot_hash2.to_bytes());
-        hasher.hash(&timestamp);
-        hasher.hash(&nonce);
-        hasher.hash(&nonce);
-        let hash1 = hasher.result();
-        hasher = Hasher::default();
-        hasher.hash(&hash1.to_bytes());
-        let hash2 = hasher.result();
-        let pubkey = Pubkey::new_from_array(pubkey_bytes);
+        let binding = hex::decode("d8ad0e18").unwrap();
+        let nbits = binding.as_slice();
 
+
+        let mut block_header = [0u8; 80];
+        block_header[0..4].copy_from_slice(&version);
+        block_header[4..36].copy_from_slice(&valid_blockhash_bytes);
+        block_header[36..68].copy_from_slice(&merkleroot_hash2.to_bytes());
+        block_header[68..72].copy_from_slice(&timestamp);
+        block_header[72..76].copy_from_slice(&nbits);
+        block_header[76..80].copy_from_slice(&nonce);
+        
+        let hash1 = Sha256::digest(&block_header);
+        let hash2 = Sha256::digest(&hash1);
+        let mut final_hash = hash2.to_vec();
+        final_hash.reverse();
+
+        msg!("Final Hash: {:?}", hex::encode(&final_hash));
+        let pubkey = Pubkey::new_from_array(pubkey_bytes);
+        // msg!("hash2: {:?}", hex::encode(hash2.to_bytes()));
         Ok(Self {
             pubkey: pubkey,
-            hash: hash2,
+            hash: Hash::new_from_array(final_hash.try_into().unwrap()),
         })
     }
 
     pub fn is_hash_lower_than_target(hash: &Hash) -> bool {
         // The target is 0x0eadd8000000000000000000000000000000000000000000
         // Represent it as a byte array for comparison
+        // easy mode (dev mode)
         let target_bytes: [u8; 32] = [
             0x0e, 0xad, 0xd8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
         ];
+        // the real target
+        // let target_bytes: [u8; 32] = [
+        //     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0xad, 0xd8, 0x00, 0x00, 0x00, 0x00, 0x00, 
+        //     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        // ];
+
         // Get the byte array from the hash
         let hash_bytes = hash.to_bytes();
         // Compare the hash byte array to the target byte array
         // This will compare the arrays lexicographically (byte by byte)
         hash_bytes < target_bytes
     }
-
-    // pub fn generate_hash(&self) -> Hash {
-    //     // ensure this remains consistent with comptoken_proof.js
-    //     let mut hasher = Hasher::default();
-    //     hasher.hash(&self.pubkey.to_bytes());
-    //     hasher.hash(&self.recent_block_hash.to_bytes());
-    //     hasher.hash(&self.nonce.to_le_bytes());
-    //     hasher.result()
-    // }
 
     pub fn verify_submitted_proof(
         comptoken_wallet: &VerifiedAccountInfo, data: &[u8], valid_blockhashes: &ValidBlockhashes,

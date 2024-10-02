@@ -56,7 +56,7 @@ let connection = new Connection('http://localhost:8899', 'recent');
     await testMint();
     await createUserDataAccount();
     let current_block = (await getValidBlockHashes()).current_block;
-    await mintComptokens(connection, testuser_pubkey, current_block);
+    // await mintComptokens(connection, testuser_pubkey, current_block);
     //await dailyDistributionEvent();
     //await getOwedComptokens();
 })();

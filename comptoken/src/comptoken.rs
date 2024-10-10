@@ -29,6 +29,7 @@ use comptoken_utils::{
     SEC_PER_DAY,
 };
 
+use crate::global_data::valid_blockhashes::ValidBlockhashes;
 use comptoken_proof::ComptokenProof;
 use constants::*;
 use global_data::{daily_distribution_data::DailyDistributionValues, valid_blockhashes::ValidBlockhashes, GlobalData};

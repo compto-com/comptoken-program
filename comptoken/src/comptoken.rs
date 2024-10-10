@@ -23,11 +23,11 @@ use comptoken_utils::{
     SEC_PER_DAY,
 };
 
+use crate::global_data::valid_blockhashes::ValidBlockhashes;
 use comptoken_proof::ComptokenProof;
 use constants::*;
 use global_data::{daily_distribution_data::DailyDistributionValues, GlobalData};
 use verify_accounts::*;
-use crate::global_data::valid_blockhashes::ValidBlockhashes;
 
 // declare and export the program's entrypoint
 entrypoint!(process_instruction);

@@ -100,33 +100,33 @@ if __name__ == "__main__":
     # create cache if it doesn't exist
     generateDirectories(args=argparse.Namespace(log_directory=None, verbose=0))
     print("Checking if Comptoken ProgramId exists...")
-    #comptokenProgramId = getComptoProgramIdIfExists()
-    #if comptokenProgramId is None:
-    #    print("Creating Comptoken ProgramId...")
-    #    createKeyPair(COMPTO_KEYPAIR)
-    #    #run("cargo build-sbf", COMPTOKEN_SRC_PATH)
-    #    comptokenProgramId = getAddress(COMPTO_KEYPAIR)
+    comptokenProgramId = getComptoProgramIdIfExists()
+    if comptokenProgramId is None:
+        print("Creating Comptoken ProgramId...")
+        createKeyPair(COMPTO_KEYPAIR)
+        #run("cargo build-sbf", COMPTOKEN_SRC_PATH)
+        comptokenProgramId = getAddress(COMPTO_KEYPAIR)
 
-    #transferHookId = getTransferHookProgramIdIfExists()
-    #if transferHookId is None:
-    #    print("Creating Transfer Hook ProgramId...")
-    #    createKeyPair(TRANSFER_HOOK_KEYPAIR)
-    #    #run("cargo build-sbf", TRANSFER_HOOK_SRC_PATH)
-    #    transferHookId = getAddress(TRANSFER_HOOK_KEYPAIR)
+    transferHookId = getTransferHookProgramIdIfExists()
+    if transferHookId is None:
+        print("Creating Transfer Hook ProgramId...")
+        createKeyPair(TRANSFER_HOOK_KEYPAIR)
+        #run("cargo build-sbf", TRANSFER_HOOK_SRC_PATH)
+        transferHookId = getAddress(TRANSFER_HOOK_KEYPAIR)
 
-    #createKeyPair(MINT_KEYPAIR)
-    #mintAddress = getTokenAddress()
-    #generateFiles(comptokenProgramId, transferHookId, mintAddress)
+    createKeyPair(MINT_KEYPAIR)
+    mintAddress = getTokenAddress()
+    generateFiles(comptokenProgramId, transferHookId, mintAddress)
 
-    #input("Press Enter to Continue After Updating Rust Files to Contain Correct ProgramId's, PDA's, Bumps, etc.")
+    input("Press Enter to Continue After Updating Rust Files to Contain Correct ProgramId's, PDA's, Bumps, etc.")
 
-    #buildTransferHook()
-    #buildCompto()
+    buildTransferHook()
+    buildCompto()
 
-    #createToken()
+    createToken()
 
-    #deployTransferHook()
-    #deployCompto()
+    deployTransferHook()
+    deployCompto()
 
     print("Creating Token Account...")
     createComptoAccount()

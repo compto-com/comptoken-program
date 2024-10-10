@@ -1,4 +1,3 @@
-use solana_program::msg;
 use spl_token_2022::{
     extension::StateWithExtensions,
     solana_program::{

@@ -1,22 +1,13 @@
-use std::mem;
-use hex;
+use sha2::{Digest, Sha256};
 use solana_program::msg;
 use spl_token_2022::solana_program::{
-    hash::{Hash, Hasher, HASH_BYTES},
+    hash::{Hash, Hasher},
     pubkey::Pubkey,
 };
-use byteorder::{LittleEndian, WriteBytesExt};
-use sha2::{Sha256, Digest};
-use std::io::Cursor;
 
 use comptoken_utils::verify_accounts::VerifiedAccountInfo;
 
 use crate::global_data::valid_blockhashes::ValidBlockhashes;
-
-// ensure this remains consistent with comptoken_proof.js
-const MIN_NUM_ZEROED_BITS: u32 = 12; // TODO: replace with permanent value
-
-pub const VERIFY_DATA_SIZE: usize = HASH_BYTES + mem::size_of::<u64>() + HASH_BYTES;
 
 // Ensure changes to this struct remain consistent with comptoken_proof.js
 #[derive(Debug)]
@@ -24,7 +15,6 @@ pub struct ComptokenProof {
     pub pubkey: Pubkey,
     pub hash: Hash,
 }
-
 
 // 4 bytes: <version>
 // 32 bytes: <previous block hash according to the compto program>
@@ -45,7 +35,7 @@ impl ComptokenProof {
         let extra_data: [u8; 32] = data[32..64].try_into().map_err(|_| "Failed to parse extra_data")?;
         let nonce: [u8; 4] = data[64..68].try_into().map_err(|_| "Failed to parse nonce")?;
         let version: [u8; 4] = data[68..72].try_into().map_err(|_| "Failed to parse version")?;
-        let timestamp: [u8; 4] = data[72..76].try_into().map_err(|_| "Failed to parse timestamp")?; 
+        let timestamp: [u8; 4] = data[72..76].try_into().map_err(|_| "Failed to parse timestamp")?;
 
         let mut valid_blockhash_bytes = valid_blockhashes.valid_blockhash.to_bytes();
         valid_blockhash_bytes.reverse();
@@ -62,17 +52,16 @@ impl ComptokenProof {
         let binding = hex::decode("d8ad0e18").unwrap();
         let nbits = binding.as_slice();
 
-
         let mut block_header = [0u8; 80];
         block_header[0..4].copy_from_slice(&version);
         block_header[4..36].copy_from_slice(&valid_blockhash_bytes);
         block_header[36..68].copy_from_slice(&merkleroot_hash2.to_bytes());
         block_header[68..72].copy_from_slice(&timestamp);
-        block_header[72..76].copy_from_slice(&nbits);
+        block_header[72..76].copy_from_slice(nbits);
         block_header[76..80].copy_from_slice(&nonce);
-        
-        let hash1 = Sha256::digest(&block_header);
-        let hash2 = Sha256::digest(&hash1);
+
+        let hash1 = Sha256::digest(block_header);
+        let hash2 = Sha256::digest(hash1);
         let mut final_hash = hash2.to_vec();
         final_hash.reverse();
 
@@ -80,7 +69,7 @@ impl ComptokenProof {
         let pubkey = Pubkey::new_from_array(pubkey_bytes);
         // msg!("hash2: {:?}", hex::encode(hash2.to_bytes()));
         Ok(Self {
-            pubkey: pubkey,
+            pubkey,
             hash: Hash::new_from_array(final_hash.try_into().unwrap()),
         })
     }
@@ -89,13 +78,15 @@ impl ComptokenProof {
         // The target is 0x0eadd8000000000000000000000000000000000000000000
         // Represent it as a byte array for comparison
         // easy mode (dev mode)
+        #[rustfmt::skip]
         let target_bytes: [u8; 32] = [
             0x0e, 0xad, 0xd8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
         // the real target
+        // #[rustfmt::skip]
         // let target_bytes: [u8; 32] = [
-        //     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0xad, 0xd8, 0x00, 0x00, 0x00, 0x00, 0x00, 
+        //     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0xad, 0xd8, 0x00, 0x00, 0x00, 0x00, 0x00,
         //     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
         // ];
 

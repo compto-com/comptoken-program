@@ -29,7 +29,6 @@ use comptoken_utils::{
     SEC_PER_DAY,
 };
 
-use crate::global_data::valid_blockhashes::ValidBlockhashes;
 use comptoken_proof::ComptokenProof;
 use constants::*;
 use global_data::{daily_distribution_data::DailyDistributionValues, valid_blockhashes::ValidBlockhashes, GlobalData};
@@ -178,6 +177,8 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     );
 
     let global_data: &mut GlobalData = (&global_data_account).into();
+    assert!(!global_data.valid_blockhashes.is_valid_blockhash_stale(), "valid blockhash is not stale");
+
     let proof = ComptokenProof::verify_submitted_proof(
         &user_comptoken_token_account,
         instruction_data.try_into().expect("correct size"),
@@ -909,7 +910,7 @@ fn app_id_to_external_nullifier_hash(app_id: &str, action: &str) -> [u8; 32] {
     hash_to_field(&combined)
 }
 
-fn get_next_data<'a, T>(data: &'a [u8], size: usize, converter: impl FnOnce(&'a [u8]) -> T) -> (T, &[u8]) {
+fn get_next_data<'a, T>(data: &'a [u8], size: usize, converter: impl FnOnce(&'a [u8]) -> T) -> (T, &'a [u8]) {
     assert!(data.len() >= size, "not enough data");
     let (data, rest) = data.split_at(size);
     (converter(data), rest)

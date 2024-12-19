@@ -1,6 +1,5 @@
-use sha2::{Digest, Sha256};
 use spl_token_2022::solana_program::{
-    hash::{Hash, Hasher},
+    hash::{hash, hashv, Hash},
     msg,
     pubkey::Pubkey,
 };
@@ -26,85 +25,73 @@ pub struct ComptokenProof {
 // 4 bytes: <nonce>
 impl ComptokenProof {
     pub const SUBMITTED_DATA_SIZE: usize = 76;
+    // larger difficulty = easier
+    #[allow(dead_code)]
+    const TARGET_DIFFICULTY_TEST: usize = 29;
+    #[allow(dead_code)]
+    const TARGET_DIFFICULTY_PROD: usize = 24;
+    pub const TARGET_DIFFICULTY: usize = Self::TARGET_DIFFICULTY_TEST; // todo: change to prod
 
-    pub fn from_bytes(
-        data: &[u8; Self::SUBMITTED_DATA_SIZE], valid_blockhashes: &ValidBlockhashes,
-    ) -> Result<Self, &'static str> {
-        if data.len() != 76 {
-            return Err("Invalid byte slice length");
-        }
+    // The target is 0x0e_ad_d8 followed by <difficulty> zero bytes
+    const fn make_target_bytes(difficulty: usize) -> [u8; 32] {
+        let mut target_bytes = [0; 32];
+        target_bytes[32 - (difficulty + 3)] = 0x0e;
+        target_bytes[32 - (difficulty + 2)] = 0xad;
+        target_bytes[32 - (difficulty + 1)] = 0xd8;
+        target_bytes
+    }
 
-        let pubkey_bytes: [u8; 32] = data[0..32].try_into().map_err(|_| "Failed to parse pubkey")?;
-        let extra_data: [u8; 32] = data[32..64].try_into().map_err(|_| "Failed to parse extra_data")?;
-        let nonce: [u8; 4] = data[64..68].try_into().map_err(|_| "Failed to parse nonce")?;
-        let version: [u8; 4] = data[68..72].try_into().map_err(|_| "Failed to parse version")?;
-        let timestamp: [u8; 4] = data[72..76].try_into().map_err(|_| "Failed to parse timestamp")?;
+    pub const TARGET_BYTES: [u8; 32] = Self::make_target_bytes(Self::TARGET_DIFFICULTY);
 
-        let mut valid_blockhash_bytes = valid_blockhashes.valid_blockhash.to_bytes();
+    pub fn from_bytes(data: &[u8; Self::SUBMITTED_DATA_SIZE], valid_blockhashes: &ValidBlockhashes) -> Self {
+        let pubkey_bytes = &data[00..32];
+        let extra_data = &data[32..64];
+        let nonce = &data[64..68];
+        let version = &data[68..72];
+        let timestamp = &data[72..76];
+
+        let valid_blockhash_bytes = &mut valid_blockhashes.valid_blockhash.to_bytes();
         valid_blockhash_bytes.reverse();
 
-        let mut merkleroot_hasher = Hasher::default();
-        merkleroot_hasher.hash(&extra_data);
         msg!("extra_data: {:?}", hex::encode(extra_data));
-        merkleroot_hasher.hash(&pubkey_bytes);
         msg!("pubkey_bytes: {:?}", hex::encode(pubkey_bytes));
-        let merkleroot_hash1 = merkleroot_hasher.result();
-        merkleroot_hasher = Hasher::default();
-        merkleroot_hasher.hash(&merkleroot_hash1.to_bytes());
-        let merkleroot_hash2 = merkleroot_hasher.result();
-        let nbits = [0xd8_u8, 0xad_u8, 0x0e_u8, 0x18_u8];
 
-        let mut block_header = [0u8; 80];
-        block_header[0..4].copy_from_slice(&version);
-        block_header[4..36].copy_from_slice(&valid_blockhash_bytes);
-        block_header[36..68].copy_from_slice(&merkleroot_hash2.to_bytes());
-        block_header[68..72].copy_from_slice(&timestamp);
-        block_header[72..76].copy_from_slice(&nbits);
-        block_header[76..80].copy_from_slice(&nonce);
+        let merkleroot_hash1 = hashv(&[extra_data, pubkey_bytes]);
+        let merkleroot_hash2 = hash(merkleroot_hash1.as_ref());
 
-        let hash1 = Sha256::digest(block_header);
-        let hash2 = Sha256::digest(hash1);
-        let mut final_hash = hash2.to_vec();
+        let nbits = &[0xd8_u8, 0xad_u8, 0x0e_u8, 0x18_u8];
+
+        let header_fields: &[&[u8]] =
+            &[version, valid_blockhash_bytes, &merkleroot_hash2.to_bytes(), timestamp, nbits, nonce];
+
+        assert!(header_fields.iter().fold(0, |acc, field| acc + field.len()) == 80);
+
+        let hash1 = hashv(header_fields);
+        let hash2 = hash(hash1.as_ref());
+
+        let mut final_hash = hash2.to_bytes();
         final_hash.reverse();
 
-        msg!("Final Hash: {:?}", hex::encode(&final_hash));
-        let pubkey = Pubkey::new_from_array(pubkey_bytes);
-        // msg!("hash2: {:?}", hex::encode(hash2.to_bytes()));
-        Ok(Self {
-            pubkey,
-            hash: Hash::new_from_array(final_hash.try_into().unwrap()),
-        })
+        msg!("Final Hash: {:?}", hex::encode(final_hash));
+        let pubkey = Pubkey::new_from_array(pubkey_bytes.try_into().expect("correct length"));
+        Self { pubkey, hash: Hash::new_from_array(final_hash) }
     }
 
     pub fn is_hash_lower_than_target(hash: &Hash) -> bool {
-        // The target is 0x0eadd8000000000000000000000000000000000000000000
-        // Represent it as a byte array for comparison
-        // easy mode (dev mode)
-        #[rustfmt::skip]
-        let target_bytes: [u8; 32] = [
-            0x0e, 0xad, 0xd8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ];
-        // the real target
-        // #[rustfmt::skip]
-        // let target_bytes: [u8; 32] = [
-        //     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0xad, 0xd8, 0x00, 0x00, 0x00, 0x00, 0x00,
-        //     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-        // ];
+        // The target is 0x0e_ad_d8 * (2^8)^<difficulty> (larger difficulty = easier)
 
         // Get the byte array from the hash
         let hash_bytes = hash.to_bytes();
         // Compare the hash byte array to the target byte array
         // This will compare the arrays lexicographically (byte by byte)
-        hash_bytes < target_bytes
+        hash_bytes < Self::TARGET_BYTES
     }
 
     pub fn verify_submitted_proof(
         comptoken_wallet: &VerifiedAccountInfo, data: &[u8; Self::SUBMITTED_DATA_SIZE],
         valid_blockhashes: &ValidBlockhashes,
     ) -> Self {
-        let proof_result = ComptokenProof::from_bytes(data, valid_blockhashes);
-        let proof = proof_result.expect("invalid proof");
+        let proof = ComptokenProof::from_bytes(data, valid_blockhashes); // todo: handle error
         proof.verify_proof(valid_blockhashes, comptoken_wallet);
         proof
     }
@@ -118,57 +105,96 @@ impl ComptokenProof {
 
 #[cfg(test)]
 mod test {
-
     use super::*;
     use spl_token_2022::solana_program::pubkey::PUBKEY_BYTES;
 
     const ZERO_PUBKEY: Pubkey = Pubkey::new_from_array([0; PUBKEY_BYTES]);
 
-    fn create_arbitrary_block(pubkey: &Pubkey, recent_block_hash: Hash, nonce: u64, hash: Hash) -> ComptokenProof {
-        ComptokenProof { pubkey, recent_block_hash, nonce, hash }
+    fn sub(this: &mut [u8; 32], other: u8) {
+        let mut borrow = other as i16;
+        for byte in this.iter_mut().rev() {
+            let result = *byte as i16 - borrow;
+            *byte = result as u8;
+            borrow = if result < 0 { 1 } else { 0 };
+        }
+    }
+
+    fn add(this: &mut [u8; 32], other: u8) {
+        let mut borrow = other as i16;
+        for byte in this.iter_mut().rev() {
+            let result = *byte as i16 + borrow;
+            *byte = result as u8;
+            borrow = if result > u8::MAX.into() { 1 } else { 0 };
+        }
     }
 
     #[test]
-    fn test_leading_zeroes() {
-        let mut hash_array = [0; 32];
-        let mut hash = Hash::new_from_array(hash_array);
-        assert_eq!(256, ComptokenProof::leading_zeroes(&hash));
+    fn test_is_hash_lower_than_target() {
+        let mut hash_array = ComptokenProof::TARGET_BYTES;
+        let hash = Hash::new_from_array(hash_array);
+        assert!(!ComptokenProof::is_hash_lower_than_target(&hash));
 
-        hash_array[0] = 0b1000_0000;
-        hash = Hash::new_from_array(hash_array);
-        assert_eq!(0, ComptokenProof::leading_zeroes(&hash));
+        sub(&mut hash_array, 1);
+        let hash = Hash::new_from_array(hash_array);
+        assert!(ComptokenProof::is_hash_lower_than_target(&hash));
 
-        hash_array[0] = 0b0000_1000;
-        hash = Hash::new_from_array(hash_array);
-        assert_eq!(4, ComptokenProof::leading_zeroes(&hash));
+        add(&mut hash_array, 2);
+        let hash = Hash::new_from_array(hash_array);
+        assert!(!ComptokenProof::is_hash_lower_than_target(&hash));
+
+        let hash = Hash::new_from_array([0; 32]);
+        assert!(ComptokenProof::is_hash_lower_than_target(&hash));
+
+        let hash = Hash::new_from_array([0xff; 32]);
+        assert!(!ComptokenProof::is_hash_lower_than_target(&hash));
     }
 
     #[test]
     fn test_from_bytes() {
-        assert_eq!(ComptokenProof::from_bytes(&ZERO_PUBKEY, &[0; PROOF_DATA_SIZE]).hash, [0; 32].into());
-
-        let recent_hash = Hash::new_from_array([1; 32]);
-        let pubkey = Pubkey::new_from_array([2; PUBKEY_BYTES]);
-        let nonce: u64 = 0x03030303_03030303;
-        let mut v = Vec::<u8>::with_capacity(PROOF_DATA_SIZE);
-        let mut hasher = Hasher::default();
-
-        hasher.hash(&pubkey.to_bytes());
-        v.extend(recent_hash.to_bytes());
-        v.extend(nonce.to_be_bytes());
-        hasher.hash(&v);
-        let hash = hasher.result();
-        v.extend(hash.to_bytes());
-
-        let bytes = v.try_into().unwrap();
-        let block_from_bytes = ComptokenProof::from_bytes(&pubkey, &bytes);
-        let block_from_data = create_arbitrary_block(&pubkey, recent_hash, nonce, hash);
-        assert_eq!(
-            block_from_bytes.recent_block_hash, block_from_data.recent_block_hash,
-            "recent_block_hashes are different"
+        let proof = ComptokenProof::from_bytes(
+            &[0; 76],
+            &ValidBlockhashes {
+                announced_blockhash: Hash::default(),
+                announced_blockhash_time: 0,
+                valid_blockhash: Hash::default(),
+                valid_blockhash_time: 0,
+            },
         );
-        assert_eq!(block_from_bytes.pubkey, block_from_data.pubkey, "pubkeys are different");
-        assert_eq!(block_from_bytes.nonce, block_from_data.nonce, "nonces are different");
-        assert_eq!(block_from_bytes.hash, block_from_data.hash, "hashes are different");
+
+        assert_eq!(proof.pubkey, ZERO_PUBKEY);
+        assert_eq!(
+            proof.hash,
+            Hash::new(&bs58::decode("DfmD6ULzF7womD7Nav5DKHuyF3xw8jMmX9bT7wgGP5Pp").into_vec().unwrap()) // value comes from running the code and printing the hash
+        );
+
+        let pubkey = Pubkey::new_from_array([1; PUBKEY_BYTES]);
+        let extra_data = [1_u8; 32]; // what is this?
+        let nonce = [0_u8; 4];
+        let version = [0_u8; 4];
+        let timestamp = [0_u8; 4];
+
+        let data: Vec<_> = pubkey
+            .to_bytes()
+            .into_iter()
+            .chain(extra_data)
+            .chain(nonce)
+            .chain(version)
+            .chain(timestamp)
+            .collect();
+
+        let valid_blockhashes = ValidBlockhashes {
+            announced_blockhash: Hash::default(),
+            announced_blockhash_time: 0,
+            valid_blockhash: Hash::default(),
+            valid_blockhash_time: 0,
+        };
+
+        let proof = ComptokenProof::from_bytes(&data.try_into().unwrap(), &valid_blockhashes);
+
+        assert_eq!(proof.pubkey, pubkey);
+        assert_eq!(
+            proof.hash,
+            Hash::new(&bs58::decode("6ui4sQ6LiyHZTmdb7gsyTD9QPV6KUProHxty5oyfNbBB").into_vec().unwrap()) // value comes from running the code and printing the hash
+        );
     }
 }

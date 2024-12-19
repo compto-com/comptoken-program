@@ -91,7 +91,7 @@ impl ComptokenProof {
         comptoken_wallet: &VerifiedAccountInfo, data: &[u8; Self::SUBMITTED_DATA_SIZE],
         valid_blockhashes: &ValidBlockhashes,
     ) -> Self {
-        let proof = ComptokenProof::from_bytes(data, valid_blockhashes); // todo: handle error
+        let proof = ComptokenProof::from_bytes(data, valid_blockhashes);
         proof.verify_proof(valid_blockhashes, comptoken_wallet);
         proof
     }

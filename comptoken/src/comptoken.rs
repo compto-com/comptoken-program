@@ -163,7 +163,6 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     assert!(instruction_data.len() == 76, "instruction data must be 76 bytes");
 
     let global_data: &mut GlobalData = (&global_data_account).into();
-    assert!(!global_data.valid_blockhashes.is_valid_blockhash_stale(), "valid blockhash is not stale");
 
     let proof = ComptokenProof::verify_submitted_proof(
         &user_comptoken_token_account,

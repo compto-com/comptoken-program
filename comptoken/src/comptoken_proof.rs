@@ -90,7 +90,7 @@ impl ComptokenProof {
     pub fn verify_submitted_proof(
         comptoken_wallet: &VerifiedAccountInfo, data: &[u8; 76], valid_blockhashes: &ValidBlockhashes,
     ) -> Self {
-        let proof_result = ComptokenProof::from_bytes(data, valid_blockhashes); // todo: handle error
+        let proof_result = ComptokenProof::from_bytes(data, valid_blockhashes);
         let proof = proof_result;
         proof.verify_proof(valid_blockhashes, comptoken_wallet);
         proof

@@ -50,11 +50,11 @@ def runTest(args: Namespace, file: str) -> bool:
     env["SBF_OUT_DIR"] = str(PROJECT_PATH / "target/deploy/")
     node = ("node --trace-warnings" if args.verbose >= 2 else "node")
     verbosity = "" if args.verbose == 0 else "-" + "v" * args.verbose
-    command = f"{node} {TEST_PATH / f'compto-test-client/{file}'} {verbosity}"
+    command = f"{node} compto-test-client/{file} {verbosity}"
     if args.verbose >= 2:
         print(f"command is '{command}'")
     try:
-        stdout = run(command, env=env, timeout=20)
+        stdout = run(command, cwd=TEST_PATH, env=env, timeout=20)
         if args.verbose >= 1:
             logfilePath = args.log_directory / f"{file}.log" if args.log_directory else None
             with file_or_stdout(logfilePath) as logfile:

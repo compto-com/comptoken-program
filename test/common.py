@@ -113,7 +113,7 @@ def run(
     command: str | list[str],
     cwd: Path | None = None,
     env: Mapping[str, str] | None = None,
-    timeout: float | None = None
+    timeout: float | None = None,
 ) -> str:
     while True:
         try:

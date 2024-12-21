@@ -1,20 +1,17 @@
+import { createDailyDistributionEventInstruction, GlobalDataAccount, SEC_PER_DAY } from "@compto/comptoken.js";
 import { Clock } from "solana-bankrun";
+
 import {
     get_default_comptoken_mint,
     get_default_global_data,
     get_default_unpaid_future_ubi_bank,
     get_default_unpaid_interest_bank,
     get_default_unpaid_verified_human_ubi_bank,
-    GlobalDataAccount,
     MintAccount,
 } from "../accounts.js";
 import { Assert } from "../assert.js";
-import {
-    DEFAULT_START_TIME,
-    SEC_PER_DAY,
-} from "../common.js";
+import { compto_public_keys, DEFAULT_START_TIME } from "../common.js";
 import { Distribution, generic_daily_distribution_assertions, get_account, run_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
-import { createDailyDistributionEventInstruction } from "../instruction.js";
 
 async function test_dailyDistributionEvent() {
     const comptokens_minted = 10_000n;
@@ -32,9 +29,9 @@ async function test_dailyDistributionEvent() {
     const yesterdays_accounts = new YesterdaysAccounts(original_comptoken_mint, original_global_data_account, original_unpaid_interest_bank, original_unpaid_verified_human_ubi_bank, original_unpaid_future_ubi_bank);
 
     // 216_000 is mostly arbitrary, but it should roughly correspond to a days worth of slots
-    let context = await setup_test(existing_accounts, new Clock(216_000n, 0n, 0n, 0n, DEFAULT_START_TIME + SEC_PER_DAY));
+    let context = await setup_test(existing_accounts, new Clock(216_000n, 0n, 0n, 0n, DEFAULT_START_TIME + BigInt(SEC_PER_DAY)));
 
-    let instructions = [await createDailyDistributionEventInstruction()];
+    let instructions = [await createDailyDistributionEventInstruction(compto_public_keys)];
 
     context = await run_test("dailyDistributionEvent", context, instructions, [context.payer], false, async (context, result) => {
         await generic_daily_distribution_assertions(context, result, yesterdays_accounts, 1n, comptokens_minted, 0n, 0n);
@@ -50,6 +47,7 @@ async function test_dailyDistributionEvent() {
 
         const high_watermark_increase = comptokens_minted;
         const distribution = new Distribution(final_daily_distribution_data, high_watermark_increase, yesterdays_accounts.unpaid_future_ubi_bank.data.amount);
+        // TODO: add more assertions
     });
 }
 

@@ -1,3 +1,4 @@
+import { GlobalDataAccount, TokenAccount, UserDataAccount, createVerifyHumanInstruction } from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
 
 import {
@@ -7,14 +8,10 @@ import {
     get_default_global_data,
     get_default_unpaid_future_ubi_bank,
     get_default_user_data_account,
-    GlobalDataAccount,
-    TokenAccount,
-    UserDataAccount
 } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_program_id_pubkey } from "../common.js";
+import { compto_public_keys } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
-import { createVerifyHumanInstruction } from "../instruction.js";
 
 async function testVerifyHuman() {
     const user = Keypair.generate();
@@ -25,7 +22,7 @@ async function testVerifyHuman() {
     original_unpaid_future_ubi_bank.data.amount = 1_000_000_000n;
     const original_user_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), user.publicKey);
     console.log(original_user_comptoken_wallet);
-    const user_data_pda = PublicKey.findProgramAddressSync([original_user_comptoken_wallet.address.toBytes()], compto_program_id_pubkey)[0];
+    const user_data_pda = PublicKey.findProgramAddressSync([original_user_comptoken_wallet.address.toBytes()], compto_public_keys.compto_program_id_pubkey)[0];
     const original_user_data_account = get_default_user_data_account(user_data_pda);
     console.log(original_user_data_account);
 
@@ -37,7 +34,7 @@ async function testVerifyHuman() {
     let context = await setup_test(existing_accounts);
 
     const instructions = [
-        await createVerifyHumanInstruction(user.publicKey, original_user_comptoken_wallet.address),
+        await createVerifyHumanInstruction(user.publicKey, original_user_comptoken_wallet.address, compto_public_keys),
     ];
 
     context = await run_test("VerifyHuman", context, instructions, [context.payer, user], false, async (context, result) => {

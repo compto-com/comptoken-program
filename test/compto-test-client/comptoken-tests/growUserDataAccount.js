@@ -1,17 +1,21 @@
+import { createGrowUserDataAccountInstruction, UserData } from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
 
-import { getMinimumBalanceForRentExemptAccount } from "@solana/spl-token";
-import { get_default_comptoken_mint, get_default_comptoken_token_account, get_default_global_data, get_default_user_data_account, UserData } from "../accounts.js";
+import {
+    get_default_comptoken_mint,
+    get_default_comptoken_token_account,
+    get_default_global_data,
+    get_default_user_data_account,
+} from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_program_id_pubkey } from "../common.js";
+import { compto_public_keys } from "../common.js";
 import { run_test, setup_test } from "../generic_test.js";
-import { createGrowUserDataAccountInstruction } from "../instruction.js";
 
 async function test_growUserDataAccount() {
     const user = Keypair.generate();
 
     const user_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), user.publicKey);
-    const user_data_pda = PublicKey.findProgramAddressSync([user_comptoken_wallet.address.toBytes()], compto_program_id_pubkey)[0];
+    const user_data_pda = PublicKey.findProgramAddressSync([user_comptoken_wallet.address.toBytes()], compto_public_keys.compto_program_id_pubkey)[0];
     const user_data_account = get_default_user_data_account(user_data_pda);
 
     const existing_accounts = [
@@ -28,7 +32,7 @@ async function test_growUserDataAccount() {
 
     const new_user_data_size = BigInt(UserData.MIN_SIZE + 32 * 10);
     let instructions = [
-        await createGrowUserDataAccountInstruction(connection, new_user_data_size, context.payer.publicKey, user.publicKey, user_comptoken_wallet.address)
+        await createGrowUserDataAccountInstruction(connection, new_user_data_size, context.payer.publicKey, user.publicKey, user_comptoken_wallet.address, compto_public_keys)
     ];
 
     context = await run_test("growUserDataAccount", context, instructions, [context.payer, user], false, async (context, result) => {

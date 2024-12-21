@@ -1,7 +1,9 @@
+import { createGetValidBlockhashesInstruction } from "@compto/comptoken.js";
+
 import { get_default_comptoken_mint, get_default_global_data } from "../accounts.js";
 import { Assert } from "../assert.js";
+import { compto_public_keys } from "../common.js";
 import { run_test, setup_test } from "../generic_test.js";
-import { createGetValidBlockhashesInstruction } from "../instruction.js";
 import { isArrayEqual } from "../utils.js";
 
 async function test_getValidBlockhashes() {
@@ -10,7 +12,7 @@ async function test_getValidBlockhashes() {
 
     let context = await setup_test(existing_accounts);
 
-    let instructions = [await createGetValidBlockhashesInstruction()];
+    let instructions = [await createGetValidBlockhashesInstruction(compto_public_keys)];
 
     context = await run_test("getValidBlockhashes", context, instructions, [context.payer], false, async (context, result) => {
         const final_valid_blockhashes = {

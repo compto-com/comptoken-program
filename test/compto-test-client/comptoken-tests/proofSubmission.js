@@ -1,3 +1,4 @@
+import { ComptokenProof, createProofSubmissionInstruction, TokenAccount, UserDataAccount } from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
 
 import {
@@ -6,14 +7,11 @@ import {
     get_default_global_data,
     get_default_user_data_account,
     MintAccount,
-    TokenAccount,
-    UserDataAccount,
 } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_program_id_pubkey, MINING_AMOUNT } from "../common.js";
-import { ComptokenProof } from "../comptoken_proof.js";
+import { compto_public_keys, MINING_AMOUNT } from "../common.js";
+//import { ComptokenProof } from "../comptoken_proof.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
-import { createProofSubmissionInstruction } from "../instruction.js";
 import { isArrayEqual } from "../utils.js";
 
 async function test_proofSubmission() {
@@ -22,17 +20,25 @@ async function test_proofSubmission() {
     const original_comptoken_mint = get_default_comptoken_mint();
     const original_global_data_account = get_default_global_data();
     const original_user_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), user.publicKey);
-    const user_data_pda = PublicKey.findProgramAddressSync([original_user_comptoken_wallet.address.toBytes()], compto_program_id_pubkey)[0];
+    const user_data_pda = PublicKey.findProgramAddressSync([original_user_comptoken_wallet.address.toBytes()], compto_public_keys.compto_program_id_pubkey)[0];
     const original_user_data_account = get_default_user_data_account(user_data_pda);
 
     const accounts = [original_comptoken_mint, original_global_data_account, original_user_comptoken_wallet, original_user_data_account];
 
     let context = await setup_test(accounts);
 
-    let proof = new ComptokenProof(original_user_comptoken_wallet.address, original_global_data_account.data.validBlockhashes.validBlockhash);
-    proof.mine();
+    console.log("after setup_test");
 
-    let instructions = [await createProofSubmissionInstruction(proof, user.publicKey, original_user_comptoken_wallet.address)];
+    let proof = ComptokenProof.mine({
+        pubkey: original_user_comptoken_wallet.address,
+        recentBlockHash: original_global_data_account.data.validBlockhashes.validBlockhash,
+        extraData: Uint8Array.from({ length: 32 }, () => 0),
+        version: 0,
+        timestamp: 0,
+    });
+
+    let instructions = [await createProofSubmissionInstruction(proof, user.publicKey, original_user_comptoken_wallet.address, compto_public_keys)];
+    console.log(`instruction programId: ${instructions[0].programId}`)
 
     context = await run_test("proofSubmission", context, instructions, [context.payer, user], false, async (context, result) => {
         const final_comptoken_mint_account = await get_account(context, original_comptoken_mint.address, MintAccount);

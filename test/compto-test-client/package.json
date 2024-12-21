@@ -1,8 +1,9 @@
 {
-  "type": "module",
-  "dependencies": {
-    "@solana/spl-token": "^0.4.8",
-    "@solana/web3.js": "^1.95.0",
-    "solana-bankrun": "^0.3.0"
-  }
+    "type": "module",
+    "dependencies": {
+        "@compto/comptoken.js": "github:compto-com/comptoken.js#allow_custom_keys",
+        "@solana/spl-token": "^0.4.8",
+        "@solana/web3.js": "^1.95.0",
+        "solana-bankrun": "^0.3.0"
+    }
 }

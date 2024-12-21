@@ -1,4 +1,6 @@
+import { createDailyDistributionEventInstruction, GlobalDataAccount } from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
+
 import {
     get_default_comptoken_mint,
     get_default_comptoken_token_account,
@@ -6,14 +8,11 @@ import {
     get_default_unpaid_future_ubi_bank,
     get_default_unpaid_interest_bank,
     get_default_unpaid_verified_human_ubi_bank,
-    GlobalDataAccount,
 } from "../accounts.js";
 import { Assert, } from "../assert.js";
-import {
-    global_data_account_pubkey,
-} from "../common.js";
+import { compto_public_keys } from "../common.js";
 import { DaysParameters, generic_daily_distribution_assertions, get_account, run_multiday_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
-import { createDailyDistributionEventInstruction, createTestInstruction } from "../instruction.js";
+import { createTestInstruction } from "../instruction.js";
 
 // arbitrary function to produce "how many comptokens are minted on a given day" test data
 function get_comptokens_minted(current_day) {
@@ -31,7 +30,7 @@ class MultidayDailyDistributionDaysParameters extends DaysParameters {
     assert_fn = async (context, result) => {
         const yesterdays_accounts = MultidayDailyDistributionDaysParameters.yesterdays_accounts;
         await generic_daily_distribution_assertions(context, result, yesterdays_accounts, this.day, get_comptokens_minted(this.day), 0n, 0n);
-        const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
+        const current_global_data_account = await get_account(context, compto_public_keys.global_data_account_pubkey, GlobalDataAccount);
         const current_highwatermark = current_global_data_account.data.dailyDistributionData.highWaterMark;
         const yesterdays_highwatermark = yesterdays_accounts.global_data_account.data.dailyDistributionData.highWaterMark;
         const highwatermark_increase = current_highwatermark - yesterdays_highwatermark;
@@ -50,13 +49,13 @@ class MultidayDailyDistributionDaysParameters extends DaysParameters {
     }
 
     async get_setup_instructions() {
-        return [await createTestInstruction(this.testuser.publicKey, this.user_comptoken_token_account_address, get_comptokens_minted(this.day))];
+        return [await createTestInstruction(this.testuser.publicKey, this.user_comptoken_token_account_address, get_comptokens_minted(this.day), compto_public_keys)];
     }
     async get_setup_signers() {
         return [this.payer, this.testuser]
     }
     async get_instructions() {
-        return [await createDailyDistributionEventInstruction()];
+        return [await createDailyDistributionEventInstruction(compto_public_keys)];
     }
     async get_signers() {
         return [this.payer];

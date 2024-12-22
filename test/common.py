@@ -129,16 +129,17 @@ def run(
         )
     return result.stdout.rstrip()
 
-def build(package: str):
+def build(package: str, features: list[str] = []):
     print(f"Building {package}...")
-    run(f'cargo build-sbf --features testmode -- -v -p {package}', PROJECT_PATH)
+    features_flag: str = "" if len(features) == 0 else f"--features \"{' '.join(features)}\""
+    run(f'cargo build-sbf {features_flag} -- -v -p {package}', PROJECT_PATH)
     print(f"Done Building {package}")
 
-def buildCompto():
-    build("comptoken")
+def buildCompto(features: list[str] = []):
+    build("comptoken", features)
 
-def buildTransferHook():
-    build("comptoken-transfer-hook")
+def buildTransferHook(features: list[str] = []):
+    build("comptoken-transfer-hook", features)
 
 def write(path: Path, data: str):
     with open(path, "w") as file:

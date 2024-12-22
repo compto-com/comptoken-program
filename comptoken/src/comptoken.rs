@@ -160,7 +160,11 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
     let user_data_account = verified_accounts.user_data.unwrap();
 
-    assert!(instruction_data.len() == 76, "instruction data must be 76 bytes");
+    assert!(
+        instruction_data.len() == ComptokenProof::SUBMITTED_DATA_SIZE,
+        "comptoken proof data must be {} bytes",
+        ComptokenProof::SUBMITTED_DATA_SIZE
+    );
 
     let global_data: &mut GlobalData = (&global_data_account).into();
 

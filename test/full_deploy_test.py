@@ -94,23 +94,6 @@ def deployTransferHook():
 def getTokenAddress():
     return run(f"solana address -k {MINT_KEYPAIR}")
 
-#def checkSolanaConfig():
-#    result = run("solana config get")
-#    # Check rpc url from output like:
-#    #   ``` 
-#    #   Config File: /home/david/.config/solana/cli/config.yml
-#    #   RPC URL: https://api.devnet.solana.com 
-#    #   WebSocket URL: wss://api.devnet.solana.com/ (computed)
-#    #   Keypair Path: /home/david/.config/solana/id.json 
-#    #   Commitment: confirmed
-#    #   ```
-#    rpc_url_line = result.split("\n")[1]
-#    rpc_url = rpc_url_line.split(": ")[1].rstrip()
-#    localhost = ["http://localhost:8899", "http://127.0.0.1:8899"]
-#    if rpc_url not in localhost:
-#        print(f"Solana config not localhost. Changing Solana Config from {rpc_url} to {localhost[0]}")
-#        run(f"solana config set --url {localhost}")
-
 # ========================
 
 def runTestClient():
@@ -134,7 +117,7 @@ if __name__ == "__main__":
         createKeyPair(TRANSFER_HOOK_KEYPAIR)
         #run("cargo build-sbf", TRANSFER_HOOK_SRC_PATH)
         transferHookId = getAddress(TRANSFER_HOOK_KEYPAIR)
-    #checkSolanaConfig()
+
     print("Creating Validator...")
     with createTestValidator() as validator:
         print("Checking Compto Program for hardcoded Comptoken Address and static seed...")

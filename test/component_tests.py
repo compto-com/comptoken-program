@@ -119,8 +119,8 @@ if __name__ == "__main__":
         (comptokenProgramId, transferHookId, mintAddress) = generateMockFiles()
         generateFiles(comptokenProgramId, transferHookId, mintAddress)
     if args.build:
-        buildCompto()
-        buildTransferHook()
+        buildCompto(features=["testmode"])
+        buildTransferHook(features=["testmode"])
     else:
         print("skipping generating files")
         print("skipping building")

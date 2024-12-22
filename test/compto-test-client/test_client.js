@@ -12,7 +12,6 @@ import {
     TOKEN_2022_PROGRAM_ID,
     getAssociatedTokenAddressSync,
     setAuthority,
-    unpackMint,
 } from '@solana/spl-token';
 import {
     Connection,
@@ -20,16 +19,17 @@ import {
     LAMPORTS_PER_SOL,
     PublicKey,
     Transaction,
-    sendAndConfirmTransaction
+    sendAndConfirmTransaction,
 } from "@solana/web3.js";
 
+import { MintAccount } from "./accounts.js";
 import {
     compto_public_keys,
     me_keypair,
 } from './common.js';
 import {
     createInitializeComptokenProgramInstruction,
-    createTestInstruction
+    createTestInstruction,
 } from './instruction.js';
 
 
@@ -65,12 +65,12 @@ async function airdrop(pubkey) {
 
 async function setMintAuthorityIfNeeded() {
     const info = await connection.getAccountInfo(compto_public_keys.comptoken_mint_pubkey, "confirmed");
-    const unpackedMint = unpackMint(compto_public_keys.comptoken_mint_pubkey, info, TOKEN_2022_PROGRAM_ID);
-    if (unpackedMint.mintAuthority.toString() == compto_public_keys.global_data_account_pubkey.toString()) {
+    const mint = MintAccount.fromAccountInfoBytes(compto_public_keys.comptoken_mint_pubkey, info);
+    if (mint.data.mintAuthority.toString() == compto_public_keys.global_data_account_pubkey.toString()) {
         console.log("Mint Authority already set, skipping setAuthority Transaction");
     } else {
         console.log("Mint Authority not set, setting Authority");
-        await setMintAuthority(unpackedMint.mintAuthority);
+        await setMintAuthority(mint.data.mintAuthority);
     }
 }
 
@@ -128,7 +128,7 @@ async function createUserDataAccount() {
 async function getValidBlockHashes() {
     let getValidBlockhashesTransaction = new Transaction();
     getValidBlockhashesTransaction.add(
-        await createGetValidBlockhashesInstruction(compto_public_keys)
+        await createGetValidBlockhashesInstruction(compto_public_keys),
     );
     let getValidBlockhashesResult = await sendAndConfirmTransaction(connection, getValidBlockhashesTransaction, [compto_public_keys.test_account]);
     console.log("getValidBlockhashes transaction confirmed", getValidBlockhashesResult);
@@ -156,7 +156,12 @@ async function mintComptokens(connection, user_solana_wallet_keypair, user_compt
     });
     let mintComptokensTransaction = new Transaction();
     mintComptokensTransaction.add(
-        await createProofSubmissionInstruction(proof, user_solana_wallet_keypair.publicKey, user_comptoken_token_account_address, compto_public_keys),
+        await createProofSubmissionInstruction(
+            proof,
+            user_solana_wallet_keypair.publicKey,
+            user_comptoken_token_account_address,
+            compto_public_keys
+        ),
     );
     let mintComptokensResult = await sendAndConfirmTransaction(connection, mintComptokensTransaction, [user_solana_wallet_keypair]);
     console.log("MintComptokens transaction confirmed", mintComptokensResult);
@@ -165,7 +170,7 @@ async function mintComptokens(connection, user_solana_wallet_keypair, user_compt
 async function dailyDistributionEvent() {
     let dailyDistributionEventTransaction = new Transaction();
     dailyDistributionEventTransaction.add(
-        await createDailyDistributionEventInstruction(compto_public_keys)
+        await createDailyDistributionEventInstruction(compto_public_keys),
     );
     let dailyDistributionEventResult = await sendAndConfirmTransaction(connection, dailyDistributionEventTransaction, [compto_public_keys.test_account]);
     console.log("DailyDistributionEvent transaction confirmed", dailyDistributionEventResult);

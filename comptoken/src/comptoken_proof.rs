@@ -21,16 +21,16 @@ pub struct ComptokenProof {
 //     32 bytes: <unspecified data>
 //     32 bytes: solana public key
 // 4 bytes: <timestamp>
-// 4 bytes: <bits> <-- defined to ...
+// 4 bytes: <bits> <-- defined to 0xd8ad0e18
 // 4 bytes: <nonce>
 impl ComptokenProof {
     pub const SUBMITTED_DATA_SIZE: usize = 76;
     // larger difficulty = easier
     #[allow(dead_code)]
-    const TARGET_DIFFICULTY_TEST: usize = 29;
+    const TARGET_DIFFICULTY_DEVNET: usize = 29;
     #[allow(dead_code)]
-    const TARGET_DIFFICULTY_PROD: usize = 24;
-    pub const TARGET_DIFFICULTY: usize = Self::TARGET_DIFFICULTY_TEST; // todo: change to prod
+    const TARGET_DIFFICULTY_MAINNET: usize = 24;
+    pub const TARGET_DIFFICULTY: usize = Self::TARGET_DIFFICULTY_DEVNET; // todo: change to mainnet
 
     // The target is 0x0e_ad_d8 followed by <difficulty> zero bytes
     const fn make_target_bytes(difficulty: usize) -> [u8; 32] {
@@ -152,7 +152,7 @@ mod test {
     #[test]
     fn test_from_bytes() {
         let proof = ComptokenProof::from_bytes(
-            &[0; 76],
+            &[0; ComptokenProof::SUBMITTED_DATA_SIZE],
             &ValidBlockhashes {
                 announced_blockhash: Hash::default(),
                 announced_blockhash_time: 0,

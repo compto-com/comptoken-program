@@ -661,6 +661,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
         accounts,
         program_id,
         AccountsToVerify {
+            payer: Some((true, true)),
             comptoken_program: Some((false, false)),
             comptoken_mint: Some((false, false)),
             global_data: Some((false, true)),
@@ -681,6 +682,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
         },
     )?;
 
+    let payer = verified_accounts.payer.unwrap();
     let comptoken_program = verified_accounts.comptoken_program.unwrap();
     let comptoken_mint = verified_accounts.comptoken_mint.unwrap();
     let global_data_account = verified_accounts.global_data.unwrap();
@@ -698,9 +700,10 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     let world_id_nullifier = verified_accounts.world_id_nullifier.unwrap();
 
     // 1. verify unique nullifier hash
-
-    // TODO
     // TODO what to do when people die?
+
+    const MINIMUM_RENT: u64 = 890880; // minimum balance for 0-sized account TODO: should this be calculated? (can it change?)
+    create_pda(&payer, &world_id_nullifier, MINIMUM_RENT, 0, program_id, &[&[b"Nullifier", nullifier_hash.as_ref()]])?;
 
     // 2. cpi to world id program
     const APP_ID: &str = "comptoken";

@@ -174,7 +174,7 @@ fn verify_solana_token_2022_program<'a>(account: &AccountInfo<'a>) -> VerifiedAc
 pub type SignerAndWritable = (bool, bool);
 
 #[derive(Default)]
-pub struct AccountsToVerify {
+pub struct AccountsToVerify<'a> {
     pub payer: Option<SignerAndWritable>,
     pub comptoken_program: Option<SignerAndWritable>,
     pub comptoken_mint: Option<SignerAndWritable>,

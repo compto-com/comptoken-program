@@ -25,7 +25,7 @@ use spl_token_2022::{
 };
 
 use comptoken_utils::{
-    create_pda, get_current_time, invoke_signed_verified, normalize_time,
+    create_pda, get_current_time, invoke_signed_verified, invoke_verified, normalize_time,
     user_data::{UserData, USER_DATA_MIN_SIZE},
     SEC_PER_DAY,
 };
@@ -822,4 +822,23 @@ fn init_comptoken_account<'a>(
 fn store_hash(proof: ComptokenProof, data_account: &VerifiedAccountInfo) {
     let user_data: &mut UserData = data_account.into();
     user_data.insert(&proof.hash, &proof.recent_block_hash)
+}
+
+fn hash_to_field(val: &[u8]) -> [u8; 32] {
+    let mut hash_result = hash::hash(val).to_bytes();
+    hash_result[0] = 0;
+    hash_result.rotate_right(1);
+    hash_result
+}
+
+fn app_id_to_external_nullifier_hash(app_id: &str, action: &str) -> [u8; 32] {
+    let app_hash = hash_to_field(app_id.as_bytes());
+    let mut combined = app_hash.to_vec();
+    combined.extend_from_slice(action.as_bytes());
+    hash_to_field(&combined)
+}
+
+fn get_next_data<'a, T>(data: &'a [u8], size: usize, converter: impl FnOnce(&'a [u8]) -> T) -> (T, &[u8]) {
+    let (data, rest) = data.split_at(size);
+    (converter(data), rest)
 }

@@ -2,15 +2,19 @@ use spl_token_2022::{
     extension::StateWithExtensions,
     solana_program::{
         account_info::{next_account_info, AccountInfo},
+        hash::Hash,
         program_error::ProgramError,
         pubkey::Pubkey,
     },
     state::Account,
 };
 
-use crate::generated::{
-    COMPTOKEN_MINT_ADDRESS, COMPTO_FUTURE_UBI_BANK_ACCOUNT_SEEDS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS,
-    COMPTO_INTEREST_BANK_ACCOUNT_SEEDS, COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
+use crate::{
+    generated::{
+        COMPTOKEN_MINT_ADDRESS, COMPTO_FUTURE_UBI_BANK_ACCOUNT_SEEDS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS,
+        COMPTO_INTEREST_BANK_ACCOUNT_SEEDS, COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
+    },
+    SOLANA_WORLD_ID_PROGRAM,
 };
 
 pub use comptoken_utils::verify_accounts::VerifiedAccountInfo;
@@ -123,6 +127,37 @@ pub fn verify_transfer_hook_program<'a>(account: &AccountInfo<'a>) -> VerifiedAc
     VerifiedAccountInfo::verify_specific_address(account, &TRANSFER_HOOK_ID, false, false)
 }
 
+pub fn verify_world_id_program<'a>(account: &AccountInfo<'a>) -> VerifiedAccountInfo<'a> {
+    VerifiedAccountInfo::verify_specific_address(account, &SOLANA_WORLD_ID_PROGRAM, false, false)
+}
+
+pub fn verify_world_id_root<'a>(account: &AccountInfo<'a>, root_hash: &Hash) -> VerifiedAccountInfo<'a> {
+    VerifiedAccountInfo::verify_pda(account, &SOLANA_WORLD_ID_PROGRAM, &[b"Root", root_hash.as_ref()], false, false).0
+}
+
+pub fn verify_world_id_latest_root<'a>(
+    account: &AccountInfo<'a>, verification_type: [u8; 1],
+) -> VerifiedAccountInfo<'a> {
+    VerifiedAccountInfo::verify_pda(
+        account,
+        &SOLANA_WORLD_ID_PROGRAM,
+        &[b"LatestRoot", &verification_type],
+        false,
+        false,
+    )
+    .0
+}
+
+pub fn verify_world_id_config<'a>(account: &AccountInfo<'a>) -> VerifiedAccountInfo<'a> {
+    VerifiedAccountInfo::verify_pda(account, &SOLANA_WORLD_ID_PROGRAM, &[b"Config"], false, false).0
+}
+
+pub fn verify_world_id_nullifier<'a>(
+    account: &AccountInfo<'a>, program_id: &Pubkey, nullifier_hash: &Hash,
+) -> VerifiedAccountInfo<'a> {
+    VerifiedAccountInfo::verify_pda(account, program_id, &[b"Nullifier", nullifier_hash.as_ref()], false, false).0
+}
+
 pub fn verify_solana_program<'a>(account: &AccountInfo<'a>) -> VerifiedAccountInfo<'a> {
     VerifiedAccountInfo::verify_specific_address(
         account,
@@ -155,6 +190,11 @@ pub struct AccountsToVerify {
     pub user_data: Option<(bool, SignerAndWritable)>, // (isCreated, (needsSigner, needsWritable)),
     pub transfer_hook_program: Option<SignerAndWritable>,
     pub extra_account_metas: Option<SignerAndWritable>,
+    pub world_id_program: Option<SignerAndWritable>,
+    pub world_id_root: Option<(&'a Hash, SignerAndWritable)>, // (rootHash, (needsSigner, needsWritable)),
+    pub world_id_latest_root: Option<([u8; 1], SignerAndWritable)>, // (verificationType, (needsSigner, needsWritable)),
+    pub world_id_config: Option<SignerAndWritable>,
+    pub world_id_nullifier: Option<(&'a Hash, SignerAndWritable)>, // (nullifierHash, (needsSigner, needsWritable)),
     pub solana_program: Option<SignerAndWritable>,
     pub solana_token_2022_program: Option<SignerAndWritable>,
     pub slothashes: Option<SignerAndWritable>,
@@ -177,6 +217,11 @@ pub struct VerifiedAccounts<'a> {
     pub user_data_bump: Option<u8>,
     pub transfer_hook_program: Option<VerifiedAccountInfo<'a>>,
     pub extra_account_metas: Option<VerifiedAccountInfo<'a>>,
+    pub world_id_program: Option<VerifiedAccountInfo<'a>>,
+    pub world_id_root: Option<VerifiedAccountInfo<'a>>,
+    pub world_id_latest_root: Option<VerifiedAccountInfo<'a>>,
+    pub world_id_config: Option<VerifiedAccountInfo<'a>>,
+    pub world_id_nullifier: Option<VerifiedAccountInfo<'a>>,
     pub solana_program: Option<VerifiedAccountInfo<'a>>,
     pub solana_token_2022_program: Option<VerifiedAccountInfo<'a>>,
     pub slothashes: Option<VerifiedAccountInfo<'a>>,
@@ -286,6 +331,26 @@ pub fn verify_accounts<'a>(
         )
     });
 
+    let world_id_program = accounts_to_verify
+        .world_id_program
+        .map(|_| verify_world_id_program(next_account_info(account_info_iter).unwrap()));
+
+    let world_id_root = accounts_to_verify
+        .world_id_root
+        .map(|(root_hash, _)| verify_world_id_root(next_account_info(account_info_iter).unwrap(), root_hash));
+
+    let world_id_latest_root = accounts_to_verify.world_id_latest_root.map(|(verification_type, _)| {
+        verify_world_id_latest_root(next_account_info(account_info_iter).unwrap(), verification_type)
+    });
+
+    let world_id_config = accounts_to_verify
+        .world_id_config
+        .map(|_| verify_world_id_config(next_account_info(account_info_iter).unwrap()));
+
+    let world_id_nullifier = accounts_to_verify.world_id_nullifier.map(|(nullifier_hash, _)| {
+        verify_world_id_nullifier(next_account_info(account_info_iter).unwrap(), program_id, nullifier_hash)
+    });
+
     let solana_program = accounts_to_verify
         .solana_program
         .map(|_| verify_solana_program(next_account_info(account_info_iter).unwrap()));
@@ -313,6 +378,11 @@ pub fn verify_accounts<'a>(
         user_data_bump,
         transfer_hook_program,
         extra_account_metas,
+        world_id_program,
+        world_id_root,
+        world_id_latest_root,
+        world_id_config,
+        world_id_nullifier,
         solana_program,
         solana_token_2022_program,
         slothashes,

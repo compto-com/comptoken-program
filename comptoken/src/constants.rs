@@ -1,3 +1,5 @@
+use solana_program::{pubkey, pubkey::Pubkey};
+
 // TODO: This number deserves scrutiny and justification.
 pub const COMPTOKEN_DISTRIBUTION_MULTIPLIER: u64 = 146_000;
 
@@ -25,3 +27,5 @@ pub const COMPTOKEN_ACCOUNT_SPACE: u64 = 256; // TODO: get actual size
 pub const FUTURE_UBI_VERIFIED_HUMANS: u64 = 1_000_000_000;
 
 pub const MINING_AMOUNT: u64 = 10000;
+
+pub const SOLANA_WORLD_ID_PROGRAM: Pubkey = pubkey!("9QwAWx3TKg4CaTjHNhBefQeNSzEKDe2JDxL46F76tVDv");

@@ -653,6 +653,11 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
             user_data: Some((true, (false, true))),
             transfer_hook_program: Some((false, false)),
             extra_account_metas: Some((false, false)),
+            world_id_program: Some((false, false)),
+            world_id_root: Some((&root_hash, (false, false))),
+            world_id_latest_root: Some((VERIFICATION_TYPE, (false, false))),
+            world_id_config: Some((false, false)),
+            world_id_nullifier: Some((&nullifier_hash, (false, false))),
             solana_token_2022_program: Some((false, false)),
             ..Default::default()
         },
@@ -667,6 +672,11 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
     let user_data_account = verified_accounts.user_data.unwrap();
     let transfer_hook_program = verified_accounts.transfer_hook_program.unwrap();
     let extra_account_metas_account = verified_accounts.extra_account_metas.unwrap();
+    let world_id_program = verified_accounts.world_id_program.unwrap();
+    let world_id_root = verified_accounts.world_id_root.unwrap();
+    let world_id_latest_root = verified_accounts.world_id_latest_root.unwrap();
+    let world_id_config = verified_accounts.world_id_config.unwrap();
+    let world_id_nullifier = verified_accounts.world_id_nullifier.unwrap();
 
     todo!("cpi to worldcoin to verify human");
     // TODO

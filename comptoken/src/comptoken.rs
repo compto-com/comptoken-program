@@ -10,8 +10,15 @@ use spl_token_2022::{
     instruction::mint_to,
     onchain,
     solana_program::{
-        account_info::AccountInfo, entrypoint, entrypoint::MAX_PERMITTED_DATA_INCREASE, hash::HASH_BYTES,
-        instruction::AccountMeta, msg, program::set_return_data, program_error::ProgramError, pubkey::Pubkey,
+        account_info::AccountInfo,
+        entrypoint,
+        entrypoint::MAX_PERMITTED_DATA_INCREASE,
+        hash::{self, Hash, HASH_BYTES},
+        instruction::{AccountMeta, Instruction},
+        msg,
+        program::set_return_data,
+        program_error::ProgramError,
+        pubkey::Pubkey,
         system_instruction,
     },
     state::{Account, Mint},
@@ -625,7 +632,7 @@ pub fn realloc_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instruct
     user_data_account.realloc(new_size, false)
 }
 
-pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_data: &[u8]) -> ProgramResult {
+pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  Account Order
     //      [] Comptoken Program
     //      [] Comptoken Mint
@@ -638,6 +645,17 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
     //      [] transfer hook program
     //      [] extra account metas account
     //      [] Solana Token 2022 Program
+    // data:
+    //      32 bytes - root hash
+    //      32 bytes - nullifier hash
+    //      256 bytes - proof
+    const PROOF_BYTES: usize = 256;
+    const VERIFICATION_TYPE: [u8; 1] = [0_u8]; // 0 for query-based verification (maybe?)
+
+    let (root_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, Hash::new);
+    let (nullifier_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, Hash::new);
+    let (proof, instruction_data) = get_next_data(instruction_data, PROOF_BYTES, |d| d);
+    assert!(instruction_data.is_empty(), "instruction data is not empty");
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -668,6 +686,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
     let global_data_account = verified_accounts.global_data.unwrap();
     let unpaid_future_ubi_bank_account = verified_accounts.future_ubi_bank.unwrap();
     let future_ubi_bank_data = verified_accounts.future_ubi_bank_data.unwrap();
+    let user_wallet = verified_accounts.user_wallet.unwrap();
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
     let user_data_account = verified_accounts.user_data.unwrap();
     let transfer_hook_program = verified_accounts.transfer_hook_program.unwrap();
@@ -678,10 +697,42 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_
     let world_id_config = verified_accounts.world_id_config.unwrap();
     let world_id_nullifier = verified_accounts.world_id_nullifier.unwrap();
 
-    todo!("cpi to worldcoin to verify human");
+    // 1. verify unique nullifier hash
+
     // TODO
-    // also... what about when people die?
-    // also... what happens about double attempts to verify?
+    // TODO what to do when people die?
+
+    // 2. cpi to world id program
+    const APP_ID: &str = "comptoken";
+    const ACTION: &str = "COMPTO";
+    let external_nullifier_hash = app_id_to_external_nullifier_hash(APP_ID, ACTION); // TODO: make this a constant
+    let signal_bytes = user_wallet.key.to_bytes();
+    let signal_hash = hash_to_field(&signal_bytes);
+
+    let mut world_id_cpi_data = Vec::with_capacity(385);
+    world_id_cpi_data.extend_from_slice(&[54, 190, 59, 14, 54, 75, 155, 6]); // discriminator https://github.com/wormholelabs-xyz/solana-world-id-onchain-template/blob/main/idls/solana_world_id_program.ts#L801-L808
+    world_id_cpi_data.extend_from_slice(root_hash.as_ref());
+    world_id_cpi_data.extend_from_slice(&VERIFICATION_TYPE);
+    world_id_cpi_data.extend_from_slice(&signal_hash);
+    world_id_cpi_data.extend_from_slice(&external_nullifier_hash);
+    world_id_cpi_data.extend_from_slice(proof);
+
+    let world_id_cpi_instruction = Instruction {
+        program_id: SOLANA_WORLD_ID_PROGRAM,
+        accounts: vec![
+            AccountMeta::new_readonly(*world_id_root.key, false),
+            AccountMeta::new_readonly(*world_id_latest_root.key, false),
+            AccountMeta::new_readonly(*world_id_config.key, false),
+        ],
+        data: world_id_cpi_data,
+    };
+
+    invoke_verified(
+        &world_id_cpi_instruction,
+        &[&world_id_program, &world_id_root, &world_id_latest_root, &world_id_config],
+    )?;
+
+    // 3. update user data
 
     // scoping to prevent reborrowing issues
     let verified_humans;

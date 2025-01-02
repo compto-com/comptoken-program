@@ -14,6 +14,7 @@ use crate::{
         COMPTOKEN_MINT_ADDRESS, COMPTO_FUTURE_UBI_BANK_ACCOUNT_SEEDS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS,
         COMPTO_INTEREST_BANK_ACCOUNT_SEEDS, COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
     },
+    verification_repeat_protection::WorldIdNullifiers,
     SOLANA_WORLD_ID_PROGRAM,
 };
 
@@ -152,10 +153,15 @@ pub fn verify_world_id_config<'a>(account: &AccountInfo<'a>) -> VerifiedAccountI
     VerifiedAccountInfo::verify_pda(account, &SOLANA_WORLD_ID_PROGRAM, &[b"Config"], false, false).0
 }
 
-pub fn verify_world_id_nullifier<'a>(
+pub fn verify_nullifier_storage<'a>(
     account: &AccountInfo<'a>, program_id: &Pubkey, nullifier_hash: &Hash,
 ) -> VerifiedAccountInfo<'a> {
-    VerifiedAccountInfo::verify_pda(account, program_id, &[b"Nullifier", nullifier_hash.as_ref()], false, false).0
+    VerifiedAccountInfo::verify_specific_address(
+        account,
+        &WorldIdNullifiers::get_account(program_id, nullifier_hash),
+        false,
+        true,
+    )
 }
 
 pub fn verify_solana_program<'a>(account: &AccountInfo<'a>) -> VerifiedAccountInfo<'a> {
@@ -194,7 +200,7 @@ pub struct AccountsToVerify<'a> {
     pub world_id_root: Option<(&'a Hash, SignerAndWritable)>, // (rootHash, (needsSigner, needsWritable)),
     pub world_id_latest_root: Option<([u8; 1], SignerAndWritable)>, // (verificationType, (needsSigner, needsWritable)),
     pub world_id_config: Option<SignerAndWritable>,
-    pub world_id_nullifier: Option<(&'a Hash, SignerAndWritable)>, // (nullifierHash, (needsSigner, needsWritable)),
+    pub nullifier_storage_account: Option<(&'a Hash, SignerAndWritable)>, // (nullifierHash, (needsSigner, needsWritable)),
     pub solana_program: Option<SignerAndWritable>,
     pub solana_token_2022_program: Option<SignerAndWritable>,
     pub slothashes: Option<SignerAndWritable>,
@@ -221,7 +227,7 @@ pub struct VerifiedAccounts<'a> {
     pub world_id_root: Option<VerifiedAccountInfo<'a>>,
     pub world_id_latest_root: Option<VerifiedAccountInfo<'a>>,
     pub world_id_config: Option<VerifiedAccountInfo<'a>>,
-    pub world_id_nullifier: Option<VerifiedAccountInfo<'a>>,
+    pub nullifier_storage_account: Option<VerifiedAccountInfo<'a>>,
     pub solana_program: Option<VerifiedAccountInfo<'a>>,
     pub solana_token_2022_program: Option<VerifiedAccountInfo<'a>>,
     pub slothashes: Option<VerifiedAccountInfo<'a>>,
@@ -347,8 +353,8 @@ pub fn verify_accounts<'a>(
         .world_id_config
         .map(|_| verify_world_id_config(next_account_info(account_info_iter).unwrap()));
 
-    let world_id_nullifier = accounts_to_verify.world_id_nullifier.map(|(nullifier_hash, _)| {
-        verify_world_id_nullifier(next_account_info(account_info_iter).unwrap(), program_id, nullifier_hash)
+    let nullifier_storage_account = accounts_to_verify.nullifier_storage_account.map(|(nullifier_hash, _)| {
+        verify_nullifier_storage(next_account_info(account_info_iter).unwrap(), program_id, nullifier_hash)
     });
 
     let solana_program = accounts_to_verify
@@ -382,7 +388,7 @@ pub fn verify_accounts<'a>(
         world_id_root,
         world_id_latest_root,
         world_id_config,
-        world_id_nullifier,
+        nullifier_storage_account,
         solana_program,
         solana_token_2022_program,
         slothashes,

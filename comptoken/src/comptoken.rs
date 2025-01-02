@@ -1,6 +1,7 @@
 mod comptoken_proof;
 mod constants;
 mod global_data;
+mod verification_repeat_protection;
 mod verify_accounts;
 
 extern crate bs58;
@@ -33,6 +34,7 @@ use comptoken_utils::{
 use comptoken_proof::ComptokenProof;
 use constants::*;
 use global_data::{daily_distribution_data::DailyDistributionValues, GlobalData};
+use verification_repeat_protection::WorldIdNullifiers;
 use verify_accounts::*;
 
 // declare and export the program's entrypoint
@@ -675,7 +677,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
             world_id_root: Some((&root_hash, (false, false))),
             world_id_latest_root: Some((VERIFICATION_TYPE, (false, false))),
             world_id_config: Some((false, false)),
-            world_id_nullifier: Some((&nullifier_hash, (false, false))),
+            nullifier_storage_account: Some((&nullifier_hash, (false, true))),
             solana_token_2022_program: Some((false, false)),
             ..Default::default()
         },
@@ -695,12 +697,13 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     let world_id_root = verified_accounts.world_id_root.unwrap();
     let world_id_latest_root = verified_accounts.world_id_latest_root.unwrap();
     let world_id_config = verified_accounts.world_id_config.unwrap();
-    let world_id_nullifier = verified_accounts.world_id_nullifier.unwrap();
+    let mut nullifier_storage_account = verified_accounts.nullifier_storage_account.unwrap();
 
     // 1. verify unique nullifier hash
-
-    // TODO
     // TODO what to do when people die?
+
+    let nulllifier_storage = WorldIdNullifiers::from_verified_account_mut(&mut nullifier_storage_account);
+    nulllifier_storage.insert(&nullifier_hash).expect("nullifier hash to be unique");
 
     // 2. cpi to world id program
     const APP_ID: &str = "comptoken";

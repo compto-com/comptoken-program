@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 bs58 = "0.5.1"
 comptoken-utils = { version = "0.1.0", path = "../comptoken-utils" }
+ethnum = "1.5.0"
 solana-program = { workspace = true }
 spl-token-2022 = { workspace = true }
 spl-transfer-hook-interface = { workspace = true }

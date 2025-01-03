@@ -5,6 +5,7 @@ mod verify_accounts;
 
 extern crate bs58;
 
+use ethnum::u256;
 use spl_token_2022::{
     extension::StateWithExtensions,
     instruction::mint_to,
@@ -13,9 +14,9 @@ use spl_token_2022::{
         account_info::AccountInfo,
         entrypoint,
         entrypoint::MAX_PERMITTED_DATA_INCREASE,
-        hash::{self, Hash, HASH_BYTES},
+        hash::{Hash, HASH_BYTES},
         instruction::{AccountMeta, Instruction},
-        msg,
+        keccak, msg,
         program::set_return_data,
         program_error::ProgramError,
         pubkey::Pubkey,
@@ -651,7 +652,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     //      32 bytes - nullifier hash
     //      256 bytes - proof
     const PROOF_BYTES: usize = 256;
-    const VERIFICATION_TYPE: [u8; 1] = [0_u8]; // 0 for query-based verification (maybe?)
+    const VERIFICATION_TYPE: [u8; 1] = [1_u8]; // 1 for orb-based verification (maybe?)
 
     let (rent_lamports, instruction_data) =
         get_next_data(instruction_data, 8, |d| u64::from_le_bytes(d.try_into().unwrap()));
@@ -709,17 +710,18 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     create_pda(&payer, &world_id_nullifier, rent_lamports, 0, program_id, &[&[b"Nullifier", nullifier_hash.as_ref()]])?;
 
     // 2. cpi to world id program
-    const APP_ID: &str = "comptoken";
-    const ACTION: &str = "COMPTO";
+    const APP_ID: &str = "app_staging_082a77541e48a778bd9a6c60e80af065"; // Compto_test
+    const ACTION: &str = "test";
     let external_nullifier_hash = app_id_to_external_nullifier_hash(APP_ID, ACTION); // TODO: make this a constant
     let signal_bytes = user_wallet.key.to_bytes();
     let signal_hash = hash_to_field(&signal_bytes);
 
-    let mut world_id_cpi_data = Vec::with_capacity(385);
+    let mut world_id_cpi_data = Vec::with_capacity(393);
     world_id_cpi_data.extend_from_slice(&[54, 190, 59, 14, 54, 75, 155, 6]); // discriminator https://github.com/wormholelabs-xyz/solana-world-id-onchain-template/blob/main/idls/solana_world_id_program.ts#L801-L808
     world_id_cpi_data.extend_from_slice(root_hash.as_ref());
     world_id_cpi_data.extend_from_slice(&VERIFICATION_TYPE);
     world_id_cpi_data.extend_from_slice(&signal_hash);
+    world_id_cpi_data.extend_from_slice(nullifier_hash.as_ref());
     world_id_cpi_data.extend_from_slice(&external_nullifier_hash);
     world_id_cpi_data.extend_from_slice(proof);
 
@@ -832,10 +834,10 @@ fn store_hash(proof: ComptokenProof, data_account: &VerifiedAccountInfo) {
 }
 
 fn hash_to_field(val: &[u8]) -> [u8; 32] {
-    let mut hash_result = hash::hash(val).to_bytes();
-    hash_result[0] = 0;
-    hash_result.rotate_right(1);
-    hash_result
+    let hash_result = keccak::hash(val).to_bytes();
+    let big_int = u256::from_be_bytes(hash_result);
+    let shifted: u256 = big_int >> 8;
+    shifted.to_be_bytes()
 }
 
 fn app_id_to_external_nullifier_hash(app_id: &str, action: &str) -> [u8; 32] {

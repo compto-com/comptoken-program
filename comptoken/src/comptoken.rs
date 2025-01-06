@@ -646,12 +646,15 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     //      [] extra account metas account
     //      [] Solana Token 2022 Program
     // data:
+    //      8 bytes - rent lamports
     //      32 bytes - root hash
     //      32 bytes - nullifier hash
     //      256 bytes - proof
     const PROOF_BYTES: usize = 256;
     const VERIFICATION_TYPE: [u8; 1] = [0_u8]; // 0 for query-based verification (maybe?)
 
+    let (rent_lamports, instruction_data) =
+        get_next_data(instruction_data, 8, |d| u64::from_le_bytes(d.try_into().unwrap()));
     let (root_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, Hash::new);
     let (nullifier_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, Hash::new);
     let (proof, instruction_data) = get_next_data(instruction_data, PROOF_BYTES, |d| d);
@@ -702,8 +705,8 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     // 1. verify unique nullifier hash
     // TODO what to do when people die?
 
-    const MINIMUM_RENT: u64 = 890880; // minimum balance for 0-sized account TODO: should this be calculated? (can it change?)
-    create_pda(&payer, &world_id_nullifier, MINIMUM_RENT, 0, program_id, &[&[b"Nullifier", nullifier_hash.as_ref()]])?;
+    // pda creation will fail if the nullifier hash has already been used
+    create_pda(&payer, &world_id_nullifier, rent_lamports, 0, program_id, &[&[b"Nullifier", nullifier_hash.as_ref()]])?;
 
     // 2. cpi to world id program
     const APP_ID: &str = "comptoken";
@@ -730,6 +733,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
         data: world_id_cpi_data,
     };
 
+    // If the cpi fails, the program will fail, which will prevent the user from being verified, and not create the nullifier pda
     invoke_verified(
         &world_id_cpi_instruction,
         &[&world_id_program, &world_id_root, &world_id_latest_root, &world_id_config],

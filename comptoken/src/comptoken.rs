@@ -655,11 +655,11 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     const VERIFICATION_TYPE: [u8; 1] = [1_u8]; // 1 for orb-based verification (maybe?)
 
     let (rent_lamports, instruction_data) =
-        get_next_data(instruction_data, 8, |d| u64::from_le_bytes(d.try_into().unwrap()));
+        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
     let (root_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, Hash::new);
     let (nullifier_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, Hash::new);
-    let (proof, instruction_data) = get_next_data(instruction_data, PROOF_BYTES, |d| d);
-    assert!(instruction_data.is_empty(), "instruction data is not empty");
+    let (proof, instruction_data) = get_next_data(instruction_data, PROOF_BYTES, |b| b);
+    assert!(instruction_data.is_empty(), "incorrect instruction data");
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -710,8 +710,12 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     create_pda(&payer, &world_id_nullifier, rent_lamports, 0, program_id, &[&[b"Nullifier", nullifier_hash.as_ref()]])?;
 
     // 2. cpi to world id program
-    const APP_ID: &str = "app_staging_082a77541e48a778bd9a6c60e80af065"; // Compto_test
-    const ACTION: &str = "test";
+
+    // self hosted apps don't have an app registered with the world id program, so they don't have an app id
+    // instead they use a globally unique action to differentiate between different types of verifications
+    // the suggested way to do this is to prefix the action with the program/app name
+    const APP_ID: &str = "self_hosted";
+    const ACTION: &str = "COMPTO-test"; // TODO: update this to the actual action
     let external_nullifier_hash = app_id_to_external_nullifier_hash(APP_ID, ACTION); // TODO: make this a constant
     let signal_bytes = user_wallet.key.to_bytes();
     let signal_hash = hash_to_field(&signal_bytes);
@@ -848,6 +852,7 @@ fn app_id_to_external_nullifier_hash(app_id: &str, action: &str) -> [u8; 32] {
 }
 
 fn get_next_data<'a, T>(data: &'a [u8], size: usize, converter: impl FnOnce(&'a [u8]) -> T) -> (T, &[u8]) {
+    assert!(data.len() >= size, "not enough data");
     let (data, rest) = data.split_at(size);
     (converter(data), rest)
 }

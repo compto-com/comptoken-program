@@ -646,12 +646,15 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     //      [] extra account metas account
     //      [] Solana Token 2022 Program
     // data:
+    //      8 bytes - rent lamports
     //      32 bytes - root hash
     //      32 bytes - nullifier hash
     //      256 bytes - proof
     const PROOF_BYTES: usize = 256;
     const VERIFICATION_TYPE: [u8; 1] = [0_u8]; // 0 for query-based verification (maybe?)
 
+    let (rent_lamports, instruction_data) =
+        get_next_data(instruction_data, 8, |d| u64::from_le_bytes(d.try_into().unwrap()));
     let (root_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, Hash::new);
     let (nullifier_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, Hash::new);
     let (proof, instruction_data) = get_next_data(instruction_data, PROOF_BYTES, |d| d);
@@ -661,6 +664,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
         accounts,
         program_id,
         AccountsToVerify {
+            payer: Some((true, true)),
             comptoken_program: Some((false, false)),
             comptoken_mint: Some((false, false)),
             global_data: Some((false, true)),
@@ -681,6 +685,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
         },
     )?;
 
+    let payer = verified_accounts.payer.unwrap();
     let comptoken_program = verified_accounts.comptoken_program.unwrap();
     let comptoken_mint = verified_accounts.comptoken_mint.unwrap();
     let global_data_account = verified_accounts.global_data.unwrap();
@@ -698,9 +703,10 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     let world_id_nullifier = verified_accounts.world_id_nullifier.unwrap();
 
     // 1. verify unique nullifier hash
-
-    // TODO
     // TODO what to do when people die?
+
+    // pda creation will fail if the nullifier hash has already been used
+    create_pda(&payer, &world_id_nullifier, rent_lamports, 0, program_id, &[&[b"Nullifier", nullifier_hash.as_ref()]])?;
 
     // 2. cpi to world id program
     const APP_ID: &str = "comptoken";
@@ -727,6 +733,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
         data: world_id_cpi_data,
     };
 
+    // If the cpi fails, the program will fail, which will prevent the user from being verified, and not create the nullifier pda
     invoke_verified(
         &world_id_cpi_instruction,
         &[&world_id_program, &world_id_root, &world_id_latest_root, &world_id_config],

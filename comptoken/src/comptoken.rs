@@ -635,16 +635,22 @@ pub fn realloc_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instruct
 
 pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  Account Order
+    //      [s, w] Payer Account
     //      [] Comptoken Program
     //      [] Comptoken Mint
     //      [w] Comptoken Global Data (also mint authority)
     //      [w] Comptoken Future UBI Bank
-    //      [] Comptoken Future UBI Bank Data
+    //      [] Comptoken Future UBI Bank Data PDA
     //      [s] User Solana Wallet
     //      [w] User's Comptoken Token Account
     //      [w] User's Data
-    //      [] transfer hook program
-    //      [] extra account metas account
+    //      [] Transfer Hook Program
+    //      [] Extra Account Metas Account
+    //      [] World ID Program
+    //      [] World ID Root
+    //      [] World ID Latest Root
+    //      [] World ID Config
+    //      [] World ID Nullifier
     //      [] Solana Token 2022 Program
     // data:
     //      8 bytes - rent lamports

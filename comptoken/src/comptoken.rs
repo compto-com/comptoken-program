@@ -102,8 +102,8 @@ pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data
     //      [s] User Wallet
     //      [] User Comptoken Token Account
     //      [] Solana Token 2022
-
-    msg!("instruction_data: {:?}", instruction_data);
+    //  data:
+    //      8 bytes - amount
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -122,7 +122,9 @@ pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data
     let global_data_account = verified_accounts.global_data.unwrap();
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
 
-    let amount = u64::from_le_bytes(instruction_data[0..8].try_into().expect("correct size"));
+    let (amount, instruction_data) =
+        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+    assert!(instruction_data.is_empty(), "incorrect instruction data");
 
     mint(
         &global_data_account,
@@ -170,17 +172,15 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
     let user_data_account = verified_accounts.user_data.unwrap();
 
-    assert!(
-        instruction_data.len() == ComptokenProof::SUBMITTED_DATA_SIZE,
-        "comptoken proof data must be {} bytes",
-        ComptokenProof::SUBMITTED_DATA_SIZE
-    );
+    let (submitted_proof, instruction_data) =
+        get_next_data(instruction_data, ComptokenProof::SUBMITTED_DATA_SIZE, |b| b.try_into().expect("correct size"));
+    assert!(instruction_data.is_empty(), "incorrect instruction data");
 
     let global_data: &mut GlobalData = (&global_data_account).into();
 
     let proof = ComptokenProof::verify_submitted_proof(
         &user_comptoken_token_account,
-        instruction_data.try_into().expect("correct size"),
+        submitted_proof,
         &global_data.valid_blockhashes,
     );
 
@@ -372,7 +372,10 @@ pub fn create_user_data_account(
     let (space, instruction_data) =
         get_next_data(instruction_data, 8, |b| usize::from_le_bytes(b.try_into().expect("correct size")));
     assert!(instruction_data.is_empty(), "incorrect instruction data");
+<<<<<<< HEAD
 
+=======
+>>>>>>> 631d809 (improve handling of instruction data)
     msg!("space: {}", space);
     assert!(space >= USER_DATA_MIN_SIZE);
     assert!((space - USER_DATA_MIN_SIZE) % HASH_BYTES == 0);

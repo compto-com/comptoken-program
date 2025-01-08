@@ -92,14 +92,14 @@ impl ComptokenProof {
         valid_blockhashes: &ValidBlockhashes,
     ) -> Self {
         let proof = ComptokenProof::from_bytes(data, valid_blockhashes);
-        proof.verify_proof(valid_blockhashes, comptoken_wallet);
+        assert!(proof.verify_proof(valid_blockhashes, comptoken_wallet), "invalid proof");
         proof
     }
 
-    fn verify_proof(&self, valid_blockhashes: &ValidBlockhashes, comptoken_wallet: &VerifiedAccountInfo) {
-        assert!(ComptokenProof::is_hash_lower_than_target(&self.hash));
-        assert!(!valid_blockhashes.is_valid_blockhash_stale());
-        assert_eq!(comptoken_wallet.key, &self.pubkey);
+    fn verify_proof(&self, valid_blockhashes: &ValidBlockhashes, comptoken_wallet: &VerifiedAccountInfo) -> bool {
+        ComptokenProof::is_hash_lower_than_target(&self.hash)
+            && !valid_blockhashes.is_valid_blockhash_stale()
+            && comptoken_wallet.key == &self.pubkey
     }
 }
 

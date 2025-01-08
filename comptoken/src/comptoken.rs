@@ -31,7 +31,7 @@ use comptoken_utils::{
     SEC_PER_DAY,
 };
 
-use comptoken_proof::ComptokenProof;
+use comptoken_proof::{ComptokenProof, PROOF_DATA_SIZE};
 use constants::*;
 use global_data::{daily_distribution_data::DailyDistributionValues, GlobalData};
 use verify_accounts::*;
@@ -104,8 +104,8 @@ pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data
     //      [s] User Wallet
     //      [] User Comptoken Token Account
     //      [] Solana Token 2022
-
-    msg!("instruction_data: {:?}", instruction_data);
+    //  data:
+    //      8 bytes - amount
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -124,7 +124,9 @@ pub fn test_mint(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data
     let global_data_account = verified_accounts.global_data.unwrap();
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
 
-    let amount = u64::from_le_bytes(instruction_data[0..8].try_into().expect("correct size"));
+    let (amount, instruction_data) =
+        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+    assert!(instruction_data.is_empty(), "incorrect instruction data");
 
     mint(
         &global_data_account,
@@ -148,6 +150,11 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     //      [w] User's Comptoken Token Account
     //      [w] User's Data Account
     //      [] Solana Token 2022 Program
+    //  data:
+    //      72 bytes - submitted proof
+    //          32 bytes - recent block hash
+    //          8 bytes - lamports
+    //          32 bytes - nonce
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -167,10 +174,14 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
     let user_data_account = verified_accounts.user_data.unwrap();
 
+    let (submitted_proof, instruction_data) =
+        get_next_data(instruction_data, PROOF_DATA_SIZE, |b| b.try_into().expect("correct size"));
+    assert!(instruction_data.is_empty(), "incorrect instruction data");
+
     let global_data: &mut GlobalData = (&global_data_account).into();
     let proof = ComptokenProof::verify_submitted_proof(
         &user_comptoken_token_account,
-        instruction_data,
+        submitted_proof,
         &global_data.valid_blockhashes,
     );
 
@@ -204,8 +215,11 @@ pub fn initialize_comptoken_program(
     //      [] Solana Program
     //      [] Solana Token 2022 Program
     //      [] Solana SlotHashes Sysvar
-
-    msg!("instruction_data: {:?}", instruction_data);
+    //  data:
+    //      8 bytes - lamports for global data
+    //      8 bytes - lamports for interest bank
+    //      8 bytes - lamports for verified human ubi bank
+    //      8 bytes - lamports for future ubi bank
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -236,11 +250,16 @@ pub fn initialize_comptoken_program(
     let solana_program = verified_accounts.solana_program.unwrap();
     let slothashes_account = verified_accounts.slothashes.unwrap();
 
-    let first_8_bytes: [u8; 8] = instruction_data[0..8].try_into().unwrap();
-    let lamports_global_data = u64::from_le_bytes(first_8_bytes);
-    let lamports_interest_bank = u64::from_le_bytes(instruction_data[8..16].try_into().unwrap());
-    let lamports_verified_human_ubi_bank = u64::from_le_bytes(instruction_data[16..24].try_into().unwrap());
-    let lamports_future_ubi_bank = u64::from_le_bytes(instruction_data[24..32].try_into().unwrap());
+    let (lamports_global_data, instruction_data) =
+        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+    let (lamports_interest_bank, instruction_data) =
+        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+    let (lamports_verified_human_ubi_bank, instruction_data) =
+        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+    let (lamports_future_ubi_bank, instruction_data) =
+        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+    assert!(instruction_data.is_empty(), "incorrect instruction data");
+
     msg!("Lamports global data: {:?}", lamports_global_data);
     msg!("Lamports interest bank: {:?}", lamports_interest_bank);
     msg!("Lamports verified human ubi bank: {:?}", lamports_verified_human_ubi_bank);
@@ -326,6 +345,9 @@ pub fn create_user_data_account(
     //      [] User's Comptoken Token Account
     //      [w] User's Data Account
     //      [] Solana Program
+    //  data:
+    //      8 bytes - rent lamports
+    //      8 bytes - space
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -346,8 +368,11 @@ pub fn create_user_data_account(
     let bump = verified_accounts.user_data_bump.unwrap();
 
     // find space and minimum rent required for account
-    let rent_lamports = u64::from_le_bytes(instruction_data[0..8].try_into().expect("correct size"));
-    let space = usize::from_le_bytes(instruction_data[8..16].try_into().expect("correct size"));
+    let (rent_lamports, instruction_data) =
+        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+    let (space, instruction_data) =
+        get_next_data(instruction_data, 8, |b| usize::from_le_bytes(b.try_into().expect("correct size")));
+    assert!(instruction_data.is_empty(), "incorrect instruction data");
     msg!("space: {}", space);
     assert!(space >= USER_DATA_MIN_SIZE);
     assert!((space - USER_DATA_MIN_SIZE) % HASH_BYTES == 0);
@@ -369,7 +394,7 @@ pub fn create_user_data_account(
 }
 
 pub fn daily_distribution_event(
-    program_id: &Pubkey, accounts: &[AccountInfo], _instruction_data: &[u8],
+    program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8],
 ) -> ProgramResult {
     //  accounts order:
     //      [] Comptoken Mint
@@ -380,6 +405,8 @@ pub fn daily_distribution_event(
     //      [] Solana Token 2022 Program
     //      [] Solana SlotHashes Sysvar
     //      [w] Comptoken Future UBI Bank
+    //  data:
+    //      None
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -402,6 +429,8 @@ pub fn daily_distribution_event(
     let unpaid_verified_human_ubi_bank_account = verified_accounts.verified_human_ubi_bank.unwrap();
     let unpaid_future_ubi_bank_account = verified_accounts.future_ubi_bank.unwrap();
     let slothashes_account = verified_accounts.slothashes.unwrap();
+
+    assert!(instruction_data.is_empty(), "incorrect instruction data");
 
     let daily_distribution: DailyDistributionValues;
     // scope to prevent reborrowing issues
@@ -446,10 +475,12 @@ pub fn daily_distribution_event(
     )
 }
 
-pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_data: &[u8]) -> ProgramResult {
+pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
     //      [w] Comptoken Global Data (also mint authority)
     //      [] Solana SlotHashes Sysvar
+    //  data:
+    //      None
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -464,6 +495,8 @@ pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], _ins
     let global_data_account = verified_accounts.global_data.unwrap();
     let slothashes_account = verified_accounts.slothashes.unwrap();
 
+    assert!(instruction_data.is_empty(), "incorrect instruction data");
+
     let global_data: &mut GlobalData = (&global_data_account).into();
     let valid_blockhashes = &mut global_data.valid_blockhashes;
 
@@ -475,7 +508,7 @@ pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], _ins
     Ok(())
 }
 
-pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_data: &[u8]) -> ProgramResult {
+pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
     //      [] Comptoken Program
     //      [] Comptoken Mint
@@ -490,6 +523,8 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
     //      [] Transfer Hook Program
     //      [] Extra Account Metas Account
     //      [] Solana Token 2022 Program
+    //  data:
+    //      None
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -523,6 +558,8 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
     let user_data_account = verified_accounts.user_data.unwrap();
     let transfer_hook_program = verified_accounts.transfer_hook_program.unwrap();
     let extra_account_metas_account = verified_accounts.extra_account_metas.unwrap();
+
+    assert!(instruction_data.is_empty(), "incorrect instruction data");
 
     let interest;
     let is_verified_human;
@@ -606,6 +643,9 @@ pub fn realloc_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instruct
     //      [] User's Comptoken Token Account
     //      [w] User's Data
     //      [] Solana Program
+    //  data:
+    //      8 bytes - rent lamports
+    //      8 bytes - new size
 
     let verified_accounts = verify_accounts(
         accounts,
@@ -625,8 +665,11 @@ pub fn realloc_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instruct
     let system_program = verified_accounts.solana_program.unwrap();
 
     // find space and minimum rent required for account
-    let rent_lamports = u64::from_le_bytes(instruction_data[0..8].try_into().expect("correct size"));
-    let new_size = usize::from_le_bytes(instruction_data[8..16].try_into().expect("correct size"));
+    let (rent_lamports, instruction_data) =
+        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+    let (new_size, instruction_data) =
+        get_next_data(instruction_data, 8, |b| usize::from_le_bytes(b.try_into().expect("correct size")));
+    assert!(instruction_data.is_empty(), "incorrect instruction data");
 
     // SAFETY: user_data_account is passed in from the runtime and is guaranteed to uphold the invariants original_data_len() and realloc assumes
     assert!(new_size <= unsafe { user_data_account.original_data_len() } + MAX_PERMITTED_DATA_INCREASE);

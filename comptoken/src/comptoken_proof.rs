@@ -12,7 +12,7 @@ use crate::global_data::valid_blockhashes::ValidBlockhashes;
 // ensure this remains consistent with comptoken_proof.js
 const MIN_NUM_ZEROED_BITS: u32 = 3; // TODO: replace with permanent value
 
-pub const VERIFY_DATA_SIZE: usize = HASH_BYTES + mem::size_of::<u64>() + HASH_BYTES;
+pub const PROOF_DATA_SIZE: usize = HASH_BYTES + mem::size_of::<u64>() + HASH_BYTES;
 
 // Ensure changes to this struct remain consistent with comptoken_proof.js
 #[derive(Debug)]
@@ -24,7 +24,7 @@ pub struct ComptokenProof<'a> {
 }
 
 impl<'a> ComptokenProof<'a> {
-    pub fn from_bytes(key: &'a Pubkey, bytes: &[u8; VERIFY_DATA_SIZE]) -> Self {
+    pub fn from_bytes(key: &'a Pubkey, bytes: &[u8; PROOF_DATA_SIZE]) -> Self {
         // ensure this remains consistent with comptoken_proof.js
         let range_1 = 0..HASH_BYTES;
         let range_2 = range_1.end..range_1.end + mem::size_of::<u64>();
@@ -65,9 +65,9 @@ impl<'a> ComptokenProof<'a> {
     }
 
     pub fn verify_submitted_proof(
-        comptoken_wallet: &'a VerifiedAccountInfo, data: &[u8], valid_blockhashes: &ValidBlockhashes,
+        comptoken_wallet: &'a VerifiedAccountInfo, data: &[u8; PROOF_DATA_SIZE], valid_blockhashes: &ValidBlockhashes,
     ) -> Self {
-        let proof = ComptokenProof::from_bytes(comptoken_wallet.key, data.try_into().expect("valid proof size"));
+        let proof = ComptokenProof::from_bytes(comptoken_wallet.key, data);
         assert!(proof.verify_proof(valid_blockhashes), "invalid proof");
         proof
     }
@@ -111,12 +111,12 @@ mod test {
 
     #[test]
     fn test_from_bytes() {
-        assert_eq!(ComptokenProof::from_bytes(&ZERO_PUBKEY, &[0; VERIFY_DATA_SIZE]).hash, [0; 32].into());
+        assert_eq!(ComptokenProof::from_bytes(&ZERO_PUBKEY, &[0; PROOF_DATA_SIZE]).hash, [0; 32].into());
 
         let recent_hash = Hash::new_from_array([1; 32]);
         let pubkey = Pubkey::new_from_array([2; PUBKEY_BYTES]);
         let nonce: u64 = 0x03030303_03030303;
-        let mut v = Vec::<u8>::with_capacity(VERIFY_DATA_SIZE);
+        let mut v = Vec::<u8>::with_capacity(PROOF_DATA_SIZE);
         let mut hasher = Hasher::default();
 
         hasher.hash(&pubkey.to_bytes());

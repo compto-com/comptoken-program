@@ -223,7 +223,7 @@ pub struct VerifiedAccounts<'a> {
     pub world_id_config: Option<VerifiedAccountInfo<'a>>,
     pub world_id_nullifier: Option<VerifiedAccountInfo<'a>>,
     pub solana_program: Option<VerifiedAccountInfo<'a>>,
-    pub solana_token_2022_program: Option<VerifiedAccountInfo<'a>>,
+    pub _solana_token_2022_program: Option<VerifiedAccountInfo<'a>>,
     pub slothashes: Option<VerifiedAccountInfo<'a>>,
 }
 
@@ -384,7 +384,7 @@ pub fn verify_accounts<'a>(
         world_id_config,
         world_id_nullifier,
         solana_program,
-        solana_token_2022_program,
+        _solana_token_2022_program: solana_token_2022_program,
         slothashes,
     })
 }

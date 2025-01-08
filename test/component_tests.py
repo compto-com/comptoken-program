@@ -100,6 +100,7 @@ if __name__ == "__main__":
         "comptoken-tests/proofSubmission",
         "comptoken-tests/getValidBlockhashes",
         "comptoken-tests/getOwedComptokens",
+        "comptoken-tests/getOwedUbiComptokens",
         "comptoken-tests/earlyDailyDistributionEvent",
         "comptoken-tests/dailyDistributionEvent",
         "comptoken-tests/dailyDistributionTests",

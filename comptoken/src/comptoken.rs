@@ -516,7 +516,9 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
     let comptoken_mint_account = verified_accounts.comptoken_mint.unwrap();
     let global_data_account = verified_accounts.global_data.unwrap();
     let unpaid_interest_bank = verified_accounts.interest_bank.unwrap();
-    let interest_data_pda = verified_accounts.interest_bank_data.unwrap();
+    let unpaid_interest_bank_data_pda = verified_accounts.interest_bank_data.unwrap();
+    let unpaid_verified_human_ubi_bank = verified_accounts.verified_human_ubi_bank.unwrap();
+    let unpaid_verified_human_ubi_bank_data_pda = verified_accounts.verified_human_ubi_bank_data.unwrap();
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
     let user_data_account = verified_accounts.user_data.unwrap();
     let transfer_hook_program = verified_accounts.transfer_hook_program.unwrap();
@@ -539,10 +541,12 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
         msg!("total before interest: {}", user_comptoken_wallet.base.amount);
         // get interest and ubi
         if is_verified_human {
+            msg!("verified human");
             (interest, ubi) = global_data
                 .daily_distribution_data
                 .get_distributions_for_n_days(days_since_last_update as usize, user_comptoken_wallet.base.amount);
         } else {
+            msg!("not verified human");
             interest = global_data
                 .daily_distribution_data
                 .get_interest_for_n_days(days_since_last_update as usize, user_comptoken_wallet.base.amount);
@@ -564,15 +568,17 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
                 &transfer_hook_program,
                 &comptoken_program,
                 &user_data_account,
-                &interest_data_pda,
+                &unpaid_interest_bank_data_pda,
             ],
             interest,
         )?;
     }
+    msg!("interest transferred");
+
     // get ubi if verified
     if is_verified_human && ubi > 0 {
         transfer(
-            &unpaid_interest_bank,
+            &unpaid_verified_human_ubi_bank,
             &user_comptoken_token_account,
             &comptoken_mint_account,
             &global_data_account,
@@ -581,10 +587,13 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], _instr
                 &transfer_hook_program,
                 &comptoken_program,
                 &user_data_account,
-                &interest_data_pda,
+                &unpaid_verified_human_ubi_bank_data_pda,
             ],
             ubi,
         )?;
+        msg!("ubi transferred");
+    } else {
+        msg!("user not verified human, skipping ubi transfer");
     }
 
     Ok(())

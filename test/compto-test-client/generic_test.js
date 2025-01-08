@@ -97,7 +97,7 @@ export class DaysParameters {
     /**
      * @param {string} name 
      * @param {ProgramTestContext} context 
-     * @returns {ProgramTestContext}
+     * @returns {Promise<ProgramTestContext>}
      */
     async run_test(name, context, test_number) {
         name = format("run %s multiday test %d (day %d)", name, test_number, this.day);
@@ -239,7 +239,7 @@ export class YesterdaysAccounts {
  * @param {boolean} should_fail
  * @param {boolean} args
  * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => null} assert_fn 
- * @returns {ProgramTestContext}
+ * @returns {Promise<ProgramTestContext>}
  */
 export async function run_test(name, context, instructions, signers, should_fail, assert_fn) {
     print("test " + name);
@@ -388,7 +388,7 @@ function float_equals(a, b) {
 /**
  * @param {Account[]} existing_accounts 
  * @param {Clock} clock
- * @returns {ProgramTestContext}
+ * @returns {Promise<ProgramTestContext>}
  */
 export async function setup_test(existing_accounts, clock = new Clock(0n, 0n, 0n, 0n, DEFAULT_START_TIME)) {
     let context = await start(

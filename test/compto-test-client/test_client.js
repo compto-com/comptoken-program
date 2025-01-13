@@ -42,7 +42,7 @@ console.log("comptoken mint: " + compto_public_keys.comptoken_mint_pubkey);
 console.log("compto program id: " + compto_public_keys.compto_program_id_pubkey);
 console.log("global data account: " + compto_public_keys.global_data_account_pubkey);
 
-let connection = new Connection('http://localhost:8899', 'recent');
+let connection = new Connection('http://localhost:8899', 'confirmed');
 
 (async () => {
     await airdrop(compto_public_keys.test_account.publicKey);
@@ -114,7 +114,7 @@ async function createUserDataAccount() {
     createUserDataAccountTransaction.add(
         await createCreateUserDataAccountInstruction(
             connection,
-            88,
+            100,
             compto_public_keys.test_account.publicKey,
             compto_public_keys.test_account.publicKey,
             testuser_pubkey,

@@ -1,5 +1,7 @@
+import argparse
 import json
 import os
+import platform
 import signal
 import subprocess
 from argparse import ArgumentParser
@@ -97,8 +99,11 @@ class PDA(dict[str, Any]):
 def createDirIfNotExists(path: str | Path):
     run(f"[ -d {path} ] || mkdir {path} ")
 
-import argparse
+def is_running_on_wsl():
+    return 'microsoft-standard' in platform.release()
 
+def is_windows_subdirectory_in_wsl(path: Path) -> bool:
+    return is_running_on_wsl() and str(path.absolute()).startswith("/mnt/")
 
 def generateDirectories(args: argparse.Namespace):
     createDirIfNotExists(CACHE_PATH)
@@ -282,6 +287,7 @@ def parseArgs():
     )
     parser.add_argument("--no-build", action="store_false", dest="build", help="skip building, implies --no-generate")
     parser.add_argument("--no-generate", action="store_false", dest="generate", help="skip generating files")
+    parser.add_argument("--manual-validator", action="store_true", help="use a manually started validator")
 
     args = parser.parse_args()
     if not args.build:

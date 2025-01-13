@@ -9,21 +9,26 @@ from common import *
 
 
 @contextmanager
-def createTestValidator():
+def createTestValidator(manual_validator: bool):
+    if manual_validator:
+        # If manual validator, we don't need to start a validator
+        # and we don't need to wait for it to be ready (since that's already been checked)
+        print("Manual Validator Mode, Skipping Validator Creation...")
+        yield None
+        return
+    
+    print("Creating Validator...")
     with BackgroundProcess(
         "solana-test-validator --reset",
         shell=True,
-        cwd=CACHE_PATH,
+        cwd='/tmp' if is_windows_subdirectory_in_wsl(CACHE_PATH) else CACHE_PATH, # solana-test-validator doesn't work in WSL if the path is in the Windows filesystem
         stdout=subprocess.DEVNULL,
         preexec_fn=os.setsid,
     ) as validator:
         waitTillValidatorReady(validator)
         yield validator
 
-def checkIfValidatorReady(validator: BackgroundProcess) -> bool:
-    if not validator.checkIfProcessRunning():
-        print("validator not running")
-        return False
+def checkIfValidatorReady() -> bool:
     try:
         run("solana ping -c 1")
         return True
@@ -34,7 +39,7 @@ def waitTillValidatorReady(validator: BackgroundProcess):
     print("Checking Validator Ready...")
     TIMEOUT = 10
     t1 = time()
-    while not checkIfValidatorReady(validator):
+    while not (validator.checkIfProcessRunning() and checkIfValidatorReady()):
         if t1 + TIMEOUT < time():
             print("Validator Timeout, Exiting...")
             exit(1)
@@ -94,23 +99,6 @@ def deployTransferHook():
 def getTokenAddress():
     return run(f"solana address -k {MINT_KEYPAIR}")
 
-#def checkSolanaConfig():
-#    result = run("solana config get")
-#    # Check rpc url from output like:
-#    #   ``` 
-#    #   Config File: /home/david/.config/solana/cli/config.yml
-#    #   RPC URL: https://api.devnet.solana.com 
-#    #   WebSocket URL: wss://api.devnet.solana.com/ (computed)
-#    #   Keypair Path: /home/david/.config/solana/id.json 
-#    #   Commitment: confirmed
-#    #   ```
-#    rpc_url_line = result.split("\n")[1]
-#    rpc_url = rpc_url_line.split(": ")[1].rstrip()
-#    localhost = ["http://localhost:8899", "http://127.0.0.1:8899"]
-#    if rpc_url not in localhost:
-#        print(f"Solana config not localhost. Changing Solana Config from {rpc_url} to {localhost[0]}")
-#        run(f"solana config set --url {localhost}")
-
 # ========================
 
 def runTestClient():
@@ -118,6 +106,14 @@ def runTestClient():
 
 if __name__ == "__main__":
     args = parseArgs()
+
+    if (args.manual_validator and not checkIfValidatorReady()):
+        print("Manual Validator flag set, but no validator is running. Exiting...")
+        exit(1)
+    if (not args.manual_validator and checkIfValidatorReady()):
+        print("Validator is already running, please stop the validator or set the manual_validator flag. Exiting...")
+        exit(1)
+        
     # create cache if it doesn't exist
     generateDirectories(args=argparse.Namespace(log_directory=None, verbose=0))
     print("Checking if Comptoken ProgramId exists...")
@@ -134,9 +130,10 @@ if __name__ == "__main__":
         createKeyPair(TRANSFER_HOOK_KEYPAIR)
         #run("cargo build-sbf", TRANSFER_HOOK_SRC_PATH)
         transferHookId = getAddress(TRANSFER_HOOK_KEYPAIR)
-    #checkSolanaConfig()
-    print("Creating Validator...")
-    with createTestValidator() as validator:
+
+    with createTestValidator(args.manual_validator) as validator:
+        # if in manual validator mode, validator is None
+
         print("Checking Compto Program for hardcoded Comptoken Address and static seed...")
 
         if args.generate:

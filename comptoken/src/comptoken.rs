@@ -372,10 +372,7 @@ pub fn create_user_data_account(
     let (space, instruction_data) =
         get_next_data(instruction_data, 8, |b| usize::from_le_bytes(b.try_into().expect("correct size")));
     assert!(instruction_data.is_empty(), "incorrect instruction data");
-<<<<<<< HEAD
 
-=======
->>>>>>> 631d809 (improve handling of instruction data)
     msg!("space: {}", space);
     assert!(space >= USER_DATA_MIN_SIZE);
     assert!((space - USER_DATA_MIN_SIZE) % HASH_BYTES == 0);

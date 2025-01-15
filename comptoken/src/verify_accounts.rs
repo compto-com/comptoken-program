@@ -98,7 +98,7 @@ pub fn verify_user_data_account<'a>(
 }
 
 pub fn verify_slothashes_account<'a>(account: &AccountInfo<'a>) -> VerifiedAccountInfo<'a> {
-    VerifiedAccountInfo::verify_sysvar::<solana_program::sysvar::slot_hashes::SlotHashes>(account)
+    VerifiedAccountInfo::verify_sysvar::<spl_token_2022::solana_program::sysvar::slot_hashes::SlotHashes>(account)
 }
 
 pub fn verify_extra_account_metas_account<'a>(

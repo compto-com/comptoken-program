@@ -1,6 +1,6 @@
-use solana_program::msg;
 use spl_token_2022::solana_program::{
     hash::{hashv, Hash},
+    msg,
     pubkey::Pubkey,
 };
 

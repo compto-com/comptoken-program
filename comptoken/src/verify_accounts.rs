@@ -1,4 +1,3 @@
-use solana_program::msg;
 use spl_token_2022::{
     extension::StateWithExtensions,
     solana_program::{
@@ -75,13 +74,8 @@ pub fn verify_future_ubi_bank_account<'a>(
 pub fn verify_user_comptoken_token_account<'a>(
     account: &AccountInfo<'a>, wallet_owner: &VerifiedAccountInfo<'a>, needs_writable: bool,
 ) -> VerifiedAccountInfo<'a> {
-    // msg!("account.owner: {:?}", account.owner);
-    // msg!("account.key: {:?}", account.key);
     let account_data = &account.data.borrow();
-    // msg!("account_data: {:?}", account_data);
     let wallet = StateWithExtensions::<Account>::unpack(account_data).expect("valid account state");
-    // msg!("wallet.base.owner: {:?}", wallet.base.owner);
-    // msg!("wallet_owner.key: {:?}", wallet_owner.key);
     assert!(*wallet_owner.key == wallet.base.owner);
     assert_eq!(wallet.base.mint, COMPTOKEN_MINT_ADDRESS);
     VerifiedAccountInfo::verify_account_signer_or_writable(account, false, needs_writable)
@@ -104,7 +98,7 @@ pub fn verify_user_data_account<'a>(
 }
 
 pub fn verify_slothashes_account<'a>(account: &AccountInfo<'a>) -> VerifiedAccountInfo<'a> {
-    VerifiedAccountInfo::verify_sysvar::<solana_program::sysvar::slot_hashes::SlotHashes>(account)
+    VerifiedAccountInfo::verify_sysvar::<spl_token_2022::solana_program::sysvar::slot_hashes::SlotHashes>(account)
 }
 
 pub fn verify_extra_account_metas_account<'a>(

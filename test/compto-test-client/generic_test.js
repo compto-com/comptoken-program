@@ -1,35 +1,30 @@
 import { format } from "node:util";
 
+import {
+    GlobalData,
+    GlobalDataAccount,
+    SEC_PER_DAY,
+    TokenAccount,
+} from "@compto/comptoken.js";
 import { Keypair, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BanksTransactionResultWithMeta, Clock, ProgramTestContext, start } from "solana-bankrun";
 
 import {
-    Account,
     get_default_comptoken_mint,
     get_default_global_data,
     get_default_unpaid_future_ubi_bank,
     get_default_unpaid_interest_bank,
     get_default_unpaid_verified_human_ubi_bank,
-    GlobalData,
-    GlobalDataAccount,
-    MintAccount,
-    TokenAccount,
+    MintAccount
 } from "./accounts.js";
 import { Assert, AssertionError } from "./assert.js";
 import {
-    compto_program_id_pubkey,
-    compto_transfer_hook_id_pubkey,
+    compto_public_keys,
     COMPTOKEN_DISTRIBUTION_MULTIPLIER,
-    comptoken_mint_pubkey,
     DEFAULT_ANNOUNCE_TIME,
     DEFAULT_DISTRIBUTION_TIME,
     DEFAULT_START_TIME,
-    future_ubi_bank_account_pubkey,
     FUTURE_UBI_VERIFIED_HUMANS,
-    global_data_account_pubkey,
-    interest_bank_account_pubkey,
-    SEC_PER_DAY,
-    verified_human_ubi_bank_account_pubkey,
 } from "./common.js";
 import { debug, info, log, print } from "./parse_args.js";
 import { enumerate } from "./utils.js";
@@ -79,7 +74,7 @@ export class DaysParameters {
     /**
      * @param {string} name 
      * @param {ProgramTestContext} context 
-     * @returns {ProgramTestContext}
+     * @returns {Promise<ProgramTestContext>}
      */
     async setup_day(name, context, test_number) {
         let day = this.day;
@@ -97,7 +92,7 @@ export class DaysParameters {
     /**
      * @param {string} name 
      * @param {ProgramTestContext} context 
-     * @returns {ProgramTestContext}
+     * @returns {Promise<ProgramTestContext>}
      */
     async run_test(name, context, test_number) {
         name = format("run %s multiday test %d (day %d)", name, test_number, this.day);
@@ -162,7 +157,7 @@ export class Distribution {
     }
 
     async assertInterestDistribution(context, yesterdays_unpaid_interest_bank, interest_paid) {
-        const current_unpaid_interest_bank = await get_account(context, interest_bank_account_pubkey, TokenAccount);
+        const current_unpaid_interest_bank = await get_account(context, compto_public_keys.interest_bank_account_pubkey, TokenAccount);
         Assert.assertEqual(
             yesterdays_unpaid_interest_bank.data.amount + this.interest - BigInt(interest_paid),
             current_unpaid_interest_bank.data.amount,
@@ -171,7 +166,7 @@ export class Distribution {
     }
 
     async assertVerifiedHumanUBIDistribution(context, yesterdays_unpaid_verified_human_ubi_bank, verified_human_ubi_paid) {
-        const current_unpaid_verified_human_ubi_bank = await get_account(context, verified_human_ubi_bank_account_pubkey, TokenAccount);
+        const current_unpaid_verified_human_ubi_bank = await get_account(context, compto_public_keys.verified_human_ubi_bank_account_pubkey, TokenAccount);
         Assert.assertEqual(
             yesterdays_unpaid_verified_human_ubi_bank.data.amount + this.verified_human_ubi - verified_human_ubi_paid,
             current_unpaid_verified_human_ubi_bank.data.amount,
@@ -180,8 +175,8 @@ export class Distribution {
     }
 
     async assertFutureUBIDistribution(context, yesterdays_accounts) {
-        const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
-        const current_unpaid_future_ubi_bank = await get_account(context, future_ubi_bank_account_pubkey, TokenAccount);
+        const current_global_data_account = await get_account(context, compto_public_keys.global_data_account_pubkey, GlobalDataAccount);
+        const current_unpaid_future_ubi_bank = await get_account(context, compto_public_keys.future_ubi_bank_account_pubkey, TokenAccount);
 
         const current_verified_humans = current_global_data_account.data.dailyDistributionData.verifiedHumans;
         const yesterdays_verified_humans = yesterdays_accounts.global_data_account.data.dailyDistributionData.verifiedHumans;
@@ -222,11 +217,11 @@ export class YesterdaysAccounts {
 
     static async get_accounts(context) {
         return new YesterdaysAccounts(
-            await get_account(context, comptoken_mint_pubkey, MintAccount),
-            await get_account(context, global_data_account_pubkey, GlobalDataAccount),
-            await get_account(context, interest_bank_account_pubkey, TokenAccount),
-            await get_account(context, verified_human_ubi_bank_account_pubkey, TokenAccount),
-            await get_account(context, future_ubi_bank_account_pubkey, TokenAccount),
+            await get_account(context, compto_public_keys.comptoken_mint_pubkey, MintAccount),
+            await get_account(context, compto_public_keys.global_data_account_pubkey, GlobalDataAccount),
+            await get_account(context, compto_public_keys.interest_bank_account_pubkey, TokenAccount),
+            await get_account(context, compto_public_keys.verified_human_ubi_bank_account_pubkey, TokenAccount),
+            await get_account(context, compto_public_keys.future_ubi_bank_account_pubkey, TokenAccount),
         )
     }
 }
@@ -238,8 +233,8 @@ export class YesterdaysAccounts {
  * @param {Keypair[]} signers
  * @param {boolean} should_fail
  * @param {boolean} args
- * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => null} assert_fn 
- * @returns {ProgramTestContext}
+ * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => Promise<null>} assert_fn 
+ * @returns {Promise<ProgramTestContext>}
  */
 export async function run_test(name, context, instructions, signers, should_fail, assert_fn) {
     print("test " + name);
@@ -307,14 +302,14 @@ export async function generic_daily_distribution_assertions(context, result, yes
     interest_paid = BigInt(interest_paid);
     verified_human_ubi_paid = BigInt(verified_human_ubi_paid);
 
-    const current_comptoken_mint = await get_account(context, comptoken_mint_pubkey, MintAccount);
-    const current_global_data_account = await get_account(context, global_data_account_pubkey, GlobalDataAccount);
+    const current_comptoken_mint = await get_account(context, compto_public_keys.comptoken_mint_pubkey, MintAccount);
+    const current_global_data_account = await get_account(context, compto_public_keys.global_data_account_pubkey, GlobalDataAccount);
 
     const current_valid_blockhash = current_global_data_account.data.validBlockhashes;
     const yesterdays_valid_blockhash = yesterdays_accounts.global_data_account.data.validBlockhashes;
     Assert.assertEqual(
         current_valid_blockhash.announcedBlockhashTime,
-        DEFAULT_ANNOUNCE_TIME + (SEC_PER_DAY * day),
+        DEFAULT_ANNOUNCE_TIME + (BigInt(SEC_PER_DAY) * day),
         "the announced blockhash time has been updated"
     );
     Assert.assertNotEqual(
@@ -324,7 +319,7 @@ export async function generic_daily_distribution_assertions(context, result, yes
     ); // TODO: can the actual blockhash be predicted/gotten?
     Assert.assertEqual(
         current_valid_blockhash.validBlockhashTime,
-        DEFAULT_DISTRIBUTION_TIME + (SEC_PER_DAY * day),
+        DEFAULT_DISTRIBUTION_TIME + (BigInt(SEC_PER_DAY) * day),
         "the valid blockhash time has been updated"
     );
     Assert.assertNotEqual(current_valid_blockhash.validBlockhash, yesterdays_valid_blockhash.validBlockhash, "valid blockhash has changed");
@@ -332,7 +327,7 @@ export async function generic_daily_distribution_assertions(context, result, yes
     const current_daily_distribution_data = current_global_data_account.data.dailyDistributionData;
     Assert.assertEqual(
         current_daily_distribution_data.lastDailyDistributionTime,
-        DEFAULT_DISTRIBUTION_TIME + (SEC_PER_DAY * day),
+        DEFAULT_DISTRIBUTION_TIME + (BigInt(SEC_PER_DAY) * day),
         "last daily distribution time has updated"
     );
     Assert.assertEqual(
@@ -388,13 +383,13 @@ function float_equals(a, b) {
 /**
  * @param {Account[]} existing_accounts 
  * @param {Clock} clock
- * @returns {ProgramTestContext}
+ * @returns {Promise<ProgramTestContext>}
  */
 export async function setup_test(existing_accounts, clock = new Clock(0n, 0n, 0n, 0n, DEFAULT_START_TIME)) {
     let context = await start(
         [
-            { name: "comptoken", programId: compto_program_id_pubkey },
-            { name: "comptoken_transfer_hook", programId: compto_transfer_hook_id_pubkey },
+            { name: "comptoken", programId: compto_public_keys.compto_program_id_pubkey },
+            { name: "comptoken_transfer_hook", programId: compto_public_keys.compto_transfer_hook_id_pubkey },
         ],
         existing_accounts.map((account, i) => account.toAddedAccount()),
     );
@@ -422,7 +417,7 @@ export async function get_account(context, account_address, account_type) {
 function advance_to_day(context, new_day) {
     const SLOTS_PER_DAY = 216_000n; // roughly a days worth of slots
     const current_slot = SLOTS_PER_DAY * BigInt(new_day);
-    let new_clock = new Clock(current_slot, 0n, 0n, 0n, DEFAULT_START_TIME + (SEC_PER_DAY * BigInt(new_day)));
+    let new_clock = new Clock(current_slot, 0n, 0n, 0n, DEFAULT_START_TIME + (BigInt(SEC_PER_DAY) * new_day));
     context.setClock(new_clock);
     return context;
 }

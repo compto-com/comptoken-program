@@ -1,3 +1,5 @@
+import { createDailyDistributionEventInstruction } from "@compto/comptoken.js";
+
 import {
     get_default_comptoken_mint,
     get_default_global_data,
@@ -7,9 +9,8 @@ import {
     MintAccount,
 } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { comptoken_mint_pubkey } from "../common.js";
+import { compto_public_keys } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
-import { createDailyDistributionEventInstruction } from "../instruction.js";
 
 async function test_earlyDailyDistributionEvent() {
     let original_comptoken_mint = get_default_comptoken_mint();
@@ -21,7 +22,7 @@ async function test_earlyDailyDistributionEvent() {
 
     let context = await setup_test(existing_accounts);
 
-    let instructions = [await createDailyDistributionEventInstruction()];
+    let instructions = [await createDailyDistributionEventInstruction(compto_public_keys)];
 
     context = await run_test("earlyDailyDistributionEvent", context, instructions, [context.payer], true, async (context, result) => {
         Assert.assert(
@@ -29,7 +30,7 @@ async function test_earlyDailyDistributionEvent() {
             "daily distribution already called"
         );
 
-        const final_comptoken_mint = await get_account(context, comptoken_mint_pubkey, MintAccount);
+        const final_comptoken_mint = await get_account(context, compto_public_keys.comptoken_mint_pubkey, MintAccount);
         // no new distribution because it is the same day 
         Assert.assertEqual(final_comptoken_mint.data.supply, original_comptoken_mint.data.supply, "interest has not been issued");
     });

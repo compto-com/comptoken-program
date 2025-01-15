@@ -23,11 +23,11 @@ use comptoken_utils::{
     SEC_PER_DAY,
 };
 
+use crate::global_data::valid_blockhashes::ValidBlockhashes;
 use comptoken_proof::ComptokenProof;
 use constants::*;
 use global_data::{daily_distribution_data::DailyDistributionValues, GlobalData};
 use verify_accounts::*;
-use crate::global_data::valid_blockhashes::ValidBlockhashes;
 
 // declare and export the program's entrypoint
 entrypoint!(process_instruction);
@@ -160,10 +160,17 @@ pub fn mint_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instructio
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
     let user_data_account = verified_accounts.user_data.unwrap();
 
+    assert!(
+        instruction_data.len() == ComptokenProof::SUBMITTED_DATA_SIZE,
+        "comptoken proof data must be {} bytes",
+        ComptokenProof::SUBMITTED_DATA_SIZE
+    );
+
     let global_data: &mut GlobalData = (&global_data_account).into();
+
     let proof = ComptokenProof::verify_submitted_proof(
         &user_comptoken_token_account,
-        instruction_data,
+        instruction_data.try_into().expect("correct size"),
         &global_data.valid_blockhashes,
     );
 

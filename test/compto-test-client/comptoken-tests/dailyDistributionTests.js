@@ -1,3 +1,9 @@
+import {
+    createDailyDistributionEventInstruction,
+    GlobalDataAccount,
+    SEC_PER_DAY,
+    TokenAccount,
+} from "@compto/comptoken.js";
 import { Clock } from "solana-bankrun";
 
 import {
@@ -6,18 +12,11 @@ import {
     get_default_unpaid_future_ubi_bank,
     get_default_unpaid_interest_bank,
     get_default_unpaid_verified_human_ubi_bank,
-    GlobalDataAccount,
     MintAccount,
-    TokenAccount,
 } from "../accounts.js";
 import { Assert } from "../assert.js";
-import {
-    COMPTOKEN_DISTRIBUTION_MULTIPLIER,
-    DEFAULT_START_TIME,
-    SEC_PER_DAY,
-} from "../common.js";
+import { compto_public_keys, COMPTOKEN_DISTRIBUTION_MULTIPLIER, DEFAULT_START_TIME } from "../common.js";
 import { generic_daily_distribution_assertions, get_account, run_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
-import { createDailyDistributionEventInstruction } from "../instruction.js";
 import { clamp } from "../utils.js";
 
 /**
@@ -58,9 +57,9 @@ export async function testDailyDistributionEvent(inputs) {
     const yesterdays_accounts = new YesterdaysAccounts(original_comptoken_mint, original_global_data_account, original_unpaid_interest_bank, original_unpaid_verified_human_ubi_bank, original_unpaid_future_ubi_bank);
 
     // 216_000 is mostly arbitrary, but it should roughly correspond to a days worth of slots
-    let context = await setup_test(existing_accounts, new Clock(216_000n, 0n, 0n, 0n, DEFAULT_START_TIME + SEC_PER_DAY));
+    let context = await setup_test(existing_accounts, new Clock(216_000n, 0n, 0n, 0n, DEFAULT_START_TIME + BigInt(SEC_PER_DAY)));
 
-    let instructions = [await createDailyDistributionEventInstruction()];
+    let instructions = [await createDailyDistributionEventInstruction(compto_public_keys)];
 
     context = await run_test(testname, context, instructions, [context.payer], false, async (context, result) => {
         await generic_daily_distribution_assertions(context, result, yesterdays_accounts, 1n, comptokens_minted, 0n, 0n);

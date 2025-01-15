@@ -1,4 +1,6 @@
+import { createDailyDistributionEventInstruction } from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
+
 import {
     get_default_comptoken_mint,
     get_default_comptoken_token_account,
@@ -8,9 +10,9 @@ import {
     get_default_unpaid_verified_human_ubi_bank,
 } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { COMPTOKEN_DISTRIBUTION_MULTIPLIER } from "../common.js";
+import { compto_public_keys, COMPTOKEN_DISTRIBUTION_MULTIPLIER } from "../common.js";
 import { DaysParameters, generic_daily_distribution_assertions, run_multiday_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
-import { createDailyDistributionEventInstruction, createTestInstruction } from "../instruction.js";
+import { createTestInstruction } from "../instruction.js";
 import { clamp } from "../utils.js";
 
 class DefinedMultidayDailyDistributionDaysParameters extends DaysParameters {
@@ -89,13 +91,13 @@ class DefinedMultidayDailyDistributionDaysParameters extends DaysParameters {
     }
 
     async get_setup_instructions() {
-        return [await createTestInstruction(this.testuser.publicKey, this.user_comptoken_token_account_address, this.comptokens_minted)];
+        return [await createTestInstruction(this.testuser.publicKey, this.user_comptoken_token_account_address, this.comptokens_minted, compto_public_keys)];
     }
     async get_setup_signers() {
         return [this.payer, this.testuser]
     }
     async get_instructions() {
-        return [await createDailyDistributionEventInstruction()];
+        return [await createDailyDistributionEventInstruction(compto_public_keys)];
     }
     async get_signers() {
         return [this.payer];

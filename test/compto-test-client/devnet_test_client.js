@@ -5,11 +5,13 @@ import {
     createGetOwedComptokensInstruction,
     createGetValidBlockhashesInstruction,
     createProofSubmissionInstruction,
+    devnet_compto_public_keys,
     getValidBlockhashesFromTransactionResponse,
 } from "@compto/comptoken.js";
 import {
     AuthorityType,
     TOKEN_2022_PROGRAM_ID,
+    createAssociatedTokenAccount,
     getAssociatedTokenAddressSync,
     setAuthority,
 } from '@solana/spl-token';
@@ -22,9 +24,10 @@ import {
     sendAndConfirmTransaction,
 } from "@solana/web3.js";
 
+import fs from "fs";
+
 import { MintAccount } from "./accounts.js";
 import {
-    compto_public_keys,
     me_keypair,
 } from './common.js';
 import {
@@ -32,6 +35,9 @@ import {
     createTestInstruction,
 } from './instruction.js';
 
+
+let compto_public_keys = devnet_compto_public_keys;
+compto_public_keys.test_account = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync('.cache/test_user_account.json').toString())));
 
 let testuser_pubkey = getAssociatedTokenAddressSync(compto_public_keys.comptoken_mint_pubkey, compto_public_keys.test_account.publicKey, false, TOKEN_2022_PROGRAM_ID);
 
@@ -42,13 +48,14 @@ console.log("comptoken mint: " + compto_public_keys.comptoken_mint_pubkey);
 console.log("compto program id: " + compto_public_keys.compto_program_id_pubkey);
 console.log("global data account: " + compto_public_keys.global_data_account_pubkey);
 
-let connection = new Connection('http://localhost:8899', 'recent');
+let connection = new Connection('https://api.devnet.solana.com', 'confirmed');
 
 (async () => {
-    await airdrop(compto_public_keys.test_account.publicKey);
-    await setMintAuthorityIfNeeded();
-    await createGlobalDataAccount();
-    await testMint();
+    //await airdrop(compto_public_keys.test_account.publicKey);
+    //await setMintAuthorityIfNeeded();
+    //await createGlobalDataAccount();
+    //await testMint();
+    //await createUserComptokenTokenAccount();
     await createUserDataAccount();
     let current_block = (await getValidBlockHashes()).validBlockhash;
     await mintComptokens(connection, compto_public_keys.test_account, testuser_pubkey, current_block);
@@ -107,6 +114,18 @@ async function testMint() {
     );
     let testMintResult = await sendAndConfirmTransaction(connection, testMintTransaction, [compto_public_keys.test_account]);
     console.log("testMint transaction confirmed", testMintResult);
+}
+
+async function createUserComptokenTokenAccount() {
+    let createTokenAccountResult = await createAssociatedTokenAccount(
+        connection,
+        compto_public_keys.test_account,
+        compto_public_keys.comptoken_mint_pubkey,
+        testuser_pubkey,
+        undefined,
+        TOKEN_2022_PROGRAM_ID
+    );
+    console.log("createTokenAccount transaction confirmed", createTokenAccountResult);
 }
 
 async function createUserDataAccount() {

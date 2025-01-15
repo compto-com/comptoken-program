@@ -14,6 +14,7 @@ DEPLOY_PATH = PROJECT_PATH / "target/deploy"
 COMPTOKEN_SRC_PATH = PROJECT_PATH / "comptoken"
 TRANSFER_HOOK_SRC_PATH = PROJECT_PATH / "comptoken-transfer-hook"
 CACHE_PATH = TEST_PATH / ".cache"
+LOGS_PATH = CACHE_PATH / "logs"
 COMPTOKEN_GENERATED_PATH = COMPTOKEN_SRC_PATH / "src/generated"
 TRANSFER_HOOK_GENERATED_PATH = TRANSFER_HOOK_SRC_PATH / "src/generated"
 
@@ -112,7 +113,7 @@ def run(
     command: str | list[str],
     cwd: Path | None = None,
     env: Mapping[str, str] | None = None,
-    timeout: float | None = None
+    timeout: float | None = None,
 ) -> str:
     while True:
         try:
@@ -128,16 +129,17 @@ def run(
         )
     return result.stdout.rstrip()
 
-def build(package: str):
+def build(package: str, features: list[str] = []):
     print(f"Building {package}...")
-    run(f'cargo build-sbf --features testmode -- -v -p {package}', PROJECT_PATH)
+    features_flag: str = "" if len(features) == 0 else f"--features \"{' '.join(features)}\""
+    run(f'cargo build-sbf {features_flag} -- -v -p {package}', PROJECT_PATH)
     print(f"Done Building {package}")
 
-def buildCompto():
-    build("comptoken")
+def buildCompto(features: list[str] = []):
+    build("comptoken", features)
 
-def buildTransferHook():
-    build("comptoken-transfer-hook")
+def buildTransferHook(features: list[str] = []):
+    build("comptoken-transfer-hook", features)
 
 def write(path: Path, data: str):
     with open(path, "w") as file:
@@ -274,7 +276,7 @@ def parseArgs():
     parser.add_argument(
         "--log",
         action="store_const",
-        const=CACHE_PATH / "logs",
+        const=LOGS_PATH,
         dest="log_directory",
         help="logs test output to the test/.cache/logs directory"
     )

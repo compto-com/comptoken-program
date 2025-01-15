@@ -1,3 +1,4 @@
+import { COMPTOKEN_DECIMALS, TokenAccount } from "@compto/comptoken.js";
 import { TOKEN_2022_PROGRAM_ID, TokenInstruction, transferCheckedInstructionData } from "@solana/spl-token";
 import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
 
@@ -6,10 +7,9 @@ import {
     get_default_comptoken_token_account,
     get_default_extra_account_metas_account,
     get_default_user_data_account,
-    TokenAccount
 } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_program_id_pubkey, compto_transfer_hook_id_pubkey, COMPTOKEN_DECIMALS } from "../common.js";
+import { compto_public_keys } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 
 async function test_execute() {
@@ -17,11 +17,11 @@ async function test_execute() {
     const comptoken_mint = get_default_comptoken_mint();
     let original_user1_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), user1.publicKey);
     original_user1_comptoken_wallet.data.amount = 1n;
-    const user1_data_pda = PublicKey.findProgramAddressSync([original_user1_comptoken_wallet.address.toBytes()], compto_program_id_pubkey)[0];
+    const user1_data_pda = PublicKey.findProgramAddressSync([original_user1_comptoken_wallet.address.toBytes()], compto_public_keys.compto_program_id_pubkey)[0];
     const user1_data_account = get_default_user_data_account(user1_data_pda);
 
     const original_user2_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), PublicKey.unique());
-    const user2_data_pda = PublicKey.findProgramAddressSync([original_user2_comptoken_wallet.address.toBytes()], compto_program_id_pubkey)[0];
+    const user2_data_pda = PublicKey.findProgramAddressSync([original_user2_comptoken_wallet.address.toBytes()], compto_public_keys.compto_program_id_pubkey)[0];
     const user2_data_account = get_default_user_data_account(user2_data_pda);
 
     const accounts = [
@@ -42,11 +42,11 @@ async function test_execute() {
         // transfer hook api keys
         { pubkey: get_default_extra_account_metas_account().address, isSigner: false, isWritable: false },
         // our transfer hook keys
-        { pubkey: compto_program_id_pubkey, isSigner: false, isWritable: false },
+        { pubkey: compto_public_keys.compto_program_id_pubkey, isSigner: false, isWritable: false },
         { pubkey: user1_data_account.address, isSigner: false, isWritable: false },
         { pubkey: user2_data_account.address, isSigner: false, isWritable: false },
         // transfer hook program
-        { pubkey: compto_transfer_hook_id_pubkey, isSigner: false, isWritable: false },
+        { pubkey: compto_public_keys.compto_transfer_hook_id_pubkey, isSigner: false, isWritable: false },
     ]
 
     const data = Buffer.alloc(transferCheckedInstructionData.span);

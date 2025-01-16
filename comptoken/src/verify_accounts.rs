@@ -151,8 +151,8 @@ pub fn verify_world_id_config<'a>(account: &AccountInfo<'a>) -> VerifiedAccountI
 
 pub fn verify_world_id_nullifier<'a>(
     account: &AccountInfo<'a>, program_id: &Pubkey, nullifier_hash: &Hash,
-) -> VerifiedAccountInfo<'a> {
-    VerifiedAccountInfo::verify_pda(account, program_id, &[b"Nullifier", nullifier_hash.as_ref()], false, false).0
+) -> (VerifiedAccountInfo<'a>, u8) {
+    VerifiedAccountInfo::verify_pda(account, program_id, &[b"Nullifier", nullifier_hash.as_ref()], false, false)
 }
 
 pub fn verify_solana_program<'a>(account: &AccountInfo<'a>) -> VerifiedAccountInfo<'a> {
@@ -214,6 +214,7 @@ pub struct VerifiedAccounts<'a> {
     pub world_id_latest_root: Option<VerifiedAccountInfo<'a>>,
     pub world_id_config: Option<VerifiedAccountInfo<'a>>,
     pub world_id_nullifier: Option<VerifiedAccountInfo<'a>>,
+    pub world_id_nullifier_bump: Option<u8>,
     pub solana_program: Option<VerifiedAccountInfo<'a>>,
     pub _solana_token_2022_program: Option<VerifiedAccountInfo<'a>>,
     pub slothashes: Option<VerifiedAccountInfo<'a>>,
@@ -339,9 +340,12 @@ pub fn verify_accounts<'a>(
         .world_id_config
         .map(|_| verify_world_id_config(next_account_info(account_info_iter).unwrap()));
 
-    let world_id_nullifier = accounts_to_verify.world_id_nullifier.map(|(nullifier_hash, _)| {
-        verify_world_id_nullifier(next_account_info(account_info_iter).unwrap(), program_id, nullifier_hash)
-    });
+    let (world_id_nullifier, world_id_nullifier_bump) = accounts_to_verify
+        .world_id_nullifier
+        .map(|(nullifier_hash, _)| {
+            verify_world_id_nullifier(next_account_info(account_info_iter).unwrap(), program_id, nullifier_hash)
+        })
+        .unzip();
 
     let solana_program = accounts_to_verify
         .solana_program
@@ -375,6 +379,7 @@ pub fn verify_accounts<'a>(
         world_id_latest_root,
         world_id_config,
         world_id_nullifier,
+        world_id_nullifier_bump,
         solana_program,
         _solana_token_2022_program: solana_token_2022_program,
         slothashes,

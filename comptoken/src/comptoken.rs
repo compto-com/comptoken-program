@@ -764,12 +764,20 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     let world_id_latest_root = verified_accounts.world_id_latest_root.unwrap();
     let world_id_config = verified_accounts.world_id_config.unwrap();
     let world_id_nullifier = verified_accounts.world_id_nullifier.unwrap();
+    let world_id_nullifier_bump = verified_accounts.world_id_nullifier_bump.unwrap();
 
     // 1. verify unique nullifier hash
     // TODO what to do when people die?
 
     // pda creation will fail if the nullifier hash has already been used
-    create_pda(&payer, &world_id_nullifier, rent_lamports, 0, program_id, &[&[b"Nullifier", nullifier_hash.as_ref()]])?;
+    create_pda(
+        &payer,
+        &world_id_nullifier,
+        rent_lamports,
+        0,
+        program_id,
+        &[&[b"Nullifier", nullifier_hash.as_ref(), &[world_id_nullifier_bump]]],
+    )?;
 
     // 2. cpi to world id program
 

@@ -121,7 +121,7 @@ async function createUserComptokenTokenAccount() {
         connection,
         compto_public_keys.test_account,
         compto_public_keys.comptoken_mint_pubkey,
-        testuser_pubkey,
+        compto_public_keys.test_account.publicKey,
         undefined,
         TOKEN_2022_PROGRAM_ID
     );

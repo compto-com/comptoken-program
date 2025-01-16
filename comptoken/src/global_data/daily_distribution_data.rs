@@ -134,7 +134,7 @@ pub struct DailyDistributionDataIter<'a> {
     daily_distribution_data: &'a DailyDistributionData,
 }
 
-impl<'a> Iterator for DailyDistributionDataIter<'a> {
+impl Iterator for DailyDistributionDataIter<'_> {
     type Item = (f64, u64);
 
     fn next(&mut self) -> Option<Self::Item> {

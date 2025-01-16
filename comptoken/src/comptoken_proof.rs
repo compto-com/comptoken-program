@@ -106,7 +106,7 @@ mod test {
 
     const ZERO_PUBKEY: Pubkey = Pubkey::new_from_array([0; PUBKEY_BYTES]);
 
-    fn sub(this: &mut [u8; 32], other: u8) -> [u8; 32] {
+    fn sub(this: &[u8; 32], other: u8) -> [u8; 32] {
         let mut result = *this;
         let mut borrow = other as i16;
         for byte in result.iter_mut().rev() {
@@ -117,7 +117,7 @@ mod test {
         result
     }
 
-    fn add(this: &mut [u8; 32], other: u8) -> [u8; 32] {
+    fn add(this: &[u8; 32], other: u8) -> [u8; 32] {
         let mut result = *this;
         let mut borrow = other as i16;
         for byte in result.iter_mut().rev() {
@@ -130,14 +130,14 @@ mod test {
 
     #[test]
     fn test_is_hash_lower_than_target() {
-        let mut hash_array = ComptokenProof::TARGET_BYTES;
+        let hash_array = ComptokenProof::TARGET_BYTES;
         let hash = Hash::new_from_array(hash_array);
         assert!(!ComptokenProof::is_hash_lower_than_target(&hash));
 
-        let hash = Hash::new_from_array(sub(&mut hash_array, 1));
+        let hash = Hash::new_from_array(sub(&hash_array, 1));
         assert!(ComptokenProof::is_hash_lower_than_target(&hash));
 
-        let hash = Hash::new_from_array(add(&mut hash_array, 1));
+        let hash = Hash::new_from_array(add(&hash_array, 1));
         assert!(!ComptokenProof::is_hash_lower_than_target(&hash));
 
         let hash = Hash::new_from_array([0; 32]);

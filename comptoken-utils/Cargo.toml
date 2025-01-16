@@ -8,7 +8,6 @@ path = "src/comptoken_utils.rs"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-solana-program = { workspace = true }
 spl-token-2022 = { workspace = true }
 
 [dev-dependencies]

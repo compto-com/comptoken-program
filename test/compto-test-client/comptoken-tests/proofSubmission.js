@@ -29,12 +29,12 @@ async function test_proofSubmission() {
 
     console.log("after setup_test");
 
-    let proof = ComptokenProof.mine({
+    let proof = ComptokenProof.mine({ // hidden method on ComptokenProof
         pubkey: original_user_comptoken_wallet.address,
         recentBlockHash: original_global_data_account.data.validBlockhashes.validBlockhash,
-        extraData: Uint8Array.from({ length: 32 }, () => 0),
-        version: 0,
-        timestamp: 0,
+        extraData: Uint8Array.from(Buffer.from("b8a2f83df38bcca119cc6e82b0043f23370e07406b0676823e60690b48817ee2", "hex")),
+        version: 536870912,
+        timestamp: Date.now() / 1000, // pubkey and recentBlockHash already introduce entropy between tests, so we don't need to hardcode a time
     });
 
     let instructions = [await createProofSubmissionInstruction(proof, user.publicKey, original_user_comptoken_wallet.address, compto_public_keys)];

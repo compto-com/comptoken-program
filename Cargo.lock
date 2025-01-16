@@ -418,11 +418,9 @@ name = "comptoken"
 version = "0.1.0"
 dependencies = [
  "bs58",
- "byteorder",
  "comptoken-utils",
  "ethnum",
  "hex",
- "sha2 0.10.8",
  "solana-program",
  "spl-token-2022",
  "spl-transfer-hook-interface",
@@ -444,7 +442,6 @@ name = "comptoken-utils"
 version = "0.1.0"
 dependencies = [
  "hex-literal",
- "solana-program",
  "spl-token-2022",
 ]
 

@@ -1,3 +1,9 @@
+import {
+    createGetOwedComptokensInstruction,
+    SEC_PER_DAY,
+    TokenAccount,
+    UserDataAccount,
+} from "@compto/comptoken.js";
 import { Keypair, PublicKey, } from "@solana/web3.js";
 
 import {

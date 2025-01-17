@@ -743,6 +743,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
             world_id_latest_root: Some((VERIFICATION_TYPE, (false, false))),
             world_id_config: Some((false, false)),
             world_id_nullifier: Some((&nullifier_hash, (false, false))),
+            solana_program: Some((false, false)),
             solana_token_2022_program: Some((false, false)),
             ..Default::default()
         },
@@ -753,7 +754,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     let comptoken_mint = verified_accounts.comptoken_mint.unwrap();
     let global_data_account = verified_accounts.global_data.unwrap();
     let unpaid_future_ubi_bank_account = verified_accounts.future_ubi_bank.unwrap();
-    let future_ubi_bank_data = verified_accounts.future_ubi_bank_data.unwrap();
+    let unpaid_future_ubi_bank_data_pda = verified_accounts.future_ubi_bank_data.unwrap();
     let user_wallet = verified_accounts.user_wallet.unwrap();
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
     let user_data_account = verified_accounts.user_data.unwrap();
@@ -765,6 +766,9 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     let world_id_config = verified_accounts.world_id_config.unwrap();
     let world_id_nullifier = verified_accounts.world_id_nullifier.unwrap();
     let world_id_nullifier_bump = verified_accounts.world_id_nullifier_bump.unwrap();
+
+    let user_data: &mut UserData = (&user_data_account).into();
+    assert!(user_data.is_current(), "user data account is not current");
 
     // 1. verify unique nullifier hash
     // TODO what to do when people die?
@@ -817,23 +821,18 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
 
     // 3. update user data
 
-    // scoping to prevent reborrowing issues
-    let verified_humans;
-    let future_ubi_amount;
-    {
-        let user_data: &mut UserData = (&user_data_account).into();
-        assert!(user_data.is_current(), "user data account is not current");
-        user_data.is_verified_human = true;
+    user_data.is_verified_human = true;
 
-        let global_data: &mut GlobalData = (&global_data_account).into();
-        verified_humans = global_data.daily_distribution_data.verified_humans;
-        global_data.daily_distribution_data.verified_humans += 1;
+    let global_data: &mut GlobalData = (&global_data_account).into();
+    let verified_humans = global_data.daily_distribution_data.verified_humans;
+    global_data.daily_distribution_data.verified_humans += 1;
 
-        let unpaid_future_ubi_bank_data = unpaid_future_ubi_bank_account.try_borrow_data().unwrap();
-        let unpaid_future_ubi_bank = StateWithExtensions::<Account>::unpack(&unpaid_future_ubi_bank_data).unwrap().base;
+    let unpaid_future_ubi_bank_data = unpaid_future_ubi_bank_account.try_borrow_data().unwrap();
+    let unpaid_future_ubi_bank = StateWithExtensions::<Account>::unpack(&unpaid_future_ubi_bank_data).unwrap().base;
 
-        future_ubi_amount = unpaid_future_ubi_bank.amount;
-    }
+    let future_ubi_amount = unpaid_future_ubi_bank.amount;
+
+    std::mem::drop(unpaid_future_ubi_bank_data); // drop mutable borrow to allow transfer
 
     if verified_humans <= FUTURE_UBI_VERIFIED_HUMANS {
         let amount = future_ubi_amount / (FUTURE_UBI_VERIFIED_HUMANS - verified_humans);
@@ -847,7 +846,8 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
                 &transfer_hook_program,
                 &comptoken_program,
                 &user_data_account,
-                &future_ubi_bank_data,
+                &unpaid_future_ubi_bank_account,
+                &unpaid_future_ubi_bank_data_pda,
             ],
             amount,
         )?;

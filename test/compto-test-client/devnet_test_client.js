@@ -56,7 +56,7 @@ let connection = new Connection('https://api.devnet.solana.com', 'confirmed');
     //await createGlobalDataAccount();
     //await testMint();
     //await createUserComptokenTokenAccount();
-    await createUserDataAccount();
+    //await createUserDataAccount();
     let current_block = (await getValidBlockHashes()).validBlockhash;
     await mintComptokens(connection, compto_public_keys.test_account, testuser_pubkey, current_block);
     //await dailyDistributionEvent();

@@ -702,15 +702,13 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     //      [] World ID Root
     //      [] World ID Latest Root
     //      [] World ID Config
-    //      [] World ID Nullifier
+    //      [w] World ID Nullifier
     //      [] Solana Token 2022 Program
     // data:
     //      8 bytes - rent lamports
     //      32 bytes - root hash
     //      32 bytes - nullifier hash
     //      256 bytes - proof
-    const PROOF_BYTES: usize = 256;
-    const VERIFICATION_TYPE: [u8; 1] = [1_u8]; // 1 for orb-based verification (maybe?)
 
     let (rent_lamports, instruction_data) =
         get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
@@ -740,7 +738,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
             extra_account_metas: Some((false, false)),
             world_id_program: Some((false, false)),
             world_id_root: Some((&root_hash, (false, false))),
-            world_id_latest_root: Some((VERIFICATION_TYPE, (false, false))),
+            world_id_latest_root: Some((false, false)),
             world_id_config: Some((false, false)),
             world_id_nullifier: Some((&nullifier_hash, (false, false))),
             solana_program: Some((false, false)),
@@ -797,7 +795,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     let mut world_id_cpi_data = Vec::with_capacity(393);
     world_id_cpi_data.extend_from_slice(&[54, 190, 59, 14, 54, 75, 155, 6]); // discriminator https://github.com/wormholelabs-xyz/solana-world-id-onchain-template/blob/main/idls/solana_world_id_program.ts#L801-L808
     world_id_cpi_data.extend_from_slice(root_hash.as_ref());
-    world_id_cpi_data.extend_from_slice(&VERIFICATION_TYPE);
+    world_id_cpi_data.extend_from_slice(&WORLD_VERIFICATION_TYPE);
     world_id_cpi_data.extend_from_slice(&signal_hash);
     world_id_cpi_data.extend_from_slice(nullifier_hash.as_ref());
     world_id_cpi_data.extend_from_slice(&external_nullifier_hash);

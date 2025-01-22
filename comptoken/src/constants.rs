@@ -29,3 +29,7 @@ pub const FUTURE_UBI_VERIFIED_HUMANS: u64 = 1_000_000_000;
 pub const MINING_AMOUNT: u64 = 10000;
 
 pub const SOLANA_WORLD_ID_PROGRAM: Pubkey = pubkey!("9QwAWx3TKg4CaTjHNhBefQeNSzEKDe2JDxL46F76tVDv");
+
+pub const WORLD_VERIFICATION_TYPE: [u8; 1] = [0_u8]; // 1 for orb-based verification (maybe?)
+
+pub const WORLD_PROOF_LENGTH: usize = 256;

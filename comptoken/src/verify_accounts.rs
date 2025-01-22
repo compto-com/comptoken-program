@@ -11,7 +11,7 @@ use crate::{
         COMPTOKEN_MINT_ADDRESS, COMPTO_FUTURE_UBI_BANK_ACCOUNT_SEEDS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS,
         COMPTO_INTEREST_BANK_ACCOUNT_SEEDS, COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
     },
-    SOLANA_WORLD_ID_PROGRAM,
+    SOLANA_WORLD_ID_PROGRAM, WORLD_VERIFICATION_TYPE,
 };
 
 pub use comptoken_utils::verify_accounts::VerifiedAccountInfo;
@@ -129,16 +129,21 @@ pub fn verify_world_id_program<'a>(account: &AccountInfo<'a>) -> VerifiedAccount
 }
 
 pub fn verify_world_id_root<'a>(account: &AccountInfo<'a>, root_hash: &Hash) -> VerifiedAccountInfo<'a> {
-    VerifiedAccountInfo::verify_pda(account, &SOLANA_WORLD_ID_PROGRAM, &[b"Root", root_hash.as_ref()], false, false).0
-}
-
-pub fn verify_world_id_latest_root<'a>(
-    account: &AccountInfo<'a>, verification_type: [u8; 1],
-) -> VerifiedAccountInfo<'a> {
     VerifiedAccountInfo::verify_pda(
         account,
         &SOLANA_WORLD_ID_PROGRAM,
-        &[b"LatestRoot", &verification_type],
+        &[b"Root", root_hash.as_ref(), &WORLD_VERIFICATION_TYPE],
+        false,
+        false,
+    )
+    .0
+}
+
+pub fn verify_world_id_latest_root<'a>(account: &AccountInfo<'a>) -> VerifiedAccountInfo<'a> {
+    VerifiedAccountInfo::verify_pda(
+        account,
+        &SOLANA_WORLD_ID_PROGRAM,
+        &[b"LatestRoot", &WORLD_VERIFICATION_TYPE],
         false,
         false,
     )
@@ -184,7 +189,7 @@ pub struct AccountsToVerify<'a> {
     pub extra_account_metas: Option<SignerAndWritable>,
     pub world_id_program: Option<SignerAndWritable>,
     pub world_id_root: Option<(&'a Hash, SignerAndWritable)>, // (rootHash, (needsSigner, needsWritable)),
-    pub world_id_latest_root: Option<([u8; 1], SignerAndWritable)>, // (verificationType, (needsSigner, needsWritable)),
+    pub world_id_latest_root: Option<SignerAndWritable>,
     pub world_id_config: Option<SignerAndWritable>,
     pub world_id_nullifier: Option<(&'a Hash, SignerAndWritable)>, // (nullifierHash, (needsSigner, needsWritable)),
     pub solana_program: Option<SignerAndWritable>,
@@ -332,9 +337,9 @@ pub fn verify_accounts<'a>(
         .world_id_root
         .map(|(root_hash, _)| verify_world_id_root(next_account_info(account_info_iter).unwrap(), root_hash));
 
-    let world_id_latest_root = accounts_to_verify.world_id_latest_root.map(|(verification_type, _)| {
-        verify_world_id_latest_root(next_account_info(account_info_iter).unwrap(), verification_type)
-    });
+    let world_id_latest_root = accounts_to_verify
+        .world_id_latest_root
+        .map(|_| verify_world_id_latest_root(next_account_info(account_info_iter).unwrap()));
 
     let world_id_config = accounts_to_verify
         .world_id_config

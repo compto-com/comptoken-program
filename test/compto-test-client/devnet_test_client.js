@@ -24,11 +24,10 @@ import {
     sendAndConfirmTransaction,
 } from "@solana/web3.js";
 
-import fs from "fs";
-
 import { MintAccount } from "./accounts.js";
 import {
     me_keypair,
+    compto_public_keys as test_user_compto_public_keys,
 } from './common.js';
 import {
     createInitializeComptokenProgramInstruction,
@@ -36,8 +35,8 @@ import {
 } from './instruction.js';
 
 
-let compto_public_keys = devnet_compto_public_keys;
-compto_public_keys.test_account = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync('.cache/test_user_account.json').toString())));
+const compto_public_keys = devnet_compto_public_keys;
+compto_public_keys.test_account = test_user_compto_public_keys.test_account;
 
 let testuser_pubkey = getAssociatedTokenAddressSync(compto_public_keys.comptoken_mint_pubkey, compto_public_keys.test_account.publicKey, false, TOKEN_2022_PROGRAM_ID);
 
@@ -133,7 +132,7 @@ async function createUserDataAccount() {
     createUserDataAccountTransaction.add(
         await createCreateUserDataAccountInstruction(
             connection,
-            88,
+            5,
             compto_public_keys.test_account.publicKey,
             compto_public_keys.test_account.publicKey,
             testuser_pubkey,

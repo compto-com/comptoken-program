@@ -90,6 +90,8 @@ if __name__ == "__main__":
 
     #createToken()
 
+    #generateTestUser(force=True)
+
     #deployTransferHook()
     #deployCompto()
 

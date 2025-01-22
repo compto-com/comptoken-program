@@ -241,11 +241,16 @@ def randAddress() -> str:
     keygen = run("solana-keygen new --no-bip39-passphrase --no-outfile")
     return keygen.split("\n")[2][8:]
 
-def createKeyPair(outfile: Path):
-    run(f"solana-keygen new --no-bip39-passphrase --force --silent --outfile {outfile}")
+def createKeyPair(outfile: Path, force: bool = False):
+    try:
+        run(f"solana-keygen new --no-bip39-passphrase {'--force' if force else ''} --silent --outfile {outfile}")
+    except SubprocessFailedException as e:
+        not_overwrite_error = lambda: e.args[0].find("Refusing to overwrite") == -1
+        if not_overwrite_error() or force:
+            raise Exception(f"Failed to create keypair at {outfile}, file already exists")
 
-def generateTestUser():
-    createKeyPair(TEST_USER_ACCOUNT_JSON)
+def generateTestUser(force: bool = False):
+    createKeyPair(TEST_USER_ACCOUNT_JSON, force)
 
 def generateFiles(comptokenProgramId: str, transferHookId: str, mintAddress: str):
     print("generating files...")

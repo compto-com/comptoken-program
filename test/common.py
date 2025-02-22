@@ -2,7 +2,7 @@ import json
 import os
 import signal
 import subprocess
-from argparse import ArgumentParser
+import argparse
 from functools import reduce
 from pathlib import Path
 from types import TracebackType
@@ -53,6 +53,8 @@ class BackgroundProcess:
         self._kwargs = kwargs
 
     def __enter__(self) -> Self:
+        self._kwargs.setdefault("stdout", subprocess.PIPE)
+        self._kwargs.setdefault("stderr", subprocess.PIPE)
         self._process = subprocess.Popen(self._cmd, **self._kwargs)
         return self
 
@@ -65,10 +67,26 @@ class BackgroundProcess:
         print("Killing Background Process...")
         if self._process is not None and self.checkIfProcessRunning():
             os.killpg(os.getpgid(self._process.pid), signal.SIGTERM)
+            
+        if exc_type is not None:
+            stdout, stderr = self.getOutput()
+            print(f"stdout: {stdout}")
+            print(f"stderr: {stderr}")
         return False
 
     def checkIfProcessRunning(self):
         return self._process is not None and self._process.poll() is None
+
+    def getOutput(self) -> tuple[str, str]:
+        if self._process is None:
+            raise ValueError("Process not started")
+        if self.checkIfProcessRunning():
+            raise ValueError("Process is still running")
+        try:
+            stdout, stderr = self._process.communicate(timeout=5)
+            return stdout.decode("utf-8"), stderr.decode("utf-8")
+        except subprocess.TimeoutExpired:
+            return "Timeout", "Timeout"
 
     def __repr__(self) -> str:
         return f"BackgroundProcess{{_cmd: {self._cmd}, _kwargs: {self._kwargs}, _process: {self._process}}}"
@@ -270,7 +288,7 @@ def generateFiles(comptokenProgramId: str, transferHookId: str, mintAddress: str
     print("done generating files")
 
 def parseArgs():
-    parser = ArgumentParser(prog="comptoken component tests")
+    parser = argparse.ArgumentParser(prog="comptoken component tests")
     parser.add_argument("--verbose", "-v", action="count", default=0)
     parser.add_argument("--log-directory", type=Path, help="logs test output to the specified directory")
     parser.add_argument(

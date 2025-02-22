@@ -1,6 +1,5 @@
 import json
 import os
-import subprocess
 from contextlib import contextmanager
 from pathlib import Path
 from time import sleep, time
@@ -14,7 +13,6 @@ def createTestValidator():
         "solana-test-validator --reset",
         shell=True,
         cwd=CACHE_PATH,
-        stdout=subprocess.DEVNULL,
         preexec_fn=os.setsid,
     ) as validator:
         waitTillValidatorReady(validator)

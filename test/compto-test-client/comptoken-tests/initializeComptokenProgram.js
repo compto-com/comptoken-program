@@ -50,7 +50,11 @@ async function initialize_comptoken_program() {
         // comptoken program id
         const default_account_metas_account = get_default_extra_account_metas_account()
         Assert.assert(final_extra_account_metas_account.address.equals(default_account_metas_account.address), "address isn't correct");
-        Assert.assertEqual(final_extra_account_metas_account.data.extraAccountsList.length, default_account_metas_account.data.extraAccountsList.length, "length isn't correct");
+        Assert.assertEqual(
+            final_extra_account_metas_account.data.extraAccountsList.extraAccounts.length,
+            default_account_metas_account.data.extraAccountsList.extraAccounts.length,
+            "length isn't correct"
+        );
         let zipped = zip(
             final_extra_account_metas_account.data.extraAccountsList.extraAccounts,
             default_account_metas_account.data.extraAccountsList.extraAccounts

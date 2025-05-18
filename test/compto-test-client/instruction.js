@@ -42,8 +42,8 @@ export async function createTestInstruction(user_wallet_address, user_comptoken_
  * @returns 
  */
 export async function createInitializeComptokenProgramInstruction(connection, payer, compto_public_keys) {
-    let lamports_global_data_account = await connection.getMinimumBalanceForRentExemption(new GlobalData().getSize());
-    let bank_account_size = get_default_comptoken_token_account(1, PublicKey.default).data.getSize();
+    let lamports_global_data_account = await connection.getMinimumBalanceForRentExemption(new GlobalData({}).getSize());
+    let bank_account_size = get_default_comptoken_token_account(1, PublicKey.default)._data.getSize();
     console.log(`bank_account_size: ${bank_account_size}`);
     let lamports_bank_account = await connection.getMinimumBalanceForRentExemption(bank_account_size);
     return new TransactionInstruction({

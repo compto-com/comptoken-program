@@ -46,8 +46,8 @@ async function test_initializeExtraAccountMetaList() {
         const default_account_meta_list = get_default_extra_account_metas_account()
         Assert.assert(final_extra_account_meta_list_account.address.equals(default_account_meta_list.address), "address isn't correct");
         Assert.assertEqual(
-            final_extra_account_meta_list_account.data.extraAccountsList.length,
-            default_account_meta_list.data.extraAccountsList.length,
+            final_extra_account_meta_list_account.data.extraAccountsList.extraAccounts.length,
+            default_account_meta_list.data.extraAccountsList.extraAccounts.length,
             "length isn't correct");
         let zipped = zip(
             final_extra_account_meta_list_account.data.extraAccountsList.extraAccounts,

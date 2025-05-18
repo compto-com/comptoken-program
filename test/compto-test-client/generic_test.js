@@ -381,7 +381,7 @@ function float_equals(a, b) {
 }
 
 /**
- * @param {Account[]} existing_accounts 
+ * @param {Account<any>[]} existing_accounts 
  * @param {Clock} clock
  * @returns {Promise<ProgramTestContext>}
  */
@@ -399,10 +399,10 @@ export async function setup_test(existing_accounts, clock = new Clock(0n, 0n, 0n
 }
 
 /**
- * @param {ProgramTestContext} context 
- * @param {PublicKey} account_address 
- * @param {typeof Account} account_type
- * @returns 
+ * @template DataT
+ * @param {ProgramTestContext}   context 
+ * @param {PublicKey}            account_address 
+ * @param {AccountStatic<DataT>} account_type
  */
 export async function get_account(context, account_address, account_type) {
     let account = await context.banksClient.getAccount(account_address);

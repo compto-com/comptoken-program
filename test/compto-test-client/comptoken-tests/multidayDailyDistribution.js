@@ -14,7 +14,15 @@ import { compto_public_keys } from "../common.js";
 import { DaysParameters, generic_daily_distribution_assertions, get_account, run_multiday_test, setup_test, YesterdaysAccounts } from "../generic_test.js";
 import { createTestInstruction } from "../instruction.js";
 
-// arbitrary function to produce "how many comptokens are minted on a given day" test data
+/**
+ * @import { BanksTransactionResultWithMeta, ProgramTestContext } from "solana-bankrun";
+ */
+
+/**
+ *  arbitrary function to produce "how many comptokens are minted on a given day" test data
+ * @param {bigint} current_day 
+ * @returns 
+ */
 function get_comptokens_minted(current_day) {
     // first 10 days mint 1 comptoken, next 10 days mint 2 comptokens, etc
     return 1n + ((BigInt(current_day) - 1n) / 10n);
@@ -23,11 +31,11 @@ function get_comptokens_minted(current_day) {
 class MultidayDailyDistributionDaysParameters extends DaysParameters {
     static yesterdays_accounts = new YesterdaysAccounts();
 
-    testuser;
-    payer;
-    user_comptoken_token_account_address;
-
-    assert_fn = async (context, result) => {
+    /**
+     * @param {ProgramTestContext} context
+     * @param {BanksTransactionResultWithMeta} result
+     */
+    async assert_fn(context, result) {
         const yesterdays_accounts = MultidayDailyDistributionDaysParameters.yesterdays_accounts;
         await generic_daily_distribution_assertions(context, result, yesterdays_accounts, this.day, get_comptokens_minted(this.day), 0n, 0n);
         const current_global_data_account = await get_account(context, compto_public_keys.global_data_account_pubkey, GlobalDataAccount);
@@ -41,6 +49,12 @@ class MultidayDailyDistributionDaysParameters extends DaysParameters {
         MultidayDailyDistributionDaysParameters.yesterdays_accounts = await YesterdaysAccounts.get_accounts(context);
     }
 
+    /**
+     * @param {bigint} day
+     * @param {Keypair} testuser
+     * @param {Keypair} payer
+     * @param {PublicKey} user_comptoken_token_account_address
+     */
     constructor(day, testuser, payer, user_comptoken_token_account_address) {
         super(day);
         this.testuser = testuser;
@@ -81,7 +95,7 @@ async function test_multidayDailyDistribution() {
     let context = await setup_test(existing_accounts);
 
     let days_parameters_arr = Array.from({ length: 100 }, (_, i) => {
-        return new MultidayDailyDistributionDaysParameters(i + 1, testuser, context.payer, user_comptoken_token_account.address);
+        return new MultidayDailyDistributionDaysParameters(BigInt(i + 1), testuser, context.payer, user_comptoken_token_account.address);
     });
 
     await run_multiday_test("multiday_daily_distribution_1", context, days_parameters_arr);

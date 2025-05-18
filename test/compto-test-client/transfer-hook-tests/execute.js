@@ -49,7 +49,7 @@ async function test_execute() {
         { pubkey: compto_public_keys.compto_transfer_hook_id_pubkey, isSigner: false, isWritable: false },
     ]
 
-    const data = Buffer.alloc(transferCheckedInstructionData.span);
+    const data = new Uint8Array(transferCheckedInstructionData.span);
     transferCheckedInstructionData.encode(
         {
             instruction: TokenInstruction.TransferChecked,
@@ -59,14 +59,14 @@ async function test_execute() {
         data
     );
 
-    let instructions = [new TransactionInstruction({ programId: TOKEN_2022_PROGRAM_ID, keys, data })];
+    let instructions = [new TransactionInstruction({ programId: TOKEN_2022_PROGRAM_ID, keys, data: Buffer.from(data) })];
 
     context = await run_test("execute", context, instructions, [context.payer, user1], false, async (context, result) => {
         const final_user1_comptoken_wallet = await get_account(context, original_user1_comptoken_wallet.address, TokenAccount);
-        Assert.assertEqual(final_user1_comptoken_wallet.data.amount, 0n);
+        Assert.assertEqual(final_user1_comptoken_wallet.data.amount, 0n, "user1 should have 0 comptokens");
 
         const final_user2_comptoken_wallet = await get_account(context, original_user2_comptoken_wallet.address, TokenAccount);
-        Assert.assertEqual(final_user2_comptoken_wallet.data.amount, 1n);
+        Assert.assertEqual(final_user2_comptoken_wallet.data.amount, 1n, "user2 should have 1 comptoken");
     });
 }
 

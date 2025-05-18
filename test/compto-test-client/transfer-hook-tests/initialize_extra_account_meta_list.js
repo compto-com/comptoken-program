@@ -31,8 +31,8 @@ async function test_initializeExtraAccountMetaList() {
 
     // first 8 bytes of sha256 of "spl-transfer-hook-interface:execute"
     // see https://spl.solana.com/transfer-hook-interface/specification
-    let instruction_data = Buffer.from([43, 34, 13, 49, 167, 88, 235, 235]);
-    let extra_account_meta_list_data = Buffer.alloc(4); // empty ExtraAccountMetaList size
+    let instruction_data = Uint8Array.from([43, 34, 13, 49, 167, 88, 235, 235]);
+    let extra_account_meta_list_data = new Uint8Array(4); // empty ExtraAccountMetaList size
     ExtraAccountMetaListLayout.encode({
         count: 0,
         extraAccounts: [],

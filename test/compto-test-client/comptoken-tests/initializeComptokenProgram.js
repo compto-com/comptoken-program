@@ -16,18 +16,35 @@ import { get_account, run_test, setup_test } from "../generic_test.js";
 import { createInitializeComptokenProgramInstruction } from "../instruction.js";
 import { isArrayEqual, zip } from "../utils.js";
 
+/**
+ * @import { Commitment } from "@solana/web3.js";
+ */
+
 async function initialize_comptoken_program() {
     const existing_accounts = [get_default_comptoken_mint()];
 
     let context = await setup_test(existing_accounts);
     const connection = {
-        getMinimumBalanceForRentExemption: async function (dataLength, commitment) {
+        /**
+         * 
+         * @param {number}     dataLength 
+         * @param {Commitment} _commitment 
+         * @returns 
+         */
+        getMinimumBalanceForRentExemption: async function (dataLength, _commitment) {
             let rent = await context.banksClient.getRent();
             return Number(rent.minimumBalance(BigInt(dataLength)));
         }
     }
 
-    let instructions = [await createInitializeComptokenProgramInstruction(connection, context.payer.publicKey, compto_public_keys)];
+    let instructions = [
+        await createInitializeComptokenProgramInstruction(
+            /* @ts-ignore */ // connection has the important functions
+            connection,
+            context.payer.publicKey,
+            compto_public_keys,
+        )
+    ];
 
     context = await run_test("initializeComptokenProgram", context, instructions, [context.payer], false, async (context, result) => {
         const final_global_data = await get_account(context, compto_public_keys.global_data_account_pubkey, GlobalDataAccount);

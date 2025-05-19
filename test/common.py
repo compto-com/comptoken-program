@@ -131,9 +131,6 @@ class PDA(dict[str, Any]):
 def createDirIfNotExists(path: str | Path):
     run(f"[ -d {path} ] || mkdir {path} ")
 
-import argparse
-
-
 def generateDirectories(args: argparse.Namespace):
     createDirIfNotExists(CACHE_PATH)
     createDirIfNotExists(COMPTOKEN_GENERATED_PATH)

@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 from time import sleep, time
@@ -24,7 +25,8 @@ def checkIfValidatorReady(validator: BackgroundProcess) -> bool:
     try:
         run("solana ping -c 1")
         return True
-    except Exception:
+    except Exception as e:
+        print(f"Validator not ready: {e}", file=sys.stderr)
         return False
 
 def waitTillValidatorReady(validator: BackgroundProcess):

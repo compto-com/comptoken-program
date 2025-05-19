@@ -8,6 +8,21 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Mapping, Self, Type
 
+def _alwaysFlush() -> None:
+    """Force flush all print statements immediately, unless explicitly set to not flush."""
+    # This is a workaround for the fact that the ci tests don't flush the output, so if
+    # they hang, we don't see the output.
+    import builtins
+
+    def printWrapper(*args: object, sep: str | None = " ", end: str | None = "\n", flush: bool = True, file: None = None) -> None:
+        import sys
+        builtins._original_print(f"[{sys.argv[0]}]", *args, flush=flush, sep=sep, end=end, file=file) # type: ignore 
+
+    builtins._original_print = builtins.print # type: ignore
+    builtins.print = printWrapper
+
+_alwaysFlush()
+
 TEST_PATH = Path(__file__).parent
 PROJECT_PATH = TEST_PATH.parent
 DEPLOY_PATH = PROJECT_PATH / "target/deploy"
@@ -67,7 +82,8 @@ class BackgroundProcess:
         print("Killing Background Process...")
         if self._process is not None and self.checkIfProcessRunning():
             os.killpg(os.getpgid(self._process.pid), signal.SIGTERM)
-            
+            self._process.wait()
+
         if exc_type is not None:
             stdout, stderr = self.getOutput()
             print(f"stdout: {stdout}")

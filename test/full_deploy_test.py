@@ -6,7 +6,6 @@ from time import sleep, time
 
 from common import *
 
-
 @contextmanager
 def createTestValidator():
     with BackgroundProcess(

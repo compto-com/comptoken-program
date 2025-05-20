@@ -9,6 +9,7 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 spl-token-2022 = { workspace = true }
+solana-program = { workspace = true }
 
 [dev-dependencies]
 hex-literal = "0.4.1"

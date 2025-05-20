@@ -1,7 +1,5 @@
-use spl_token_2022::{
-    solana_program::msg,
-    state::{Account, Mint},
-};
+use solana_program::msg;
+use spl_token_2022::state::{Account, Mint};
 
 use crate::{constants::*, get_current_time, normalize_time};
 
@@ -210,7 +208,7 @@ fn about_equal(left: f64, right: f64) -> bool {
 
 #[cfg(test)]
 mod test {
-    use spl_token_2022::solana_program::pubkey::Pubkey;
+    use solana_program::pubkey::Pubkey;
 
     use super::*;
 

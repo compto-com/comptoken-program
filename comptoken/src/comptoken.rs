@@ -9,12 +9,13 @@ use spl_token_2022::{
     extension::StateWithExtensions,
     instruction::mint_to,
     onchain,
-    solana_program::{
-        account_info::AccountInfo, entrypoint, entrypoint::MAX_PERMITTED_DATA_INCREASE, hash::HASH_BYTES,
-        instruction::AccountMeta, msg, program::set_return_data, program_error::ProgramError, pubkey::Pubkey,
-        system_instruction,
-    },
     state::{Account, Mint},
+};
+
+use solana_program::{
+    account_info::AccountInfo, entrypoint, entrypoint::MAX_PERMITTED_DATA_INCREASE, hash::HASH_BYTES,
+    instruction::AccountMeta, msg, program::set_return_data, program_error::ProgramError, pubkey::Pubkey,
+    system_instruction,
 };
 
 use comptoken_utils::{

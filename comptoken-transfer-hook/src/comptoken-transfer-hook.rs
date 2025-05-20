@@ -1,8 +1,7 @@
 mod generated;
 mod verify_accounts;
 
-use spl_tlv_account_resolution::{account::ExtraAccountMeta, seeds::Seed, state::ExtraAccountMetaList};
-use spl_token_2022::solana_program::{
+use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint,
     entrypoint::ProgramResult,
@@ -11,6 +10,7 @@ use spl_token_2022::solana_program::{
     rent::Rent,
     sysvar::Sysvar,
 };
+use spl_tlv_account_resolution::{account::ExtraAccountMeta, seeds::Seed, state::ExtraAccountMetaList};
 use spl_transfer_hook_interface::instruction::{ExecuteInstruction, TransferHookInstruction};
 
 use comptoken_utils::{create_pda, user_data::UserData};

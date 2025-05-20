@@ -1,5 +1,4 @@
 import os
-import sys
 from contextlib import contextmanager
 from pathlib import Path
 from time import sleep, time

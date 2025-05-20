@@ -7,13 +7,11 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v2
 
-            - name: Install Solana CLI tools
-              run: curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/solana-developers/solana-install/main/install.sh | bash
-              shell: bash
-
-            - name: Update PATH
-              run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-              shell: bash
+            - name: Setup Solana
+              id: setup-solana
+              uses: ./.github/actions/setup-solana
+              with:
+                  solana-cli-version: "2.1.20"
 
             - name: Generate keypair
               run: solana-keygen new --no-bip39-passphrase --silent
@@ -21,18 +19,19 @@ jobs:
             - name: Run rust tests
               run: cargo test-sbf
 
-    build-for-tests:
+    build:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout code
               uses: actions/checkout@v2
 
-            - name: Install Solana CLI tools
-              run: curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/solana-developers/solana-install/main/install.sh | bash
-              shell: bash
-            - run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-              shell: bash
-            - run: solana-keygen new --no-bip39-passphrase --silent
+            - name: Setup Solana
+              uses: ./.github/actions/setup-solana
+              with:
+                  solana-cli-version: "2.1.20"
+
+            - name: Generate keypair
+              run: solana-keygen new --no-bip39-passphrase --silent
 
             - name: Setup python
               uses: actions/setup-python@v2
@@ -56,6 +55,7 @@ jobs:
                     trap "kill $validator_pid" EXIT
                     sleep 5
                     cd ../..
+                    export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
                     python3 test/build_comptoken_program.py
                   )
 
@@ -71,17 +71,18 @@ jobs:
 
     component-tests:
         runs-on: ubuntu-latest
-        needs: build-for-tests
+        needs: build
         steps:
             - name: Checkout code
               uses: actions/checkout@v2
 
-            - name: Install Solana CLI tools
-              run: curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/solana-developers/solana-install/main/install.sh | bash
-              shell: bash
-            - run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-              shell: bash
-            - run: solana-keygen new --no-bip39-passphrase --silent
+            - name: Setup Solana
+              uses: ./.github/actions/setup-solana
+              with:
+                  solana-cli-version: "2.1.20"
+
+            - name: Generate keypair
+              run: solana-keygen new --no-bip39-passphrase --silent
 
             - name: Download build artifacts
               uses: actions/download-artifact@v4
@@ -106,17 +107,18 @@ jobs:
 
     integration-tests:
         runs-on: ubuntu-latest
-        needs: build-for-tests
+        needs: build
         steps:
             - name: Checkout code
               uses: actions/checkout@v2
 
-            - name: Install Solana CLI tools
-              run: curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/solana-developers/solana-install/main/install.sh | bash
-              shell: bash
-            - run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-              shell: bash
-            - run: solana-keygen new --no-bip39-passphrase --silent
+            - name: Setup Solana
+              uses: ./.github/actions/setup-solana
+              with:
+                  solana-cli-version: "2.1.20"
+
+            - name: Generate keypair
+              run: solana-keygen new --no-bip39-passphrase --silent
 
             - name: Download build artifacts
               uses: actions/download-artifact@v4

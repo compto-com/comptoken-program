@@ -20,10 +20,16 @@ def getGlobalData():
         return json.load(file).get("address")
 
 SPL_TOKEN_CMD = f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} -u localhost"
-CREATE_TOKEN_CMD = f"{SPL_TOKEN_CMD} create-token -v --fee-payer ~/.config/solana/id.json --decimals {MINT_DECIMALS} --transfer-hook {getAddress(TRANSFER_HOOK_KEYPAIR)} --mint-authority {getGlobalData()} --output json {MINT_KEYPAIR} > {COMPTOKEN_MINT_JSON}"
 
 def createToken():
+    CREATE_TOKEN_CMD = (
+        f"{SPL_TOKEN_CMD} create-token -v --fee-payer ~/.config/solana/id.json "
+        f"--decimals {MINT_DECIMALS} --transfer-hook {getAddress(TRANSFER_HOOK_KEYPAIR)} "
+        f"--mint-authority {getGlobalData()} --output json {MINT_KEYPAIR}"
+    )
+    print("Creating token...")
     run(CREATE_TOKEN_CMD)
+    print("Token created.")
 
 def generateMockFiles():
     comptokenProgramId = generateMockComptokenProgramIdFile()

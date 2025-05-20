@@ -16,10 +16,11 @@ import { Assert } from "../assert.js";
 import {
     compto_program_id_pubkey,
     DEFAULT_DISTRIBUTION_TIME,
-    SEC_PER_DAY,
 } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 import { createGetOwedComptokensInstruction } from "../instruction.js";
+
+const SEC_PER_DAY = 24 * 60 * 60;
 
 async function test_getOwedUbiComptokens() {
     const user = Keypair.generate();

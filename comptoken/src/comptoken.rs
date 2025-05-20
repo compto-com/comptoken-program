@@ -8,19 +8,19 @@ use spl_token_2022::{
     extension::StateWithExtensions,
     instruction::mint_to,
     onchain,
-    solana_program::{
-        account_info::AccountInfo,
-        entrypoint,
-        entrypoint::MAX_PERMITTED_DATA_INCREASE,
-        hash::{Hash, HASH_BYTES},
-        instruction::{AccountMeta, Instruction},
-        keccak, msg,
-        program::set_return_data,
-        program_error::ProgramError,
-        pubkey::Pubkey,
-        system_instruction,
-    },
     state::{Account, Mint},
+};
+
+use solana_program::{
+    account_info::AccountInfo,
+    entrypoint,
+    entrypoint::MAX_PERMITTED_DATA_INCREASE,
+    hash::{Hash, HASH_BYTES},
+    instruction::{AccountMeta, Instruction},
+    keccak, msg,
+    program::set_return_data,
+    program_error::ProgramError,
+    pubkey::Pubkey,
 };
 
 use comptoken_utils::{
@@ -678,11 +678,11 @@ pub fn realloc_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instruct
     let lamports = rent_lamports.saturating_sub(user_data_account.lamports());
 
     invoke_signed_verified(
-        &system_instruction::transfer(payer_account.key, user_data_account.key, lamports),
+        &solana_system_interface::instruction::transfer(payer_account.key, user_data_account.key, lamports),
         &[&user_data_account, &payer_account, &system_program],
         &[],
     )?;
-    user_data_account.realloc(new_size, false)
+    user_data_account.resize(new_size)
 }
 
 pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
@@ -714,8 +714,12 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
 
     let (rent_lamports, instruction_data) =
         get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
-    let (root_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, Hash::new);
-    let (nullifier_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, Hash::new);
+    let (root_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, |b| {
+        Hash::new_from_array(b.try_into().expect("slice with incorrect length"))
+    });
+    let (nullifier_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, |b| {
+        Hash::new_from_array(b.try_into().expect("slice with incorrect length"))
+    });
     let (proof, instruction_data) = get_next_data(instruction_data, PROOF_BYTES, |b| b);
     assert!(instruction_data.is_empty(), "incorrect instruction data");
 

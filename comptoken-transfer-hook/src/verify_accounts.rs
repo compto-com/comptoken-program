@@ -1,8 +1,5 @@
-use spl_token_2022::{
-    extension::StateWithExtensions,
-    solana_program::{account_info::AccountInfo, pubkey::Pubkey},
-    state::Mint,
-};
+use solana_program::{account_info::AccountInfo, pubkey::Pubkey};
+use spl_token_2022::{extension::StateWithExtensions, state::Mint};
 
 pub use comptoken_utils::verify_accounts::VerifiedAccountInfo;
 

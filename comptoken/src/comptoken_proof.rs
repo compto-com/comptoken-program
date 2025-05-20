@@ -1,4 +1,4 @@
-use spl_token_2022::solana_program::{
+use solana_program::{
     hash::{hashv, Hash},
     msg,
     pubkey::Pubkey,
@@ -102,7 +102,7 @@ impl ComptokenProof {
 #[cfg(test)]
 mod test {
     use super::*;
-    use spl_token_2022::solana_program::pubkey::PUBKEY_BYTES;
+    use solana_program::pubkey::PUBKEY_BYTES;
 
     const ZERO_PUBKEY: Pubkey = Pubkey::new_from_array([0; PUBKEY_BYTES]);
 
@@ -162,7 +162,13 @@ mod test {
         assert_eq!(proof.pubkey, ZERO_PUBKEY);
         assert_eq!(
             proof.hash,
-            Hash::new(&bs58::decode("DfmD6ULzF7womD7Nav5DKHuyF3xw8jMmX9bT7wgGP5Pp").into_vec().unwrap()) // value comes from running the code and printing the hash
+            Hash::new_from_array(
+                bs58::decode("DfmD6ULzF7womD7Nav5DKHuyF3xw8jMmX9bT7wgGP5Pp")
+                    .into_vec()
+                    .unwrap()
+                    .try_into()
+                    .unwrap()
+            ) // value comes from running the code and printing the hash
         );
     }
 

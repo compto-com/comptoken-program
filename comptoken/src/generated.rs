@@ -5,7 +5,7 @@
 mod comptoken_generated;
 #[cfg(not(feature = "testmode"))]
 mod comptoken_generated {
-    use spl_token_2022::solana_program::{pubkey, pubkey::Pubkey};
+    use solana_program::{pubkey, pubkey::Pubkey};
     pub const COMPTOKEN_MINT_ADDRESS: Pubkey = pubkey!("76KRec9fujGWqdCuPzwiMgxFzQyYMSZa9HeySkbsyufV"); // devnet
 
     pub const TRANSFER_HOOK_ID: Pubkey = pubkey!("4GG3aGgaMXDKtrD9pMcmQ4P87pKKCKRxAxR4LGTKpmYt"); // devnet

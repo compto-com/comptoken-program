@@ -1,16 +1,15 @@
 pub mod user_data;
 pub mod verify_accounts;
 
-use spl_token_2022::solana_program::{
+use solana_program::{
     entrypoint::ProgramResult,
     instruction::Instruction,
     program::{invoke, invoke_signed},
     pubkey::Pubkey,
-    system_instruction,
 };
 
 #[cfg(not(feature = "test_mock"))]
-use spl_token_2022::solana_program::{clock::Clock, sysvar::Sysvar};
+use solana_program::{clock::Clock, sysvar::Sysvar};
 
 use verify_accounts::VerifiedAccountInfo;
 
@@ -20,7 +19,8 @@ pub fn create_pda<'a>(
     payer: &VerifiedAccountInfo<'a>, new_account: &VerifiedAccountInfo<'a>, lamports: u64, space: u64, owner: &Pubkey,
     signers_seeds: &[&[&[u8]]],
 ) -> ProgramResult {
-    let create_acct_instr = system_instruction::create_account(payer.key, new_account.key, lamports, space, owner);
+    let create_acct_instr =
+        solana_system_interface::instruction::create_account(payer.key, new_account.key, lamports, space, owner);
     // The PDA that is being created must sign for its own creation.
     invoke_signed_verified(&create_acct_instr, &[payer, new_account], signers_seeds)
 }

@@ -313,6 +313,7 @@ def parseArgs():
     )
     parser.add_argument("--no-build", action="store_false", dest="build", help="skip building, implies --no-generate")
     parser.add_argument("--no-generate", action="store_false", dest="generate", help="skip generating files")
+    parser.add_argument("--no-reset", action="store_false", dest="reset", help="skip resetting the validator")
 
     args = parser.parse_args()
     if not args.build:

@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 from contextlib import contextmanager
@@ -8,9 +7,12 @@ from time import sleep, time
 from common import *
 
 @contextmanager
-def createTestValidator():
+def createTestValidator(reset: bool):
+    cmd = "solana-test-validator"
+    if reset:
+        cmd += " --reset"
     with BackgroundProcess(
-        "solana-test-validator --reset",
+        cmd,
         shell=True,
         cwd=CACHE_PATH,
         preexec_fn=os.setsid,
@@ -25,8 +27,7 @@ def checkIfValidatorReady(validator: BackgroundProcess) -> bool:
     try:
         run("solana ping -c 1")
         return True
-    except Exception as e:
-        print(f"Validator not ready: {e}", file=sys.stderr)
+    except Exception:
         return False
 
 def waitTillValidatorReady(validator: BackgroundProcess):
@@ -46,12 +47,7 @@ def waitTillValidatorReady(validator: BackgroundProcess):
 def getAddress(path: Path) -> str:
     return run(f"solana address -k {path}")
 
-def getGlobalData():
-    with open(COMPTO_GLOBAL_DATA_ACCOUNT_JSON, "r") as file:
-        return json.load(file).get("address")
-
 SPL_TOKEN_CMD = f"spl-token --program-id {TOKEN_2022_PROGRAM_ID} -u localhost"
-CREATE_TOKEN_CMD = f"{SPL_TOKEN_CMD} create-token -v --fee-payer ~/.config/solana/id.json --decimals {MINT_DECIMALS} --transfer-hook {getAddress(TRANSFER_HOOK_KEYPAIR)} --mint-authority {getGlobalData()} --output json {MINT_KEYPAIR} > {COMPTOKEN_MINT_JSON}"
 DEPLOY_CMD = "solana program deploy -v -u localhost"
 
 def getProgramIdIfExists(path: Path) -> str | None:
@@ -65,9 +61,6 @@ def getComptoProgramIdIfExists() -> str | None:
 
 def getTransferHookProgramIdIfExists() -> str | None:
     return getProgramIdIfExists(TRANSFER_HOOK_KEYPAIR)
-
-def createToken():
-    run(CREATE_TOKEN_CMD)
 
 def createComptoAccount():
     generateTestUser()
@@ -118,19 +111,22 @@ if __name__ == "__main__":
         transferHookId = getAddress(TRANSFER_HOOK_KEYPAIR)
 
     print("Creating Validator...")
-    with createTestValidator() as validator:
+    with createTestValidator(reset=args.reset) as validator:
         print("Checking Compto Program for hardcoded Comptoken Address and static seed...")
 
-        if args.generate:
-            createKeyPair(MINT_KEYPAIR)
-            mintAddress = getTokenAddress()
-            generateFiles(comptokenProgramId, transferHookId, mintAddress)
-
-        createToken()
-
         if args.build:
-            buildTransferHook(features=["testmode"])
-            buildCompto(features=["testmode"])
+            from build_comptoken_program import build, parseArgs as parseBuildArgs
+            buildArgsList:list[str] = []
+            if args.verbose:
+                buildArgsList.append(f"-{'v' * args.verbose}")
+            if not args.generate:
+                buildArgsList.extend(['--skip', 'generate'])
+            if args.log_directory is not None:
+                buildArgsList.extend(['--log-directory', f'{str(args.log_directory)}'])
+            buildArgsList.extend(['--features', 'testmode'])
+            buildArgs = parseBuildArgs(buildArgsList)
+            
+            build(buildArgs)
 
         deployTransferHook()
         deployCompto()

@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 from argparse import Namespace
@@ -9,40 +8,6 @@ from common import *
 ANSI_GREEN = "\033[92m"
 ANSI_RED = "\033[91m"
 ANSI_RESET = "\033[0m"
-
-def generateMockFiles():
-    comptokenProgramId = generateMockComptokenProgramIdFile()
-    transferHookId = generateMockTransferHookProgramIdFile()
-    mintAddress = generateMockMint()
-    return (comptokenProgramId, transferHookId, mintAddress)
-
-
-def generateMockComptokenProgramIdFile():
-    programId = randAddress()
-    write(COMPTO_PROGRAM_ID_JSON, json.dumps({"programId": programId}))
-    return programId
-
-def generateMockTransferHookProgramIdFile():
-    programId = randAddress()
-    write(COMPTO_TRANSFER_HOOK_ID_JSON, json.dumps({"programId": programId}))
-    return programId
-
-def generateMockMint() -> str:
-    address = randAddress()
-    file_data = f'''\
-{{
-    "commandName": "CreateToken",
-    "commandOutput": {{
-        "address": "{address}",
-        "decimals": {MINT_DECIMALS},
-        "transactionData": {{
-            "signature": ""
-        }}
-    }}
-}}\
-'''
-    write(COMPTOKEN_MINT_JSON, file_data)
-    return address
 
 def runTest(args: Namespace, file: str) -> bool:
     print(f"running {file}")
@@ -114,12 +79,20 @@ if __name__ == "__main__":
 
     args = parseArgs()
     generateDirectories(args)
-    if args.generate:
-        (comptokenProgramId, transferHookId, mintAddress) = generateMockFiles()
-        generateFiles(comptokenProgramId, transferHookId, mintAddress)
     if args.build:
-        buildCompto(features=["testmode"])
-        buildTransferHook(features=["testmode"])
+        from build_comptoken_program import build, parseArgs as parseBuildArgs
+        buildArgsList:list[str] = []
+        if args.verbose:
+            buildArgsList.append(f"-{'v' * args.verbose}")
+        buildArgsList.extend([f"--skip", "create-token"])
+        if not args.generate:
+            buildArgsList.append('generate')
+        if args.log_directory is not None:
+            buildArgsList.extend(['--log-directory', f'{str(args.log_directory)}'])
+        buildArgsList.extend(['--features', 'testmode'])
+        buildArgs = parseBuildArgs(buildArgsList)
+        
+        build(buildArgs)
     else:
         print("skipping generating files")
         print("skipping building")

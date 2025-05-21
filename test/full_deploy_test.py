@@ -24,7 +24,7 @@ def checkIfValidatorReady(validator: BackgroundProcess) -> bool:
         print("validator not running")
         return False
     try:
-        run("solana ping -c 1")
+        run("solana ping -u localhost -c 1")
         return True
     except Exception:
         return False

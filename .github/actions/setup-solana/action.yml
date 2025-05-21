@@ -63,7 +63,7 @@ runs:
           shell: bash
 
         - name: Update PATH
-          run: echo "~/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          run: echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
           shell: bash
 
         - name: Test install

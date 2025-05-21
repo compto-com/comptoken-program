@@ -160,10 +160,15 @@ def run(
         )
     return result.stdout.rstrip()
 
-def build(package: str, features: list[str] = []):
-    print(f"Building {package}...")
-    features_flag: str = "" if len(features) == 0 else f"--features \"{' '.join(features)}\""
-    run(f'cargo build-sbf {features_flag} -- -v -p {package}', PROJECT_PATH)
+def build(package: str | None, features: list[str] = []):
+    if package is None:
+        print("No package specified, building all packages")
+        print("Building...")
+    else:
+        print(f"Building {package}...")
+    features_flag = "" if len(features) == 0 else f"--features \"{' '.join(features)}\""
+    package_flag = "" if package is None else f"--package {package}"
+    run(f'cargo build-sbf {features_flag} -- -v {package_flag}', PROJECT_PATH)
     print(f"Done Building {package}")
 
 def buildCompto(features: list[str] = []):

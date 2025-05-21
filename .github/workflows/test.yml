@@ -50,13 +50,13 @@ jobs:
                   (
                     mkdir -p test/.cache/
                     cd test/.cache/
-                    solana-test-validator --reset --ledger test-ledger &
+                    solana-test-validator --reset > /dev/null &
                     validator_pid=$!
                     trap "kill $validator_pid" EXIT
                     sleep 5
                     cd ../..
                     export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
-                    python3 test/build_comptoken_program.py
+                    python3 test/build_comptoken_program.py --features testmode
                   )
 
             - name: Upload build artifacts

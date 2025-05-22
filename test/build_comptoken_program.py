@@ -5,9 +5,8 @@ import argparse
 import json
 from pathlib import Path
 from common import (
-    build as compile, createTestValidator, generateDirectories, generateFiles,
-    randAddress, run, write,
-    COMPTOKEN_MINT_JSON, COMPTO_PROGRAM_ID_JSON, COMPTO_TRANSFER_HOOK_ID_JSON,
+    build as compile, createTestValidator, generateDirectories, generateFiles, run, write,
+    COMPTOKEN_MINT_JSON, COMPTO_KEYPAIR, COMPTO_PROGRAM_ID_JSON, COMPTO_TRANSFER_HOOK_ID_JSON,
     COMPTO_GLOBAL_DATA_ACCOUNT_JSON, MINT_DECIMALS, MINT_KEYPAIR, TOKEN_2022_PROGRAM_ID,
     TRANSFER_HOOK_KEYPAIR,
 )
@@ -28,7 +27,8 @@ def createToken():
         f"--mint-authority {getGlobalData()} --output json {MINT_KEYPAIR}"
     )
     print("Creating token...")
-    run(CREATE_TOKEN_CMD)
+    result = run(CREATE_TOKEN_CMD)
+    write(COMPTOKEN_MINT_JSON, result)
     print("Token created.")
 
 def generateMockFiles():
@@ -39,17 +39,17 @@ def generateMockFiles():
 
 
 def generateMockComptokenProgramIdFile():
-    programId = randAddress()
+    programId = getAddress(COMPTO_KEYPAIR)
     write(COMPTO_PROGRAM_ID_JSON, json.dumps({"programId": programId}))
     return programId
 
 def generateMockTransferHookProgramIdFile():
-    programId = randAddress()
+    programId = getAddress(TRANSFER_HOOK_KEYPAIR)
     write(COMPTO_TRANSFER_HOOK_ID_JSON, json.dumps({"programId": programId}))
     return programId
 
 def generateMockMint() -> str:
-    address = randAddress()
+    address = getAddress(MINT_KEYPAIR)
     file_data = f'''\
 {{
     "commandName": "CreateToken",
@@ -100,6 +100,12 @@ def build(args: BuildArgs):
             createToken()
             print("Token created.")
 
+    if args.verbose > 0:
+        print(f"comptokenProgramId: {getAddress(COMPTO_KEYPAIR)}")
+        print(f"transferHookId: {getAddress(TRANSFER_HOOK_KEYPAIR)}")
+        print(f"mintAddress: {getAddress(MINT_KEYPAIR)}")
+        print(f"globalData: {getGlobalData()}")
+
     if "build" in args.steps:
         print("Building Compto and Transfer Hook programs...")
         compile(None, features=args.features)
@@ -111,5 +117,10 @@ if __name__ == "__main__":
     if len(args.steps) == 0:
         print("Nothing to do. Exiting.")
         exit(0)
+
+    if args.verbose > 0:
+        print(f"Verbose level: {args.verbose}")
+        print(f"Log directory: {args.log_directory}")
+        print(f"Features: {args.features}")
 
     build(args)

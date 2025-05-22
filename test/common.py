@@ -348,23 +348,3 @@ def generateFiles(comptokenProgramId: str, transferHookId: str, mintAddress: str
         comptokenProgramId, extraAccountMetasSeed, mintAddress, interestBankAddress, verifiedHumanUBIBankAddress, futureUBIBankAddress
     )
     print("done generating files")
-
-def parseArgs():
-    parser = argparse.ArgumentParser(prog="comptoken component tests")
-    parser.add_argument("--verbose", "-v", action="count", default=0)
-    parser.add_argument("--log-directory", type=Path, help="logs test output to the specified directory")
-    parser.add_argument(
-        "--log",
-        action="store_const",
-        const=LOGS_PATH,
-        dest="log_directory",
-        help="logs test output to the test/.cache/logs directory"
-    )
-    parser.add_argument("--no-build", action="store_false", dest="build", help="skip building, implies --no-generate")
-    parser.add_argument("--no-generate", action="store_false", dest="generate", help="skip generating files")
-    parser.add_argument("--no-reset", action="store_false", dest="reset", help="skip resetting the validator")
-
-    args = parser.parse_args()
-    if not args.build:
-        args.generate = False
-    return args

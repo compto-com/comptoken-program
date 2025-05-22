@@ -138,7 +138,7 @@ jobs:
               run: npm clean-install --prefix ./test/compto-test-client
 
             - name: run integration tests
-              run: python3 test/full_deploy_test.py --no-build --no-reset -vvv # calls node.js scripts to run tests; do not reset the validator
+              run: python3 test/full_deploy_test.py --no-build --no-reset --kill-immediately -vvv # calls node.js scripts to run tests; do not reset the validator
 
             - name: Validator logs on failure
               if: failure()

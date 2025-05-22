@@ -2,9 +2,9 @@ import argparse
 from pathlib import Path
 
 from common import (
-    createKeyPair, createTestValidator, generateDirectories, generateTestUser, parseArgs, run,
+    createKeyPair, createTestValidator, generateDirectories, generateTestUser, run,
     SubprocessFailedException,
-    COMPTO_KEYPAIR, COMPTO_PROGRAM_ID_JSON, COMPTO_SO, COMPTO_TRANSFER_HOOK_ID_JSON,
+    COMPTO_KEYPAIR, COMPTO_PROGRAM_ID_JSON, COMPTO_SO, COMPTO_TRANSFER_HOOK_ID_JSON, LOGS_PATH,
     MINT_KEYPAIR, TEST_PATH, TEST_USER_ACCOUNT_JSON, TOKEN_2022_PROGRAM_ID, TRANSFER_HOOK_KEYPAIR,
     TRANSFER_HOOK_SO,
 )
@@ -58,6 +58,27 @@ def getTokenAddress():
 def runTestClient():
     return run("node --trace-warnings compto-test-client/test_client.js", TEST_PATH)
 
+def parseArgs():
+    parser = argparse.ArgumentParser(prog="comptoken component tests")
+    parser.add_argument("--verbose", "-v", action="count", default=0)
+    parser.add_argument("--log-directory", type=Path, help="logs test output to the specified directory")
+    parser.add_argument(
+        "--log",
+        action="store_const",
+        const=LOGS_PATH,
+        dest="log_directory",
+        help="logs test output to the test/.cache/logs directory"
+    )
+    parser.add_argument("--no-build", action="store_false", dest="build", help="skip building, implies --no-generate")
+    parser.add_argument("--no-generate", action="store_false", dest="generate", help="skip generating files")
+    parser.add_argument("--no-reset", action="store_false", dest="reset", help="skip resetting the validator")
+    parser.add_argument("--kill-immediately", action="store_true", dest="kill_immediately", help="kill the validator immediately after tests, rather than waiting for input")
+
+    args = parser.parse_args()
+    if not args.build:
+        args.generate = False
+    return args
+
 if __name__ == "__main__":
     args = parseArgs()
     # create cache if it doesn't exist
@@ -107,4 +128,7 @@ if __name__ == "__main__":
         print(f"Test Account {test_account} Balance: {getAccountBalance(test_account)}")
 
         # wait for input
-        input("Press Enter to continue...")
+        if args.kill_immediately:
+            print("Killing validator immediately...")
+        else:
+            input("Press Enter to continue...")

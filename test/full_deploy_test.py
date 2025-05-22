@@ -21,7 +21,6 @@ def createTestValidator(reset: bool):
 
 def checkIfValidatorReady(validator: BackgroundProcess) -> bool:
     if not validator.checkIfProcessRunning():
-        print("validator not running")
         return False
     try:
         run("solana ping -u localhost -c 1")

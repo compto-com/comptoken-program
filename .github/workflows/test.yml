@@ -63,6 +63,7 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: comptoken-build
+                  include-hidden-files: true
                   path: |
                       target/deploy/*
                       comptoken/src/generated/comptoken_generated.rs

@@ -1,44 +1,13 @@
-import os
-from contextlib import contextmanager
+import argparse
 from pathlib import Path
-from time import sleep, time
 
-from common import *
-
-@contextmanager
-def createTestValidator(reset: bool):
-    cmd = "solana-test-validator"
-    if reset:
-        cmd += " --reset"
-    with BackgroundProcess(
-        cmd,
-        shell=True,
-        cwd=CACHE_PATH,
-        preexec_fn=os.setsid,
-    ) as validator:
-        waitTillValidatorReady(validator)
-        yield validator
-
-def checkIfValidatorReady(validator: BackgroundProcess) -> bool:
-    if not validator.checkIfProcessRunning():
-        return False
-    try:
-        run("solana ping -u localhost -c 1")
-        return True
-    except Exception:
-        return False
-
-def waitTillValidatorReady(validator: BackgroundProcess):
-    print("Checking Validator Ready...")
-    TIMEOUT = 10
-    t1 = time()
-    while not checkIfValidatorReady(validator):
-        if t1 + TIMEOUT < time():
-            print("Validator Timeout, Exiting...")
-            exit(1)
-        print("Validator Not Ready")
-        sleep(1)
-    print("Validator Ready")
+from common import (
+    createKeyPair, createTestValidator, generateDirectories, generateTestUser, parseArgs, run,
+    SubprocessFailedException,
+    COMPTO_KEYPAIR, COMPTO_PROGRAM_ID_JSON, COMPTO_SO, COMPTO_TRANSFER_HOOK_ID_JSON,
+    MINT_KEYPAIR, TEST_PATH, TEST_USER_ACCOUNT_JSON, TOKEN_2022_PROGRAM_ID, TRANSFER_HOOK_KEYPAIR,
+    TRANSFER_HOOK_SO,
+)
 
 # ==== SOLANA COMMANDS ====
 

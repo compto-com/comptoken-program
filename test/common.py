@@ -3,8 +3,10 @@ import os
 import signal
 import subprocess
 import argparse
+from contextlib import contextmanager
 from functools import reduce
 from pathlib import Path
+from time import sleep, time
 from types import TracebackType
 from typing import Any, Mapping, Self, Type
 
@@ -128,8 +130,44 @@ class PDA(dict[str, Any]):
 
         super().__init__(json.loads(run(f"solana find-program-derived-address {programId} {seeds_str} --output json")))
 
+@contextmanager
+def createTestValidator(reset: bool):
+    createDirIfNotExists(CACHE_PATH)
+    cmd = "solana-test-validator"
+    if reset:
+        cmd += " --reset"
+    with BackgroundProcess(
+        cmd,
+        shell=True,
+        cwd=CACHE_PATH,
+        preexec_fn=os.setsid,
+    ) as validator:
+        waitTillValidatorReady(validator)
+        yield validator
+
+def checkIfValidatorReady(validator: BackgroundProcess) -> bool:
+    if not validator.checkIfProcessRunning():
+        return False
+    try:
+        run("solana ping -u localhost -c 1")
+        return True
+    except Exception:
+        return False
+
+def waitTillValidatorReady(validator: BackgroundProcess):
+    print("Checking Validator Ready...")
+    TIMEOUT = 10
+    t1 = time()
+    while not checkIfValidatorReady(validator):
+        if t1 + TIMEOUT < time():
+            print("Validator Timeout, Exiting...")
+            exit(1)
+        print("Validator Not Ready")
+        sleep(1)
+    print("Validator Ready")
+
 def createDirIfNotExists(path: str | Path):
-    run(f"[ -d {path} ] || mkdir {path} ")
+    run(f"mkdir -p {path}")
 
 def generateDirectories(args: argparse.Namespace):
     createDirIfNotExists(CACHE_PATH)

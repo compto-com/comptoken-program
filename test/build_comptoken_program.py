@@ -5,7 +5,8 @@ import argparse
 import json
 from pathlib import Path
 from common import (
-    build as compile, generateDirectories, generateFiles, randAddress, run, write,
+    build as compile, createTestValidator, generateDirectories, generateFiles,
+    randAddress, run, write,
     COMPTOKEN_MINT_JSON, COMPTO_PROGRAM_ID_JSON, COMPTO_TRANSFER_HOOK_ID_JSON,
     COMPTO_GLOBAL_DATA_ACCOUNT_JSON, MINT_DECIMALS, MINT_KEYPAIR, TOKEN_2022_PROGRAM_ID,
     TRANSFER_HOOK_KEYPAIR,
@@ -94,9 +95,10 @@ def build(args: BuildArgs):
         print("Files generated.")
 
     if "create-token" in args.steps:
-        print("Creating token...")
-        createToken()
-        print("Token created.")
+        with createTestValidator(reset=True) as validator:
+            print("Creating token...")
+            createToken()
+            print("Token created.")
 
     if "build" in args.steps:
         print("Building Compto and Transfer Hook programs...")

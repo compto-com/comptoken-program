@@ -50,6 +50,9 @@ jobs:
                   export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
                   python3 test/build_comptoken_program.py --features testmode
 
+            - name: copy payer keypair to test/.cache
+              run: cp ~/.config/solana/id.json test/.cache/payer-keypair.json
+
             - name: Upload build artifacts
               uses: actions/upload-artifact@v4
               with:
@@ -73,13 +76,15 @@ jobs:
               with:
                   solana-cli-version: "2.1.20"
 
-            - name: Generate keypair
-              run: solana-keygen new --no-bip39-passphrase --silent
-
             - name: Download build artifacts
               uses: actions/download-artifact@v4
               with:
                   name: comptoken-build
+
+            - name: move payer keypair
+              run: |
+                  mkdir -p ~/.config/solana
+                  cp test/.cache/payer-keypair.json ~/.config/solana/id.json
 
             - name: Setup python
               uses: actions/setup-python@v2
@@ -109,13 +114,15 @@ jobs:
               with:
                   solana-cli-version: "2.1.20"
 
-            - name: Generate keypair
-              run: solana-keygen new --no-bip39-passphrase --silent
-
             - name: Download build artifacts
               uses: actions/download-artifact@v4
               with:
                   name: comptoken-build
+
+            - name: move payer keypair
+              run: |
+                  mkdir -p ~/.config/solana
+                  cp test/.cache/payer-keypair.json ~/.config/solana/id.json
 
             - name: Setup python
               uses: actions/setup-python@v2

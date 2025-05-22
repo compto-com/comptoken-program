@@ -78,7 +78,7 @@ if __name__ == "__main__":
         transferHookId = getAddress(TRANSFER_HOOK_KEYPAIR)
 
     print("Creating Validator...")
-    with createTestValidator(reset=args.reset) as validator:
+    with createTestValidator(reset=args.reset, verbosity=args.verbose) as validator:
         print("Checking Compto Program for hardcoded Comptoken Address and static seed...")
 
         if args.build:

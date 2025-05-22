@@ -6,7 +6,7 @@ import argparse
 from contextlib import contextmanager
 from functools import reduce
 from pathlib import Path
-from time import sleep, time
+from time import sleep
 from types import TracebackType
 from typing import Any, Mapping, Self, Type
 
@@ -131,7 +131,7 @@ class PDA(dict[str, Any]):
         super().__init__(json.loads(run(f"solana find-program-derived-address {programId} {seeds_str} --output json")))
 
 @contextmanager
-def createTestValidator(reset: bool):
+def createTestValidator(reset: bool, verbosity: int = 0):
     createDirIfNotExists(CACHE_PATH)
     cmd = "solana-test-validator"
     if reset:
@@ -142,28 +142,34 @@ def createTestValidator(reset: bool):
         cwd=CACHE_PATH,
         preexec_fn=os.setsid,
     ) as validator:
-        waitTillValidatorReady(validator)
+        waitTillValidatorReady(validator, verbosity)
         yield validator
 
-def checkIfValidatorReady(validator: BackgroundProcess) -> bool:
+def checkIfValidatorReady(validator: BackgroundProcess, verbosity: int) -> bool:
     if not validator.checkIfProcessRunning():
         return False
     try:
         run("solana ping -u localhost -c 1")
         return True
-    except Exception:
+    except Exception as e:
+        if verbosity > 1:
+            print(f"Validator not ready: {e}")
         return False
 
-def waitTillValidatorReady(validator: BackgroundProcess):
+def waitTillValidatorReady(validator: BackgroundProcess, verbosity: int):
     print("Checking Validator Ready...")
-    TIMEOUT = 10
-    t1 = time()
-    while not checkIfValidatorReady(validator):
-        if t1 + TIMEOUT < time():
+    MAX_ATTEMPTS = 10
+    attempts = 0
+    while not checkIfValidatorReady(validator, verbosity):
+        if attempts >= MAX_ATTEMPTS:
             print("Validator Timeout, Exiting...")
             exit(1)
         print("Validator Not Ready")
         sleep(1)
+        attempts += 1
+        if attempts + 1 == MAX_ATTEMPTS:
+            # extra verbose mode for last attempt
+            verbosity += 1
     print("Validator Ready")
 
 def createDirIfNotExists(path: str | Path):

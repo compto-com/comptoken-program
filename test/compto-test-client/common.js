@@ -15,7 +15,7 @@ export const COMPTOKEN_DISTRIBUTION_MULTIPLIER = 146000n; // MAGIC NUMBER: remai
 export const FUTURE_UBI_VERIFIED_HUMANS = 1_000_000_000; // MAGIC NUMBER: remain consistent with constants.rs
 export const MINING_AMOUNT = 100_00n; // MAGIC NUMBER: remain consistent with constants.rs
 
-export const compto_public_keys = ComptoPublicKeys.loadFromCache(".cache");
+export const compto_public_keys = ComptoPublicKeys.loadFromCache(import.meta.dirname + "/../.cache");
 
 // KeyPair
 let solana_id = JSON.parse(fs.readFileSync(os.homedir() + "/.config/solana/id.json").toString());

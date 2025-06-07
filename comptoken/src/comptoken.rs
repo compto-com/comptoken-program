@@ -718,7 +718,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     let (nullifier_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, |b| {
         Hash::new_from_array(b.try_into().expect("slice with incorrect length"))
     });
-    let (proof, instruction_data) = get_next_data(instruction_data, PROOF_BYTES, |b| b);
+    let (proof, instruction_data) = get_next_data(instruction_data, WORLD_PROOF_LENGTH, |b| b);
     assert!(instruction_data.is_empty(), "incorrect instruction data");
 
     let verified_accounts = verify_accounts(

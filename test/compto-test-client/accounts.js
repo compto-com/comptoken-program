@@ -21,6 +21,8 @@ import {
 } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
 
+import { blob, greedy, seq, struct, u32, u8 } from "@solana/buffer-layout";
+import { publicKey, u64 } from "@solana/buffer-layout-utils";
 import {
     BIG_NUMBER,
     compto_public_keys,
@@ -109,6 +111,79 @@ export class ExtraAccountMeta extends DataType {
     addressConfig_; // [u8; 32]
     isSigner_; // bool
     isWritable_; // bool
+}
+
+const WorldIdRootLayout = struct([
+    blob(8, "discriminator"), // 8 bytes for discriminator [2e 9f 83 25 f5 54 05 09]
+    u8("bump"),
+    u64("read_block_number"),
+    blob(32, "read_block_hash"),
+    u64("read_block_time"),
+    publicKey("refund_recipient"),
+    blob(32, "root"),
+    blob(1, "verification_type"),
+]);
+
+export class WorldIdRoot extends DataType {
+    static LAYOUT = WorldIdRootLayout;
+}
+
+export class WorldIdRootAccount extends Account {
+    static DATA_TYPE = WorldIdRoot;
+}
+
+const WorldIdLatestRootLayout = struct([
+    blob(8, "discriminator"), // 8 bytes for discriminator [0c f5 e7 f6 bf 3f a9 5f]
+    u8("bump"),
+    u64("read_block_number"),
+    blob(32, "read_block_hash"),
+    u64("read_block_time"),
+    blob(32, "root"),
+    blob(1, "verification_type"),
+]);
+
+export class WorldIdLatestRoot extends DataType {
+    static LAYOUT = WorldIdLatestRootLayout;
+}
+
+export class WorldIdLatestRootAccount extends Account {
+    static DATA_TYPE = WorldIdLatestRoot;
+}
+
+const WorldIdGuardianSignatureLayout = struct([
+    blob(8, "discriminator"), // 8 bytes for discriminator []
+    publicKey("refund_recipient"),
+    seq(blob(66), greedy(66), "guardian_signatures"),
+]);
+
+export class WorldIdGuardianSignature extends DataType {
+    static LAYOUT = WorldIdGuardianSignatureLayout;
+
+    getSize() {
+        return this.guardian_signatures.length * 66 + 32 + 4;
+    }
+}
+
+export class WorldIdGuardianSignatureAccount extends Account {
+    static DATA_TYPE = WorldIdGuardianSignature;
+}
+
+const WorldIdConfigLayout = struct([
+    blob(8, "discriminator"), // 8 bytes for discriminator [9b 0c aa e0 1e fa cc 82]
+    u8("bump"),
+    publicKey("owner"),
+    u32("pending_owner_option"),
+    publicKey("pending_owner"),
+    u64("root_expiry"),
+    u64("allowed_update_staleness"),
+]);
+
+export class WorldIdConfig extends DataType {
+    static LAYOUT = WorldIdConfigLayout;
+}
+
+export class WorldIdConfigAccount extends Account {
+    static DATA_TYPE = WorldIdConfig;
 }
 
 // ======================================== Default Constructors ========================================

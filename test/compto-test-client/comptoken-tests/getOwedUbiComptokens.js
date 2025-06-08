@@ -7,12 +7,6 @@ import {
 import { Keypair, PublicKey, } from "@solana/web3.js";
 
 import {
-    createGetOwedComptokensInstruction,
-    SEC_PER_DAY,
-    TokenAccount,
-    UserDataAccount,
-} from "@compto/comptoken.js";
-import {
     get_default_comptoken_mint,
     get_default_comptoken_token_account,
     get_default_extra_account_metas_account,

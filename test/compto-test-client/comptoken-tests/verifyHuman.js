@@ -1,4 +1,10 @@
-import { GlobalDataAccount, TokenAccount, UserDataAccount, createVerifyHumanInstruction } from "@compto/comptoken.js";
+import {
+    createVerifyHumanInstruction,
+    GlobalDataAccount,
+    SEC_PER_DAY,
+    TokenAccount,
+    UserDataAccount,
+} from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
 
 import {
@@ -8,29 +14,18 @@ import {
     get_default_global_data,
     get_default_unpaid_future_ubi_bank,
     get_default_user_data_account,
+    WorldIdConfig,
+    WorldIdConfigAccount,
+    WorldIdLatestRoot,
+    WorldIdLatestRootAccount,
+    WorldIdRoot,
+    WorldIdRootAccount,
 } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_public_keys } from "../common.js";
+import { compto_public_keys, DEFAULT_START_TIME } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 
 async function testVerifyHuman() {
-    const user = Keypair.generate();
-    let original_comptoken_mint = get_default_comptoken_mint();
-    original_comptoken_mint.data.supply = 1_000_000_000n;
-    const original_global_data = get_default_global_data();
-    let original_unpaid_future_ubi_bank = get_default_unpaid_future_ubi_bank();
-    original_unpaid_future_ubi_bank.data.amount = 1_000_000_000n;
-    const original_user_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), user.publicKey);
-    console.log(original_user_comptoken_wallet);
-    const user_data_pda = PublicKey.findProgramAddressSync([original_user_comptoken_wallet.address.toBytes()], compto_public_keys.compto_program_id_pubkey)[0];
-    const original_user_data_account = get_default_user_data_account(user_data_pda);
-    console.log(original_user_data_account);
-
-    const existing_accounts = [
-        original_comptoken_mint, original_global_data, original_unpaid_future_ubi_bank, original_user_comptoken_wallet, original_user_data_account,
-        get_default_extra_account_metas_account()
-    ];
-
     const nullifier_hash = Buffer.from("1c9ad277b4e02ec68d8922c5dc7aa37067941714c50b8fb973bbb050991a13b0", "hex");
     const root_hash = Buffer.from(
         "0b0b2aa02553f99a9b10982c74d6a8cd723b337fafe4aa33351c858b74372223", "hex");
@@ -45,6 +40,75 @@ async function testVerifyHuman() {
         "22cc9f59758e2498ec4cd9a16f0cce63368e2497fb7a5aa2b7a1223d08267960",
         "hex"
     );
+    const WORLD_VERIFICATION_TYPE = 0;
+
+    const WORLD_ID_PROGRAM = new PublicKey("9TMVfMJs6qyu8jnc7TJfAWhn81Ju2uSRj4uYqLHyKXnh");
+
+    const user = Keypair.generate();
+    let original_comptoken_mint = get_default_comptoken_mint();
+    original_comptoken_mint.data.supply = 1_000_000_000n;
+    const original_global_data = get_default_global_data();
+    let original_unpaid_future_ubi_bank = get_default_unpaid_future_ubi_bank();
+    original_unpaid_future_ubi_bank.data.amount = 1_000_000_000n;
+    const original_user_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), user.publicKey);
+
+    const user_data_pda = PublicKey.findProgramAddressSync([original_user_comptoken_wallet.address.toBytes()], compto_public_keys.compto_program_id_pubkey)[0];
+    const original_user_data_account = get_default_user_data_account(user_data_pda);
+
+
+    const [world_id_root_address, world_id_root_bump] = PublicKey.findProgramAddressSync([Buffer.from("Root"), root_hash, [WORLD_VERIFICATION_TYPE]], WORLD_ID_PROGRAM);
+    const world_id_root_account = new WorldIdRootAccount(
+        world_id_root_address,
+        10_000n,
+        WORLD_ID_PROGRAM,
+        new WorldIdRoot({
+            discriminator: Buffer.from([0x2e, 0x9f, 0x83, 0x25, 0xf5, 0x54, 0x05, 0x09]),
+            bump: world_id_root_bump,
+            read_block_number: 1n,
+            read_block_hash: Buffer.from(Array.from({ length: 32 }, (v, i) => i * 3)),
+            read_block_time: DEFAULT_START_TIME,
+            refund_recipient: user.publicKey,
+            root: root_hash,
+            verification_type: Buffer.from([WORLD_VERIFICATION_TYPE]),
+        }),
+    );
+
+    const [world_id_latest_root_address, world_id_latest_root_bump] = PublicKey.findProgramAddressSync([Buffer.from("LatestRoot"), [WORLD_VERIFICATION_TYPE]], WORLD_ID_PROGRAM);
+    const world_id_latest_root_account = new WorldIdLatestRootAccount(
+        world_id_latest_root_address,
+        10_000n,
+        WORLD_ID_PROGRAM,
+        new WorldIdLatestRoot({
+            discriminator: Buffer.from([0x0c, 0xf5, 0xe7, 0xf6, 0xbf, 0x3f, 0xa9, 0x5f]),
+            bump: world_id_latest_root_bump,
+            read_block_number: 1n,
+            read_block_hash: Buffer.from(Array.from({ length: 32 }, (v, i) => i * 3)),
+            read_block_time: DEFAULT_START_TIME,
+            root: root_hash,
+            verification_type: Buffer.from([WORLD_VERIFICATION_TYPE]),
+        }),
+    );
+
+    const [world_id_config_address, world_id_config_bump] = PublicKey.findProgramAddressSync([Buffer.from("Config")], WORLD_ID_PROGRAM);
+    const world_id_config_account = new WorldIdConfigAccount(
+        world_id_config_address,
+        10_000n,
+        WORLD_ID_PROGRAM,
+        new WorldIdConfig({
+            discriminator: Buffer.from([0x9b, 0x0c, 0xaa, 0xe0, 0x1e, 0xfa, 0xcc, 0x82]),
+            bump: world_id_config_bump,
+            owner: user.publicKey,
+            pendingOwnerOption: 0,
+            pendingOwner: PublicKey.default,
+            root_expire: BigInt(SEC_PER_DAY * 2),
+            allowed_update_staleness: BigInt(SEC_PER_DAY),
+        }),
+    );
+
+    const existing_accounts = [
+        original_comptoken_mint, original_global_data, original_unpaid_future_ubi_bank, original_user_comptoken_wallet, original_user_data_account,
+        get_default_extra_account_metas_account(), world_id_root_account, world_id_config_account, world_id_latest_root_account,
+    ];
 
     let context = await setup_test(existing_accounts);
     let connection = {
@@ -66,10 +130,6 @@ async function testVerifyHuman() {
             compto_public_keys,
         ),
     ];
-
-    for (const account of instructions[0].keys) {
-        console.log(`key: ${account.pubkey.toString()}`);
-    }
 
     context = await run_test("VerifyHuman", context, instructions, [context.payer, user], false, async (context, result) => {
         const final_user_data_account = await get_account(context, user_data_pda, UserDataAccount);

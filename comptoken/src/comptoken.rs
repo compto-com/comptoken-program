@@ -703,6 +703,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     //      [] World ID Latest Root
     //      [] World ID Config
     //      [w] World ID Nullifier
+    //      [] Solana Program
     //      [] Solana Token 2022 Program
     // data:
     //      8 bytes - rent lamports

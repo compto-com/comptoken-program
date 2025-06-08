@@ -390,6 +390,7 @@ export async function setup_test(existing_accounts, clock = new Clock(0n, 0n, 0n
         [
             { name: "comptoken", programId: compto_public_keys.compto_program_id_pubkey },
             { name: "comptoken_transfer_hook", programId: compto_public_keys.compto_transfer_hook_id_pubkey },
+            { name: "solana_world_id_program", programId: new PublicKey("9TMVfMJs6qyu8jnc7TJfAWhn81Ju2uSRj4uYqLHyKXnh") },
         ],
         existing_accounts.map((account, i) => account.toAddedAccount()),
     );

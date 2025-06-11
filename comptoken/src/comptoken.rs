@@ -787,8 +787,9 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     // self hosted apps don't have an app registered with the world id program, so they don't have an app id
     // instead they use a globally unique action to differentiate between different types of verifications
     // the suggested way to do this is to prefix the action with the program/app name
+    // for verification, the app id is "self_hosted" https://github.com/worldcoin/idkit-js/blob/main/packages/react/src/store/idkit.ts#L15
     const APP_ID: &str = "self_hosted";
-    const ACTION: &str = "COMPTO-test"; // TODO: update this to the actual action
+    const ACTION: &str = "COMPTO-verifyHuman";
     let external_nullifier_hash = app_id_to_external_nullifier_hash(APP_ID, ACTION); // TODO: make this a constant
     let signal_bytes = user_wallet.key.to_bytes();
     let signal_hash = hash_to_field(&signal_bytes);

@@ -5,7 +5,7 @@ import {
     TokenAccount,
     UserDataAccount,
 } from "@compto/comptoken.js";
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { ComputeBudgetProgram, Keypair, PublicKey } from "@solana/web3.js";
 
 import {
     get_default_comptoken_mint,
@@ -26,25 +26,36 @@ import { compto_public_keys, DEFAULT_START_TIME } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 
 async function testVerifyHuman() {
-    const nullifier_hash = Buffer.from("1c9ad277b4e02ec68d8922c5dc7aa37067941714c50b8fb973bbb050991a13b0", "hex");
-    const root_hash = Buffer.from(
-        "0b0b2aa02553f99a9b10982c74d6a8cd723b337fafe4aa33351c858b74372223", "hex");
-    const proof = Buffer.from(
-        "18bf1fdb3d368aab104b3f721cc822e5033efa30aa95f1e9d95b60dfdd37cff9" +
-        "255de19aa19e093fe6cf668db6a9543592274daa237519434fbc8ae20d99c4b9" +
-        "2a0affa5c885df7bd9e906fd0a61c1480e9f221744e1af612e62bff02def8a96" +
-        "2ee582fca7aad4ba2a00714be40648e6290fd20556ead693e620862d17700a5f" +
-        "259a7c384db720a1657bace542b9978fe80be1d8a779520a2d1cb0a2b76e5a4a" +
-        "173f4540eb6489c6dd64b5f55444dd5b7c70ba92631a3dbf48e8fadf1c056e03" +
-        "2281ba334040db8cfe35f3d59f34a413118486fd8763c4b4e46a9f87cd5fdecb" +
-        "22cc9f59758e2498ec4cd9a16f0cce63368e2497fb7a5aa2b7a1223d08267960",
-        "hex"
-    );
-    const WORLD_VERIFICATION_TYPE = 0;
+    // appId:  "self_hosted"
+    // action: "COMPTO-VerifyHuman"
+    // signal: "0x8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c" // user wallet address
+    const idkitResult = {
+        proof:
+            "0x" +
+            "2b51a7d604a61ac24b6a1999b71e1990d20c6d7f1c66067ff510c42814535301" +
+            "1173e5129b2570d156384a05640161f59ca720a32fdbd52c06215823f12ca93e" +
+            "14eeb39f03c8da6f0d169e13b944b14b4b24185d5d12c4b200bc9c13f4893f89" +
+            "2359405b9a367182927ad6c0aebd475dbc86176c584ae89e003abab45199842c" +
+            "14714401354f3c1b05c95997dfe9d2813cfea3c889db138be0b2d4f90053a60e" +
+            "244b97d17c7bb6953790b1a23a9755cff48c8f8449bd74960d44a119282b1f6f" +
+            "176825121ef2377c41ad9b56acf56c61dfde353e658aa08254aa0f3ae367f6c7" +
+            "069cb422d80e4e586f1961552b2b6c0694569c1f815e6b907a03549698c6382a",
+        merkle_root:
+            "0x28836d5b43240ca2763eb0997dcd346b6e3225bfc32fb881e880b5bd116a117c",
+        nullifier_hash:
+            "0x06e05b30363654d2be77b7b16091735f139f31bc097bb2a1aa9450b96f7df677",
+        verification_level: "orb",
+    }
+
+    const proof = Buffer.from(idkitResult.proof.slice(2), "hex");
+    const root_hash = Buffer.from(idkitResult.merkle_root.slice(2), "hex");
+    const nullifier_hash = Buffer.from(idkitResult.nullifier_hash.slice(2), "hex");
+
+    const WORLD_VERIFICATION_TYPE = 1;
 
     const WORLD_ID_PROGRAM = new PublicKey("9TMVfMJs6qyu8jnc7TJfAWhn81Ju2uSRj4uYqLHyKXnh");
 
-    const user = Keypair.generate();
+    const user = Keypair.fromSeed(new Uint8Array(32).fill(0x01));
     let original_comptoken_mint = get_default_comptoken_mint();
     original_comptoken_mint.data.supply = 1_000_000_000n;
     const original_global_data = get_default_global_data();
@@ -119,6 +130,7 @@ async function testVerifyHuman() {
     }
 
     const instructions = [
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
         await createVerifyHumanInstruction(
             connection,
             context.payer.publicKey,
@@ -146,8 +158,6 @@ async function testVerifyHuman() {
             "global data totalVerifiedHumans"
         );
     });
-
-    Assert.assert(false, "this test is currently for manual verification only");
 }
 
 (async () => { await testVerifyHuman(); })();

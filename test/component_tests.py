@@ -110,7 +110,7 @@ if __name__ == "__main__":
         "transfer-hook-tests/initialize_extra_account_meta_list",
         "transfer-hook-tests/execute",
         # commented out until WorldCoin integration is implemented
-        #"comptoken-tests/verifyHuman",
+        "comptoken-tests/verifyHuman",
     ]
 
     args = parseArgs()

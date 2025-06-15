@@ -7,11 +7,11 @@ use solana_program::{
 use spl_token_2022::{extension::StateWithExtensions, state::Account};
 
 use crate::{
+    constants::{SOLANA_WORLD_ID_PROGRAM, WORLD_VERIFICATION_TYPE},
     generated::{
         COMPTOKEN_MINT_ADDRESS, COMPTO_FUTURE_UBI_BANK_ACCOUNT_SEEDS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS,
         COMPTO_INTEREST_BANK_ACCOUNT_SEEDS, COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
     },
-    SOLANA_WORLD_ID_PROGRAM, WORLD_VERIFICATION_TYPE,
 };
 
 pub use comptoken_utils::verify_accounts::VerifiedAccountInfo;

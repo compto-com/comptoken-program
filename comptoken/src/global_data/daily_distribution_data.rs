@@ -1,7 +1,12 @@
 use solana_program::msg;
 use spl_token_2022::state::{Account, Mint};
 
-use crate::{constants::*, get_current_time, normalize_time};
+use comptoken_utils::{get_current_time, normalize_time};
+
+use crate::constants::{
+    ADJUST_FACTOR, COMPTOKEN_DISTRIBUTION_MULTIPLIER, END_GOAL_PERCENT_INCREASE, FUTURE_UBI_VERIFIED_HUMANS,
+    MIN_SUPPLY_LIMIT_AMT,
+};
 
 const HISTORY_SIZE: usize = 365;
 
@@ -208,6 +213,7 @@ fn about_equal(left: f64, right: f64) -> bool {
 
 #[cfg(test)]
 mod test {
+    use crate::constants::MINT_DECIMALS;
     use solana_program::pubkey::Pubkey;
 
     use super::*;

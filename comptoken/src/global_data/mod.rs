@@ -7,6 +7,8 @@ use crate::VerifiedAccountInfo;
 use daily_distribution_data::{DailyDistributionData, DailyDistributionValues};
 use valid_blockhashes::ValidBlockhashes;
 
+pub const GLOBAL_DATA_ACCOUNT_SPACE: u64 = std::mem::size_of::<GlobalData>() as u64;
+
 #[repr(C)]
 #[derive(Debug)]
 // MAGIC NUMBER: Changes to the size of this struct need to be reflected in test_client.js

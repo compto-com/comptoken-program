@@ -2,14 +2,15 @@ use solana_program::{hash::Hash, hash::HASH_BYTES, program_error::ProgramError};
 
 use crate::VerifiedAccountInfo;
 
+const MAX_REVERIFICATION_WAIT: i64 = 60 * 60 * 24 * 31; // 1 month (31 days) in seconds
+
 #[repr(C)]
 #[derive(Debug)]
 // CHANGES TO THE SIZE OF THIS STRUCT NEED TO BE REFLECTED IN test_client.js and accounts.js
 pub struct UserDataBase<T: ?Sized> {
     // capacity is stored in the fat pointer
     pub last_interest_payout_date: i64,
-    pub is_verified_human: bool,
-    // padding: [u8; 7],
+    pub verification_date: i64,
     pub length: usize,
     pub recent_blockhash: Hash,
     pub proofs: T,
@@ -46,11 +47,15 @@ impl UserData {
 
     pub fn initialize(&mut self) {
         self.last_interest_payout_date = crate::normalize_time(crate::get_current_time());
-        self.is_verified_human = false;
+        self.verification_date = 0;
     }
 
     pub fn is_current(&self) -> bool {
         self.last_interest_payout_date == crate::normalize_time(crate::get_current_time())
+    }
+
+    pub fn is_verified(&self) -> bool {
+        self.verification_date >= crate::normalize_time(crate::get_current_time()) - MAX_REVERIFICATION_WAIT
     }
 }
 

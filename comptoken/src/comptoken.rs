@@ -569,7 +569,7 @@ pub fn get_owed_comptokens(program_id: &Pubkey, accounts: &[AccountInfo], instru
         let user_comptoken_wallet = StateWithExtensions::<Account>::unpack(user_wallet_data.as_ref()).unwrap();
         let global_data: &mut GlobalData = (&global_data_account).into();
         let user_data: &mut UserData = (&user_data_account).into();
-        is_verified_human = user_data.is_verified_human;
+        is_verified_human = user_data.is_verified();
 
         // get days since last update
         let current_day = normalize_time(get_current_time());
@@ -772,15 +772,39 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     // 1. verify unique nullifier hash
     // TODO what to do when people die?
 
-    // pda creation will fail if the nullifier hash has already been used
-    create_pda(
-        &payer,
-        &world_id_nullifier,
-        rent_lamports,
-        0,
-        program_id,
-        &[&[b"Nullifier", nullifier_hash.as_ref(), &[world_id_nullifier_bump]]],
-    )?;
+    // because this is the only place where nullifierAccounts are interacted with, no formal struct is defined
+    // but this is what it would look like:
+    //
+    // struct NullifierAccount {
+    //     pub verified_wallet: Pubkey, // the wallet that has been verified with this nullifier
+    // }
+    if world_id_nullifier.lamports() > 0 {
+        // nullifier pda already exists, so this unique human has already been verified
+        let nullifier_data_borrow =
+            world_id_nullifier.try_borrow_data().map_err(|_| ProgramError::AccountBorrowFailed)?;
+        let nullifier_data: &[u8] = nullifier_data_borrow.as_ref();
+
+        assert_eq!(nullifier_data.len(), 32, "nullifier data is too short");
+
+        let verified_wallet =
+            &Pubkey::new_from_array(nullifier_data[..32].try_into().expect("slice with incorrect length"));
+
+        assert_eq!(verified_wallet, user_data_account.key, "nullifier already used by another wallet");
+    } else {
+        create_pda(
+            &payer,
+            &world_id_nullifier,
+            rent_lamports,
+            32,
+            program_id,
+            &[&[b"Nullifier", nullifier_hash.as_ref(), &[world_id_nullifier_bump]]],
+        )?;
+
+        // Set the nullifier data to the user's wallet pubkey
+        let mut nullifier_data_borrow =
+            world_id_nullifier.try_borrow_mut_data().map_err(|_| ProgramError::AccountBorrowFailed)?;
+        nullifier_data_borrow.copy_from_slice(user_data_account.key.as_ref());
+    }
 
     // 2. cpi to world id program
 
@@ -821,7 +845,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
 
     // 3. update user data
 
-    user_data.is_verified_human = true;
+    user_data.verification_date = normalize_time(get_current_time());
 
     let global_data: &mut GlobalData = (&global_data_account).into();
     let verified_humans = global_data.daily_distribution_data.verified_humans;

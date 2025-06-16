@@ -10,9 +10,22 @@ use comptoken_utils::get_current_time;
 
 use crate::{
     global_data::{daily_distribution_data::DailyDistributionValues, GlobalData},
+    instructions::InstructionData,
     mint,
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
+
+struct DailyDistributionData {}
+
+impl InstructionData for DailyDistributionData {
+    fn from_instruction_data(instruction_data: &[u8]) -> Result<Self, solana_program::program_error::ProgramError> {
+        if !instruction_data.is_empty() {
+            return Err(solana_program::program_error::ProgramError::InvalidInstructionData);
+        }
+        // No data expected for this instruction
+        Ok(DailyDistributionData {})
+    }
+}
 
 pub fn daily_distribution(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
@@ -50,7 +63,7 @@ pub fn daily_distribution(program_id: &Pubkey, accounts: &[AccountInfo], instruc
     let unpaid_future_ubi_bank_account = verified_accounts.future_ubi_bank.unwrap();
     let slothashes_account = verified_accounts.slothashes.unwrap();
 
-    assert!(instruction_data.is_empty(), "incorrect instruction data");
+    let _ = DailyDistributionData::from_instruction_data(instruction_data)?;
 
     let daily_distribution: DailyDistributionValues;
     // scope to prevent reborrowing issues

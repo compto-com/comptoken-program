@@ -12,6 +12,26 @@ use crate::{
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
 
+struct ResizeUserDataAccountData {
+    rent_lamports: u64,
+    new_size: usize,
+}
+
+impl ResizeUserDataAccountData {
+    fn from_instruction_data(instruction_data: &[u8]) -> Result<Self, solana_program::program_error::ProgramError> {
+        if instruction_data.len() != std::mem::size_of::<ResizeUserDataAccountData>() {
+            return Err(solana_program::program_error::ProgramError::InvalidInstructionData);
+        }
+        let (rent_lamports, instruction_data) =
+            get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+        let (new_size, instruction_data) =
+            get_next_data(instruction_data, 8, |b| usize::from_le_bytes(b.try_into().expect("correct size")));
+        assert!(instruction_data.is_empty(), "incorrect instruction data");
+
+        Ok(ResizeUserDataAccountData { rent_lamports, new_size })
+    }
+}
+
 pub fn resize_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  Account Order
     //      [s, w] Payer Account
@@ -42,11 +62,8 @@ pub fn resize_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instructi
     let system_program = verified_accounts.solana_program.unwrap();
 
     // find space and minimum rent required for account
-    let (rent_lamports, instruction_data) =
-        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
-    let (new_size, instruction_data) =
-        get_next_data(instruction_data, 8, |b| usize::from_le_bytes(b.try_into().expect("correct size")));
-    assert!(instruction_data.is_empty(), "incorrect instruction data");
+    let ResizeUserDataAccountData { rent_lamports, new_size } =
+        ResizeUserDataAccountData::from_instruction_data(instruction_data)?;
 
     // SAFETY: user_data_account is passed in from the runtime and is guaranteed to uphold the invariants original_data_len() and realloc assumes
     assert!(new_size <= unsafe { user_data_account.original_data_len() } + MAX_PERMITTED_DATA_INCREASE);

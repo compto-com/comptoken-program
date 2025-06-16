@@ -7,9 +7,22 @@ use comptoken_utils::{get_current_time, normalize_time, user_data::UserData};
 
 use crate::{
     global_data::GlobalData,
+    instructions::InstructionData,
     transfer,
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
+
+struct CollectData {}
+
+impl InstructionData for CollectData {
+    fn from_instruction_data(instruction_data: &[u8]) -> Result<Self, solana_program::program_error::ProgramError> {
+        if !instruction_data.is_empty() {
+            return Err(solana_program::program_error::ProgramError::InvalidInstructionData);
+        }
+        // No data expected for this instruction
+        Ok(CollectData {})
+    }
+}
 
 pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
@@ -63,7 +76,7 @@ pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: 
     let transfer_hook_program = verified_accounts.transfer_hook_program.unwrap();
     let extra_account_metas_account = verified_accounts.extra_account_metas.unwrap();
 
-    assert!(instruction_data.is_empty(), "incorrect instruction data");
+    let _ = CollectData::from_instruction_data(instruction_data)?;
 
     let interest;
     let is_verified_human;

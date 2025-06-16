@@ -7,9 +7,29 @@ use crate::{
     constants::MINING_AMOUNT,
     get_next_data,
     global_data::{valid_blockhashes::ValidBlockhashes, GlobalData},
+    instructions::InstructionData,
     mint,
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
+
+struct SubmitProofData {
+    submitted_proof: [u8; ComptokenProof::SUBMITTED_DATA_SIZE],
+}
+
+impl InstructionData for SubmitProofData {
+    fn from_instruction_data(instruction_data: &[u8]) -> Result<Self, solana_program::program_error::ProgramError> {
+        if instruction_data.len() != ComptokenProof::SUBMITTED_DATA_SIZE {
+            return Err(solana_program::program_error::ProgramError::InvalidInstructionData);
+        }
+        let (submitted_proof, instruction_data) =
+            get_next_data(instruction_data, ComptokenProof::SUBMITTED_DATA_SIZE, |b| {
+                b.try_into().expect("correct size")
+            });
+        assert!(instruction_data.is_empty(), "incorrect instruction data");
+
+        Ok(SubmitProofData { submitted_proof })
+    }
+}
 
 pub fn submit_proof(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
@@ -44,15 +64,13 @@ pub fn submit_proof(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
     let user_data_account = verified_accounts.user_data.unwrap();
 
-    let (submitted_proof, instruction_data) =
-        get_next_data(instruction_data, ComptokenProof::SUBMITTED_DATA_SIZE, |b| b.try_into().expect("correct size"));
-    assert!(instruction_data.is_empty(), "incorrect instruction data");
+    let SubmitProofData { submitted_proof } = SubmitProofData::from_instruction_data(instruction_data)?;
 
     let global_data: &mut GlobalData = (&global_data_account).into();
 
     let proof = ComptokenProof::verify_submitted_proof(
         &user_comptoken_token_account,
-        submitted_proof,
+        &submitted_proof,
         &global_data.valid_blockhashes,
     );
 

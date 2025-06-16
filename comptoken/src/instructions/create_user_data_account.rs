@@ -10,8 +10,29 @@ use comptoken_utils::{
 
 use crate::{
     get_next_data,
+    instructions::InstructionData,
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
+
+struct CreateUserDataAccountData {
+    rent_lamports: u64,
+    space: usize,
+}
+
+impl InstructionData for CreateUserDataAccountData {
+    fn from_instruction_data(instruction_data: &[u8]) -> Result<Self, solana_program::program_error::ProgramError> {
+        if instruction_data.len() != std::mem::size_of::<CreateUserDataAccountData>() {
+            return Err(solana_program::program_error::ProgramError::InvalidInstructionData);
+        }
+        let (rent_lamports, instruction_data) =
+            get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+        let (space, instruction_data) =
+            get_next_data(instruction_data, 8, |b| usize::from_le_bytes(b.try_into().expect("correct size")));
+        assert!(instruction_data.is_empty(), "incorrect instruction data");
+
+        Ok(CreateUserDataAccountData { rent_lamports, space })
+    }
+}
 
 pub fn create_user_data_account(
     program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8],
@@ -46,11 +67,8 @@ pub fn create_user_data_account(
     let bump = verified_accounts.user_data_bump.unwrap();
 
     // find space and minimum rent required for account
-    let (rent_lamports, instruction_data) =
-        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
-    let (space, instruction_data) =
-        get_next_data(instruction_data, 8, |b| usize::from_le_bytes(b.try_into().expect("correct size")));
-    assert!(instruction_data.is_empty(), "incorrect instruction data");
+    let CreateUserDataAccountData { rent_lamports, space } =
+        CreateUserDataAccountData::from_instruction_data(instruction_data)?;
 
     msg!("space: {}", space);
     assert!(space >= USER_DATA_MIN_SIZE);

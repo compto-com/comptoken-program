@@ -13,8 +13,41 @@ use crate::{
     },
     get_next_data,
     global_data::{GlobalData, GLOBAL_DATA_ACCOUNT_SPACE},
+    instructions::InstructionData,
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
+
+struct InitializeData {
+    lamports_global_data: u64,
+    lamports_interest_bank: u64,
+    lamports_verified_human_ubi_bank: u64,
+    lamports_future_ubi_bank: u64,
+}
+
+impl InstructionData for InitializeData {
+    fn from_instruction_data(instruction_data: &[u8]) -> Result<Self, solana_program::program_error::ProgramError> {
+        if instruction_data.len() != std::mem::size_of::<InitializeData>() {
+            return Err(solana_program::program_error::ProgramError::InvalidInstructionData);
+        }
+
+        let (lamports_global_data, instruction_data) =
+            get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+        let (lamports_interest_bank, instruction_data) =
+            get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+        let (lamports_verified_human_ubi_bank, instruction_data) =
+            get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+        let (lamports_future_ubi_bank, instruction_data) =
+            get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+        assert!(instruction_data.is_empty(), "incorrect instruction data");
+
+        Ok(InitializeData {
+            lamports_global_data,
+            lamports_interest_bank,
+            lamports_verified_human_ubi_bank,
+            lamports_future_ubi_bank,
+        })
+    }
+}
 
 pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
@@ -65,15 +98,12 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], instruction_dat
     let solana_program = verified_accounts.solana_program.unwrap();
     let slothashes_account = verified_accounts.slothashes.unwrap();
 
-    let (lamports_global_data, instruction_data) =
-        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
-    let (lamports_interest_bank, instruction_data) =
-        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
-    let (lamports_verified_human_ubi_bank, instruction_data) =
-        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
-    let (lamports_future_ubi_bank, instruction_data) =
-        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
-    assert!(instruction_data.is_empty(), "incorrect instruction data");
+    let InitializeData {
+        lamports_global_data,
+        lamports_interest_bank,
+        lamports_verified_human_ubi_bank,
+        lamports_future_ubi_bank,
+    } = InitializeData::from_instruction_data(instruction_data)?;
 
     msg!("Lamports global data: {:?}", lamports_global_data);
     msg!("Lamports interest bank: {:?}", lamports_interest_bank);

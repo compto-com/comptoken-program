@@ -15,9 +15,39 @@ use comptoken_utils::{create_pda, get_current_time, invoke_verified, normalize_t
 use crate::{
     constants::{FUTURE_UBI_VERIFIED_HUMANS, SOLANA_WORLD_ID_PROGRAM, WORLD_PROOF_LENGTH, WORLD_VERIFICATION_TYPE},
     global_data::GlobalData,
+    instructions::InstructionData,
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
     {get_next_data, transfer},
 };
+
+struct VerifyHumanData {
+    rent_lamports: u64,
+    root_hash: Hash,
+    nullifier_hash: Hash,
+    proof: [u8; WORLD_PROOF_LENGTH],
+}
+
+impl InstructionData for VerifyHumanData {
+    fn from_instruction_data(instruction_data: &[u8]) -> Result<Self, solana_program::program_error::ProgramError> {
+        if instruction_data.len() != std::mem::size_of::<VerifyHumanData>() {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+
+        let (rent_lamports, instruction_data) =
+            get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
+        let (root_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, |b| {
+            Hash::new_from_array(b.try_into().expect("slice with incorrect length"))
+        });
+        let (nullifier_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, |b| {
+            Hash::new_from_array(b.try_into().expect("slice with incorrect length"))
+        });
+        let (proof, instruction_data) =
+            get_next_data(instruction_data, WORLD_PROOF_LENGTH, |b| b.try_into().expect("slice with incorrect length"));
+        assert!(instruction_data.is_empty(), "incorrect instruction data");
+
+        Ok(VerifyHumanData { rent_lamports, root_hash, nullifier_hash, proof })
+    }
+}
 
 pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  Account Order
@@ -45,16 +75,8 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     //      32 bytes - nullifier hash
     //      256 bytes - proof
 
-    let (rent_lamports, instruction_data) =
-        get_next_data(instruction_data, 8, |b| u64::from_le_bytes(b.try_into().expect("correct size")));
-    let (root_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, |b| {
-        Hash::new_from_array(b.try_into().expect("slice with incorrect length"))
-    });
-    let (nullifier_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, |b| {
-        Hash::new_from_array(b.try_into().expect("slice with incorrect length"))
-    });
-    let (proof, instruction_data) = get_next_data(instruction_data, WORLD_PROOF_LENGTH, |b| b);
-    assert!(instruction_data.is_empty(), "incorrect instruction data");
+    let VerifyHumanData { rent_lamports, root_hash, nullifier_hash, proof } =
+        VerifyHumanData::from_instruction_data(instruction_data)?;
 
     #[rustfmt::skip]
     let verified_accounts = verify_accounts(
@@ -160,7 +182,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     world_id_cpi_data.extend_from_slice(&signal_hash);
     world_id_cpi_data.extend_from_slice(nullifier_hash.as_ref());
     world_id_cpi_data.extend_from_slice(&external_nullifier_hash);
-    world_id_cpi_data.extend_from_slice(proof);
+    world_id_cpi_data.extend_from_slice(&proof);
 
     let world_id_cpi_instruction = Instruction {
         program_id: SOLANA_WORLD_ID_PROGRAM,

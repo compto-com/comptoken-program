@@ -8,7 +8,7 @@ use crate::{
     get_next_data,
     global_data::{valid_blockhashes::ValidBlockhashes, GlobalData},
     mint,
-    verify_accounts::{verify_accounts, AccountsToVerify},
+    verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
 
 pub fn submit_proof(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
@@ -25,16 +25,17 @@ pub fn submit_proof(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     //          8 bytes - lamports
     //          32 bytes - nonce
 
+    #[rustfmt::skip]
     let verified_accounts = verify_accounts(
         accounts,
         program_id,
         AccountsToVerify {
-            comptoken_mint: Some((false, true)),
-            global_data: Some((false, false)),
-            user_wallet: Some((true, false)),
-            user_comptoken_token_account: Some((false, true)),
-            user_data: Some((true, (false, true))),
-            solana_token_2022_program: Some((false, false)),
+            comptoken_mint:               Some(AccountMetaType::Writable),
+            global_data:                  Some(AccountMetaType::None),
+            user_wallet:                  Some(AccountMetaType::Signer),
+            user_comptoken_token_account: Some(AccountMetaType::Writable),
+            user_data:                    Some((true, AccountMetaType::Writable)),
+            solana_token_2022_program:    Some(AccountMetaType::None),
             ..Default::default()
         },
     )?;

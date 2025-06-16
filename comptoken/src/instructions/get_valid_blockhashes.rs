@@ -5,7 +5,7 @@ use solana_program::{
 
 use crate::{
     global_data::GlobalData,
-    verify_accounts::{verify_accounts, AccountsToVerify},
+    verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
 
 pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
@@ -15,12 +15,13 @@ pub fn get_valid_blockhashes(program_id: &Pubkey, accounts: &[AccountInfo], inst
     //  data:
     //      None
 
+    #[rustfmt::skip]
     let verified_accounts = verify_accounts(
         accounts,
         program_id,
         AccountsToVerify {
-            global_data: Some((false, true)),
-            slothashes: Some((false, false)),
+            global_data: Some(AccountMetaType::Writable),
+            slothashes:  Some(AccountMetaType::None),
             ..Default::default()
         },
     )?;

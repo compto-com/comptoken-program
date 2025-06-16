@@ -8,7 +8,7 @@ use comptoken_utils::{get_current_time, normalize_time, user_data::UserData};
 use crate::{
     global_data::GlobalData,
     transfer,
-    verify_accounts::{verify_accounts, AccountsToVerify},
+    verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
 
 pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
@@ -29,23 +29,24 @@ pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: 
     //  data:
     //      None
 
+    #[rustfmt::skip]
     let verified_accounts = verify_accounts(
         accounts,
         program_id,
         AccountsToVerify {
-            comptoken_program: Some((false, false)),
-            comptoken_mint: Some((false, false)),
-            global_data: Some((false, false)),
-            interest_bank: Some((false, true)),
-            verified_human_ubi_bank: Some((false, true)),
-            interest_bank_data: Some((false, false)),
-            verified_human_ubi_bank_data: Some((false, false)),
-            user_wallet: Some((true, false)),
-            user_comptoken_token_account: Some((false, true)),
-            user_data: Some((true, (false, true))),
-            transfer_hook_program: Some((false, false)),
-            extra_account_metas: Some((false, false)),
-            solana_token_2022_program: Some((false, false)),
+            comptoken_program:            Some(AccountMetaType::None),
+            comptoken_mint:               Some(AccountMetaType::None),
+            global_data:                  Some(AccountMetaType::None),
+            interest_bank:                Some(AccountMetaType::Writable),
+            verified_human_ubi_bank:      Some(AccountMetaType::Writable),
+            interest_bank_data:           Some(AccountMetaType::None),
+            verified_human_ubi_bank_data: Some(AccountMetaType::None),
+            user_wallet:                  Some(AccountMetaType::Signer),
+            user_comptoken_token_account: Some(AccountMetaType::Writable),
+            user_data:                    Some((true, AccountMetaType::Writable)),
+            transfer_hook_program:        Some(AccountMetaType::None),
+            extra_account_metas:          Some(AccountMetaType::None),
+            solana_token_2022_program:    Some(AccountMetaType::None),
             ..Default::default()
         },
     )?;

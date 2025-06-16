@@ -9,7 +9,7 @@ use comptoken_utils::{invoke_signed_verified, user_data::USER_DATA_MIN_SIZE};
 
 use crate::{
     get_next_data,
-    verify_accounts::{verify_accounts, AccountsToVerify},
+    verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
 
 pub fn resize_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
@@ -23,15 +23,16 @@ pub fn resize_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instructi
     //      8 bytes - rent lamports
     //      8 bytes - new size
 
+    #[rustfmt::skip]
     let verified_accounts = verify_accounts(
         accounts,
         program_id,
         AccountsToVerify {
-            payer: Some((true, true)),
-            user_wallet: Some((true, false)),
-            user_comptoken_token_account: Some((false, false)),
-            user_data: Some((true, (false, true))),
-            solana_program: Some((false, false)),
+            payer:                        Some(AccountMetaType::SignerAndWritable),
+            user_wallet:                  Some(AccountMetaType::Signer),
+            user_comptoken_token_account: Some(AccountMetaType::None),
+            user_data:                    Some((true, AccountMetaType::Writable)),
+            solana_program:               Some(AccountMetaType::None),
             ..Default::default()
         },
     )?;

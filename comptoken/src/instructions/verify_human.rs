@@ -15,7 +15,7 @@ use comptoken_utils::{create_pda, get_current_time, invoke_verified, normalize_t
 use crate::{
     constants::{FUTURE_UBI_VERIFIED_HUMANS, SOLANA_WORLD_ID_PROGRAM, WORLD_PROOF_LENGTH, WORLD_VERIFICATION_TYPE},
     global_data::GlobalData,
-    verify_accounts::{verify_accounts, AccountsToVerify},
+    verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
     {get_next_data, transfer},
 };
 
@@ -56,28 +56,29 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     let (proof, instruction_data) = get_next_data(instruction_data, WORLD_PROOF_LENGTH, |b| b);
     assert!(instruction_data.is_empty(), "incorrect instruction data");
 
+    #[rustfmt::skip]
     let verified_accounts = verify_accounts(
         accounts,
         program_id,
         AccountsToVerify {
-            payer: Some((true, true)),
-            comptoken_program: Some((false, false)),
-            comptoken_mint: Some((false, false)),
-            global_data: Some((false, true)),
-            future_ubi_bank: Some((false, true)),
-            future_ubi_bank_data: Some((false, false)),
-            user_wallet: Some((true, false)),
-            user_comptoken_token_account: Some((false, true)),
-            user_data: Some((true, (false, true))),
-            transfer_hook_program: Some((false, false)),
-            extra_account_metas: Some((false, false)),
-            world_id_program: Some((false, false)),
-            world_id_root: Some((&root_hash, (false, false))),
-            world_id_latest_root: Some((false, false)),
-            world_id_config: Some((false, false)),
-            world_id_nullifier: Some((&nullifier_hash, (false, false))),
-            solana_program: Some((false, false)),
-            solana_token_2022_program: Some((false, false)),
+            payer:                        Some(AccountMetaType::SignerAndWritable),
+            comptoken_program:            Some(AccountMetaType::None),
+            comptoken_mint:               Some(AccountMetaType::None),
+            global_data:                  Some(AccountMetaType::Writable),
+            future_ubi_bank:              Some(AccountMetaType::Writable),
+            future_ubi_bank_data:         Some(AccountMetaType::None),
+            user_wallet:                  Some(AccountMetaType::Signer),
+            user_comptoken_token_account: Some(AccountMetaType::Writable),
+            user_data:                    Some((true, AccountMetaType::Writable)),
+            transfer_hook_program:        Some(AccountMetaType::None),
+            extra_account_metas:          Some(AccountMetaType::None),
+            world_id_program:             Some(AccountMetaType::None),
+            world_id_root:                Some((&root_hash, AccountMetaType::None)),
+            world_id_latest_root:         Some(AccountMetaType::None),
+            world_id_config:              Some(AccountMetaType::None),
+            world_id_nullifier:           Some((&nullifier_hash, AccountMetaType::Writable)),
+            solana_program:               Some(AccountMetaType::None),
+            solana_token_2022_program:    Some(AccountMetaType::None),
             ..Default::default()
         },
     )?;

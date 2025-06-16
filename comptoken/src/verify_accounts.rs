@@ -168,61 +168,78 @@ fn verify_solana_token_2022_program<'a>(account: &AccountInfo<'a>) -> VerifiedAc
     VerifiedAccountInfo::verify_specific_address(account, &spl_token_2022::ID, false, false)
 }
 
-pub type SignerAndWritable = (bool, bool);
-
-#[derive(Default)]
-pub struct AccountsToVerify<'a> {
-    pub payer: Option<SignerAndWritable>,
-    pub comptoken_program: Option<SignerAndWritable>,
-    pub comptoken_mint: Option<SignerAndWritable>,
-    pub global_data: Option<SignerAndWritable>,
-    pub interest_bank: Option<SignerAndWritable>,
-    pub verified_human_ubi_bank: Option<SignerAndWritable>,
-    pub future_ubi_bank: Option<SignerAndWritable>,
-    pub interest_bank_data: Option<SignerAndWritable>,
-    pub verified_human_ubi_bank_data: Option<SignerAndWritable>,
-    pub future_ubi_bank_data: Option<SignerAndWritable>,
-    pub user_wallet: Option<SignerAndWritable>,
-    pub user_comptoken_token_account: Option<SignerAndWritable>,
-    pub user_data: Option<(bool, SignerAndWritable)>, // (isCreated, (needsSigner, needsWritable)),
-    pub transfer_hook_program: Option<SignerAndWritable>,
-    pub extra_account_metas: Option<SignerAndWritable>,
-    pub world_id_program: Option<SignerAndWritable>,
-    pub world_id_root: Option<(&'a Hash, SignerAndWritable)>, // (rootHash, (needsSigner, needsWritable)),
-    pub world_id_latest_root: Option<SignerAndWritable>,
-    pub world_id_config: Option<SignerAndWritable>,
-    pub world_id_nullifier: Option<(&'a Hash, SignerAndWritable)>, // (nullifierHash, (needsSigner, needsWritable)),
-    pub solana_program: Option<SignerAndWritable>,
-    pub solana_token_2022_program: Option<SignerAndWritable>,
-    pub slothashes: Option<SignerAndWritable>,
+pub enum AccountMetaType {
+    None,
+    Signer,
+    Writable,
+    SignerAndWritable,
 }
 
+impl AccountMetaType {
+    pub fn needs_signer(&self) -> bool {
+        matches!(self, AccountMetaType::Signer | AccountMetaType::SignerAndWritable)
+    }
+
+    pub fn needs_writable(&self) -> bool {
+        matches!(self, AccountMetaType::Writable | AccountMetaType::SignerAndWritable)
+    }
+}
+
+#[rustfmt::skip]
+#[derive(Default)]
+pub struct AccountsToVerify<'a> {
+    pub payer:                        Option<AccountMetaType>,
+    pub comptoken_program:            Option<AccountMetaType>,
+    pub comptoken_mint:               Option<AccountMetaType>,
+    pub global_data:                  Option<AccountMetaType>,
+    pub interest_bank:                Option<AccountMetaType>,
+    pub verified_human_ubi_bank:      Option<AccountMetaType>,
+    pub future_ubi_bank:              Option<AccountMetaType>,
+    pub interest_bank_data:           Option<AccountMetaType>,
+    pub verified_human_ubi_bank_data: Option<AccountMetaType>,
+    pub future_ubi_bank_data:         Option<AccountMetaType>,
+    pub user_wallet:                  Option<AccountMetaType>,
+    pub user_comptoken_token_account: Option<AccountMetaType>,
+    pub user_data:                    Option<(bool, AccountMetaType)>, // isCreated
+    pub transfer_hook_program:        Option<AccountMetaType>,
+    pub extra_account_metas:          Option<AccountMetaType>,
+    pub world_id_program:             Option<AccountMetaType>,
+    pub world_id_root:                Option<(&'a Hash, AccountMetaType)>, // rootHash
+    pub world_id_latest_root:         Option<AccountMetaType>,
+    pub world_id_config:              Option<AccountMetaType>,
+    pub world_id_nullifier:           Option<(&'a Hash, AccountMetaType)>, // nullifierHash
+    pub solana_program:               Option<AccountMetaType>,
+    pub solana_token_2022_program:    Option<AccountMetaType>,
+    pub slothashes:                   Option<AccountMetaType>,
+}
+
+#[rustfmt::skip]
 pub struct VerifiedAccounts<'a> {
-    pub payer: Option<VerifiedAccountInfo<'a>>,
-    pub comptoken_program: Option<VerifiedAccountInfo<'a>>,
-    pub comptoken_mint: Option<VerifiedAccountInfo<'a>>,
-    pub global_data: Option<VerifiedAccountInfo<'a>>,
-    pub interest_bank: Option<VerifiedAccountInfo<'a>>,
-    pub verified_human_ubi_bank: Option<VerifiedAccountInfo<'a>>,
-    pub future_ubi_bank: Option<VerifiedAccountInfo<'a>>,
-    pub interest_bank_data: Option<VerifiedAccountInfo<'a>>,
+    pub payer:                        Option<VerifiedAccountInfo<'a>>,
+    pub comptoken_program:            Option<VerifiedAccountInfo<'a>>,
+    pub comptoken_mint:               Option<VerifiedAccountInfo<'a>>,
+    pub global_data:                  Option<VerifiedAccountInfo<'a>>,
+    pub interest_bank:                Option<VerifiedAccountInfo<'a>>,
+    pub verified_human_ubi_bank:      Option<VerifiedAccountInfo<'a>>,
+    pub future_ubi_bank:              Option<VerifiedAccountInfo<'a>>,
+    pub interest_bank_data:           Option<VerifiedAccountInfo<'a>>,
     pub verified_human_ubi_bank_data: Option<VerifiedAccountInfo<'a>>,
-    pub future_ubi_bank_data: Option<VerifiedAccountInfo<'a>>,
-    pub user_wallet: Option<VerifiedAccountInfo<'a>>,
+    pub future_ubi_bank_data:         Option<VerifiedAccountInfo<'a>>,
+    pub user_wallet:                  Option<VerifiedAccountInfo<'a>>,
     pub user_comptoken_token_account: Option<VerifiedAccountInfo<'a>>,
-    pub user_data: Option<VerifiedAccountInfo<'a>>,
-    pub user_data_bump: Option<u8>,
-    pub transfer_hook_program: Option<VerifiedAccountInfo<'a>>,
-    pub extra_account_metas: Option<VerifiedAccountInfo<'a>>,
-    pub world_id_program: Option<VerifiedAccountInfo<'a>>,
-    pub world_id_root: Option<VerifiedAccountInfo<'a>>,
-    pub world_id_latest_root: Option<VerifiedAccountInfo<'a>>,
-    pub world_id_config: Option<VerifiedAccountInfo<'a>>,
-    pub world_id_nullifier: Option<VerifiedAccountInfo<'a>>,
-    pub world_id_nullifier_bump: Option<u8>,
-    pub solana_program: Option<VerifiedAccountInfo<'a>>,
-    pub _solana_token_2022_program: Option<VerifiedAccountInfo<'a>>,
-    pub slothashes: Option<VerifiedAccountInfo<'a>>,
+    pub user_data:                    Option<VerifiedAccountInfo<'a>>,
+    pub user_data_bump:               Option<u8>,
+    pub transfer_hook_program:        Option<VerifiedAccountInfo<'a>>,
+    pub extra_account_metas:          Option<VerifiedAccountInfo<'a>>,
+    pub world_id_program:             Option<VerifiedAccountInfo<'a>>,
+    pub world_id_root:                Option<VerifiedAccountInfo<'a>>,
+    pub world_id_latest_root:         Option<VerifiedAccountInfo<'a>>,
+    pub world_id_config:              Option<VerifiedAccountInfo<'a>>,
+    pub world_id_nullifier:           Option<VerifiedAccountInfo<'a>>,
+    pub world_id_nullifier_bump:      Option<u8>,
+    pub solana_program:               Option<VerifiedAccountInfo<'a>>,
+    pub _solana_token_2022_program:   Option<VerifiedAccountInfo<'a>>,
+    pub slothashes:                   Option<VerifiedAccountInfo<'a>>,
 }
 
 pub fn verify_accounts<'a>(
@@ -233,63 +250,74 @@ pub fn verify_accounts<'a>(
         .payer
         .map(|_| verify_payer_account(next_account_info(account_info_iter).unwrap()));
 
-    let comptoken_program = accounts_to_verify.comptoken_program.map(|(needs_signer, needs_writable)| {
+    let comptoken_program = accounts_to_verify.comptoken_program.map(|account_meta_type| {
         VerifiedAccountInfo::verify_specific_address(
             next_account_info(account_info_iter).unwrap(),
             program_id,
-            needs_signer,
-            needs_writable,
+            account_meta_type.needs_signer(),
+            account_meta_type.needs_writable(),
         )
     });
-    let comptoken_mint = accounts_to_verify.comptoken_mint.map(|(_, needs_writable)| {
-        verify_comptoken_mint(next_account_info(account_info_iter).unwrap(), needs_writable)
+    let comptoken_mint = accounts_to_verify.comptoken_mint.map(|account_meta_type| {
+        verify_comptoken_mint(next_account_info(account_info_iter).unwrap(), account_meta_type.needs_writable())
     });
-    let global_data = accounts_to_verify.global_data.map(|(_, needs_writable)| {
-        verify_global_data_account(next_account_info(account_info_iter).unwrap(), program_id, needs_writable)
+    let global_data = accounts_to_verify.global_data.map(|account_meta_type| {
+        verify_global_data_account(
+            next_account_info(account_info_iter).unwrap(),
+            program_id,
+            account_meta_type.needs_writable(),
+        )
     });
 
-    let interest_bank = accounts_to_verify.interest_bank.map(|(_, needs_writable)| {
-        verify_interest_bank_account(next_account_info(account_info_iter).unwrap(), program_id, needs_writable)
+    let interest_bank = accounts_to_verify.interest_bank.map(|account_meta_type| {
+        verify_interest_bank_account(
+            next_account_info(account_info_iter).unwrap(),
+            program_id,
+            account_meta_type.needs_writable(),
+        )
     });
-    let verified_human_ubi_bank = accounts_to_verify.verified_human_ubi_bank.map(|(_, needs_writable)| {
+    let verified_human_ubi_bank = accounts_to_verify.verified_human_ubi_bank.map(|account_meta_type| {
         verify_verified_human_ubi_bank_account(
             next_account_info(account_info_iter).unwrap(),
             program_id,
-            needs_writable,
+            account_meta_type.needs_writable(),
         )
     });
-    let future_ubi_bank = accounts_to_verify.future_ubi_bank.map(|(_, needs_writable)| {
-        verify_future_ubi_bank_account(next_account_info(account_info_iter).unwrap(), program_id, needs_writable)
+    let future_ubi_bank = accounts_to_verify.future_ubi_bank.map(|account_meta_type| {
+        verify_future_ubi_bank_account(
+            next_account_info(account_info_iter).unwrap(),
+            program_id,
+            account_meta_type.needs_writable(),
+        )
     });
 
-    let interest_bank_data = accounts_to_verify.interest_bank_data.map(|(needs_signer, needs_writable)| {
+    let interest_bank_data = accounts_to_verify.interest_bank_data.map(|account_meta_type| {
         VerifiedAccountInfo::verify_pda(
             next_account_info(account_info_iter).unwrap(),
             program_id,
             &[interest_bank.as_ref().unwrap().key.as_ref()],
-            needs_signer,
-            needs_writable,
+            account_meta_type.needs_signer(),
+            account_meta_type.needs_writable(),
         )
         .0
     });
-    let verified_human_ubi_bank_data =
-        accounts_to_verify.verified_human_ubi_bank_data.map(|(needs_signer, needs_writable)| {
-            VerifiedAccountInfo::verify_pda(
-                next_account_info(account_info_iter).unwrap(),
-                program_id,
-                &[verified_human_ubi_bank.as_ref().unwrap().key.as_ref()],
-                needs_signer,
-                needs_writable,
-            )
-            .0
-        });
-    let future_ubi_bank_data = accounts_to_verify.future_ubi_bank_data.map(|(needs_signer, needs_writable)| {
+    let verified_human_ubi_bank_data = accounts_to_verify.verified_human_ubi_bank_data.map(|account_meta_type| {
+        VerifiedAccountInfo::verify_pda(
+            next_account_info(account_info_iter).unwrap(),
+            program_id,
+            &[verified_human_ubi_bank.as_ref().unwrap().key.as_ref()],
+            account_meta_type.needs_signer(),
+            account_meta_type.needs_writable(),
+        )
+        .0
+    });
+    let future_ubi_bank_data = accounts_to_verify.future_ubi_bank_data.map(|account_meta_type| {
         VerifiedAccountInfo::verify_pda(
             next_account_info(account_info_iter).unwrap(),
             program_id,
             &[future_ubi_bank.as_ref().unwrap().key.as_ref()],
-            needs_signer,
-            needs_writable,
+            account_meta_type.needs_signer(),
+            account_meta_type.needs_writable(),
         )
         .0
     });
@@ -297,22 +325,22 @@ pub fn verify_accounts<'a>(
     let user_wallet = accounts_to_verify
         .user_wallet
         .map(|_| verify_wallet_account(next_account_info(account_info_iter).unwrap()));
-    let user_comptoken_token_account = accounts_to_verify.user_comptoken_token_account.map(|(_, needs_writable)| {
+    let user_comptoken_token_account = accounts_to_verify.user_comptoken_token_account.map(|account_meta_type| {
         verify_user_comptoken_token_account(
             next_account_info(account_info_iter).unwrap(),
             user_wallet.as_ref().unwrap(),
-            needs_writable,
+            account_meta_type.needs_writable(),
         )
     });
     let (user_data, user_data_bump) = accounts_to_verify
         .user_data
-        .map(|(is_created, (_, needs_writable))| {
+        .map(|(is_created, account_meta_type)| {
             verify_user_data_account(
                 next_account_info(account_info_iter).unwrap(),
                 user_comptoken_token_account.as_ref().unwrap(),
                 program_id,
                 is_created,
-                needs_writable,
+                account_meta_type.needs_writable(),
             )
         })
         .unzip();
@@ -320,12 +348,12 @@ pub fn verify_accounts<'a>(
     let transfer_hook_program = accounts_to_verify
         .transfer_hook_program
         .map(|_| verify_transfer_hook_program(next_account_info(account_info_iter).unwrap()));
-    let extra_account_metas = accounts_to_verify.extra_account_metas.map(|(_, needs_writable)| {
+    let extra_account_metas = accounts_to_verify.extra_account_metas.map(|account_meta_type| {
         verify_extra_account_metas_account(
             next_account_info(account_info_iter).unwrap(),
             comptoken_mint.as_ref().unwrap(),
             transfer_hook_program.as_ref().unwrap(),
-            needs_writable,
+            account_meta_type.needs_writable(),
         )
     });
 

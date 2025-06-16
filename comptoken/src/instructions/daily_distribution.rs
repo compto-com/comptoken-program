@@ -11,7 +11,7 @@ use comptoken_utils::get_current_time;
 use crate::{
     global_data::{daily_distribution_data::DailyDistributionValues, GlobalData},
     mint,
-    verify_accounts::{verify_accounts, AccountsToVerify},
+    verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
 
 pub fn daily_distribution(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
@@ -27,17 +27,18 @@ pub fn daily_distribution(program_id: &Pubkey, accounts: &[AccountInfo], instruc
     //  data:
     //      None
 
+    #[rustfmt::skip]
     let verified_accounts = verify_accounts(
         accounts,
         program_id,
         AccountsToVerify {
-            comptoken_mint: Some((false, false)),
-            global_data: Some((false, true)),
-            interest_bank: Some((false, true)),
-            verified_human_ubi_bank: Some((false, true)),
-            future_ubi_bank: Some((false, true)),
-            solana_token_2022_program: Some((false, false)),
-            slothashes: Some((false, false)),
+            comptoken_mint:            Some(AccountMetaType::None),
+            global_data:               Some(AccountMetaType::Writable),
+            interest_bank:             Some(AccountMetaType::Writable),
+            verified_human_ubi_bank:   Some(AccountMetaType::Writable),
+            future_ubi_bank:           Some(AccountMetaType::Writable),
+            solana_token_2022_program: Some(AccountMetaType::None),
+            slothashes:                Some(AccountMetaType::None),
             ..Default::default()
         },
     )?;

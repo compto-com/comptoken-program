@@ -10,7 +10,7 @@ use comptoken_utils::{
 
 use crate::{
     get_next_data,
-    verify_accounts::{verify_accounts, AccountsToVerify},
+    verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
 
 pub fn create_user_data_account(
@@ -26,15 +26,16 @@ pub fn create_user_data_account(
     //      8 bytes - rent lamports
     //      8 bytes - space
 
+    #[rustfmt::skip]
     let verified_accounts = verify_accounts(
         accounts,
         program_id,
         AccountsToVerify {
-            payer: Some((true, true)),
-            user_wallet: Some((true, false)),
-            user_comptoken_token_account: Some((false, false)),
-            user_data: Some((false, (false, true))),
-            solana_program: Some((false, false)),
+            payer:                        Some(AccountMetaType::SignerAndWritable),
+            user_wallet:                  Some(AccountMetaType::Signer),
+            user_comptoken_token_account: Some(AccountMetaType::None),
+            user_data:                    Some((false, AccountMetaType::Writable)),
+            solana_program:               Some(AccountMetaType::None),
             ..Default::default()
         },
     )?;

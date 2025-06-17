@@ -5,10 +5,11 @@ use solana_program::{
     pubkey::Pubkey,
 };
 
-use comptoken_utils::{invoke_signed_verified, user_data::USER_DATA_MIN_SIZE};
+use comptoken_utils::{invoke_signed_verified, user_data::USER_DATA_MIN_SIZE, verify_accounts::VerifiedAccountInfo};
 
 use crate::{
     get_next_data,
+    instructions::{InstructionAccounts, InstructionData},
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
 
@@ -17,7 +18,7 @@ struct ResizeUserDataAccountData {
     new_size: usize,
 }
 
-impl ResizeUserDataAccountData {
+impl InstructionData for ResizeUserDataAccountData {
     fn from_instruction_data(instruction_data: &[u8]) -> Result<Self, solana_program::program_error::ProgramError> {
         if instruction_data.len() != std::mem::size_of::<ResizeUserDataAccountData>() {
             return Err(solana_program::program_error::ProgramError::InvalidInstructionData);
@@ -32,6 +33,45 @@ impl ResizeUserDataAccountData {
     }
 }
 
+#[rustfmt::skip]
+struct ResizeUserDataAccountAccounts<'a> {
+    payer:                         VerifiedAccountInfo<'a>,
+    _user_wallet:                  VerifiedAccountInfo<'a>,
+    _user_comptoken_token_account: VerifiedAccountInfo<'a>,
+    user_data_account:             VerifiedAccountInfo<'a>,
+    solana_program:                VerifiedAccountInfo<'a>,
+}
+
+impl<'a> InstructionAccounts<'a> for ResizeUserDataAccountAccounts<'a> {
+    type AdditionalVerificationData = ();
+
+    fn verify_accounts(
+        accounts: &[AccountInfo<'a>], program_id: &Pubkey, _additional_data: Self::AdditionalVerificationData,
+    ) -> Result<Self, solana_program::program_error::ProgramError> {
+        #[rustfmt::skip]
+        let verified_accounts = verify_accounts(
+            accounts,
+            program_id,
+            AccountsToVerify {
+                payer:                        Some(AccountMetaType::SignerAndWritable),
+                user_wallet:                  Some(AccountMetaType::Signer),
+                user_comptoken_token_account: Some(AccountMetaType::None),
+                user_data_account:            Some((true, AccountMetaType::Writable)),
+                solana_program:               Some(AccountMetaType::None),
+                ..Default::default()
+            },
+        )?;
+
+        Ok(ResizeUserDataAccountAccounts {
+            payer: verified_accounts.payer.unwrap(),
+            _user_wallet: verified_accounts.user_wallet.unwrap(),
+            _user_comptoken_token_account: verified_accounts.user_comptoken_token_account.unwrap(),
+            user_data_account: verified_accounts.user_data_account.unwrap(),
+            solana_program: verified_accounts.solana_program.unwrap(),
+        })
+    }
+}
+
 pub fn resize_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  Account Order
     //      [s, w] Payer Account
@@ -43,23 +83,8 @@ pub fn resize_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instructi
     //      8 bytes - rent lamports
     //      8 bytes - new size
 
-    #[rustfmt::skip]
-    let verified_accounts = verify_accounts(
-        accounts,
-        program_id,
-        AccountsToVerify {
-            payer:                        Some(AccountMetaType::SignerAndWritable),
-            user_wallet:                  Some(AccountMetaType::Signer),
-            user_comptoken_token_account: Some(AccountMetaType::None),
-            user_data:                    Some((true, AccountMetaType::Writable)),
-            solana_program:               Some(AccountMetaType::None),
-            ..Default::default()
-        },
-    )?;
-
-    let payer_account = verified_accounts.payer.unwrap();
-    let user_data_account = verified_accounts.user_data.unwrap();
-    let system_program = verified_accounts.solana_program.unwrap();
+    let ResizeUserDataAccountAccounts { payer, user_data_account, solana_program, .. } =
+        ResizeUserDataAccountAccounts::verify_accounts(accounts, program_id, ())?;
 
     // find space and minimum rent required for account
     let ResizeUserDataAccountData { rent_lamports, new_size } =
@@ -72,8 +97,8 @@ pub fn resize_user_data(program_id: &Pubkey, accounts: &[AccountInfo], instructi
     let lamports = rent_lamports.saturating_sub(user_data_account.lamports());
 
     invoke_signed_verified(
-        &solana_system_interface::instruction::transfer(payer_account.key, user_data_account.key, lamports),
-        &[&user_data_account, &payer_account, &system_program],
+        &solana_system_interface::instruction::transfer(payer.key, user_data_account.key, lamports),
+        &[&user_data_account, &payer, &solana_program],
         &[],
     )?;
     user_data_account.resize(new_size)

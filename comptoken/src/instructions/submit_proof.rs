@@ -5,11 +5,10 @@ use comptoken_utils::{user_data::UserData, verify_accounts::VerifiedAccountInfo}
 use crate::{
     comptoken_proof::ComptokenProof,
     constants::MINING_AMOUNT,
-    get_next_data,
     global_data::{valid_blockhashes::ValidBlockhashes, GlobalData},
-    instructions::InstructionData,
-    mint,
+    instructions::{InstructionAccounts, InstructionData},
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
+    {get_next_data, mint},
 };
 
 struct SubmitProofData {
@@ -31,6 +30,48 @@ impl InstructionData for SubmitProofData {
     }
 }
 
+#[rustfmt::skip]
+struct SubmitProofAccounts<'a> {
+    comptoken_mint:               VerifiedAccountInfo<'a>,
+    global_data_account:          VerifiedAccountInfo<'a>,
+    _user_wallet:                 VerifiedAccountInfo<'a>,
+    user_comptoken_token_account: VerifiedAccountInfo<'a>,
+    user_data_account:            VerifiedAccountInfo<'a>,
+    _solana_token_2022_program:   VerifiedAccountInfo<'a>,
+}
+
+impl<'a> InstructionAccounts<'a> for SubmitProofAccounts<'a> {
+    type AdditionalVerificationData = ();
+
+    fn verify_accounts(
+        accounts: &[AccountInfo<'a>], program_id: &Pubkey, _additional_data: Self::AdditionalVerificationData,
+    ) -> Result<Self, solana_program::program_error::ProgramError> {
+        #[rustfmt::skip]
+        let verified_accounts = verify_accounts(
+            accounts,
+            program_id,
+            AccountsToVerify {
+                comptoken_mint:               Some(AccountMetaType::Writable),
+                global_data_account:          Some(AccountMetaType::None),
+                user_wallet:                  Some(AccountMetaType::Signer),
+                user_comptoken_token_account: Some(AccountMetaType::Writable),
+                user_data_account:            Some((true, AccountMetaType::Writable)),
+                solana_token_2022_program:    Some(AccountMetaType::None),
+                ..Default::default()
+            },
+        )?;
+
+        Ok(SubmitProofAccounts {
+            comptoken_mint: verified_accounts.comptoken_mint.unwrap(),
+            global_data_account: verified_accounts.global_data_account.unwrap(),
+            _user_wallet: verified_accounts.user_wallet.unwrap(),
+            user_comptoken_token_account: verified_accounts.user_comptoken_token_account.unwrap(),
+            user_data_account: verified_accounts.user_data_account.unwrap(),
+            _solana_token_2022_program: verified_accounts.solana_token_2022_program.unwrap(),
+        })
+    }
+}
+
 pub fn submit_proof(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
     //      [w] Comptoken Mint Account
@@ -45,24 +86,13 @@ pub fn submit_proof(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     //          8 bytes - lamports
     //          32 bytes - nonce
 
-    #[rustfmt::skip]
-    let verified_accounts = verify_accounts(
-        accounts,
-        program_id,
-        AccountsToVerify {
-            comptoken_mint:               Some(AccountMetaType::Writable),
-            global_data:                  Some(AccountMetaType::None),
-            user_wallet:                  Some(AccountMetaType::Signer),
-            user_comptoken_token_account: Some(AccountMetaType::Writable),
-            user_data:                    Some((true, AccountMetaType::Writable)),
-            solana_token_2022_program:    Some(AccountMetaType::None),
-            ..Default::default()
-        },
-    )?;
-    let comptoken_mint_account = verified_accounts.comptoken_mint.unwrap();
-    let global_data_account = verified_accounts.global_data.unwrap();
-    let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
-    let user_data_account = verified_accounts.user_data.unwrap();
+    let SubmitProofAccounts {
+        comptoken_mint,
+        global_data_account,
+        user_comptoken_token_account,
+        user_data_account,
+        ..
+    } = SubmitProofAccounts::verify_accounts(accounts, program_id, ())?;
 
     let SubmitProofData { submitted_proof } = SubmitProofData::from_instruction_data(instruction_data)?;
 
@@ -83,7 +113,7 @@ pub fn submit_proof(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
         &global_data_account,
         &user_comptoken_token_account,
         MINING_AMOUNT,
-        &[&comptoken_mint_account, &user_comptoken_token_account, &global_data_account],
+        &[&comptoken_mint, &user_comptoken_token_account, &global_data_account],
     )?;
 
     Ok(())

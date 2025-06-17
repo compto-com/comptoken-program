@@ -4,18 +4,22 @@ use solana_program::{
     entrypoint::ProgramResult,
     hash::{Hash, HASH_BYTES},
     instruction::{AccountMeta, Instruction},
-    keccak,
+    keccak, msg,
     program_error::ProgramError,
     pubkey::Pubkey,
 };
 use spl_token_2022::{extension::StateWithExtensions, state::Account};
 
-use comptoken_utils::{create_pda, get_current_time, invoke_verified, normalize_time, user_data::UserData};
+use comptoken_utils::{
+    user_data::UserData,
+    verify_accounts::VerifiedAccountInfo,
+    {create_pda, get_current_time, invoke_verified, normalize_time},
+};
 
 use crate::{
     constants::{FUTURE_UBI_VERIFIED_HUMANS, SOLANA_WORLD_ID_PROGRAM, WORLD_PROOF_LENGTH, WORLD_VERIFICATION_TYPE},
     global_data::GlobalData,
-    instructions::InstructionData,
+    instructions::{InstructionAccounts, InstructionData},
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
     {get_next_data, transfer},
 };
@@ -49,6 +53,84 @@ impl InstructionData for VerifyHumanData {
     }
 }
 
+#[rustfmt::skip]
+struct VerifyHumanAccounts<'a> {
+    payer:                               VerifiedAccountInfo<'a>,
+    comptoken_program:                   VerifiedAccountInfo<'a>,
+    comptoken_mint:                      VerifiedAccountInfo<'a>,
+    global_data_account:                 VerifiedAccountInfo<'a>,
+    unpaid_future_ubi_bank:              VerifiedAccountInfo<'a>,
+    unpaid_future_ubi_bank_data_account: VerifiedAccountInfo<'a>,
+    user_wallet:                         VerifiedAccountInfo<'a>,
+    user_comptoken_token_account:        VerifiedAccountInfo<'a>,
+    user_data_account:                   VerifiedAccountInfo<'a>,
+    transfer_hook_program:               VerifiedAccountInfo<'a>,
+    extra_account_metas:                 VerifiedAccountInfo<'a>,
+    world_id_program:                    VerifiedAccountInfo<'a>,
+    world_id_root:                       VerifiedAccountInfo<'a>,
+    world_id_latest_root:                VerifiedAccountInfo<'a>,
+    world_id_config:                     VerifiedAccountInfo<'a>,
+    world_id_nullifier:                  VerifiedAccountInfo<'a>,
+    world_id_nullifier_bump:             u8,
+}
+
+impl<'a> InstructionAccounts<'a> for VerifyHumanAccounts<'a> {
+    type AdditionalVerificationData = (Hash, Hash); // root_hash, nullifier_hash
+
+    fn verify_accounts(
+        accounts: &[AccountInfo<'a>], program_id: &Pubkey, additional_data: Self::AdditionalVerificationData,
+    ) -> Result<Self, solana_program::program_error::ProgramError> {
+        let (root_hash, nullifier_hash) = &additional_data;
+
+        #[rustfmt::skip]
+        let verified_accounts = verify_accounts(
+            accounts,
+            program_id,
+            AccountsToVerify {
+                payer:                               Some(AccountMetaType::SignerAndWritable),
+                comptoken_program:                   Some(AccountMetaType::None),
+                comptoken_mint:                      Some(AccountMetaType::None),
+                global_data_account:                 Some(AccountMetaType::Writable),
+                unpaid_future_ubi_bank:              Some(AccountMetaType::Writable),
+                unpaid_future_ubi_bank_data_account: Some(AccountMetaType::None),
+                user_wallet:                         Some(AccountMetaType::Signer),
+                user_comptoken_token_account:        Some(AccountMetaType::Writable),
+                user_data_account:                   Some((true, AccountMetaType::Writable)),
+                transfer_hook_program:               Some(AccountMetaType::None),
+                extra_account_metas:                 Some(AccountMetaType::None),
+                world_id_program:                    Some(AccountMetaType::None),
+                world_id_root:                       Some((root_hash, AccountMetaType::None)),
+                world_id_latest_root:                Some(AccountMetaType::None),
+                world_id_config:                     Some(AccountMetaType::None),
+                world_id_nullifier:                  Some((nullifier_hash, AccountMetaType::Writable)),
+                solana_program:                      Some(AccountMetaType::None),
+                solana_token_2022_program:           Some(AccountMetaType::None),
+                ..Default::default()
+            },
+        )?;
+
+        Ok(VerifyHumanAccounts {
+            payer: verified_accounts.payer.unwrap(),
+            comptoken_program: verified_accounts.comptoken_program.unwrap(),
+            comptoken_mint: verified_accounts.comptoken_mint.unwrap(),
+            global_data_account: verified_accounts.global_data_account.unwrap(),
+            unpaid_future_ubi_bank: verified_accounts.unpaid_future_ubi_bank.unwrap(),
+            unpaid_future_ubi_bank_data_account: verified_accounts.unpaid_future_ubi_bank_data_account.unwrap(),
+            user_wallet: verified_accounts.user_wallet.unwrap(),
+            user_comptoken_token_account: verified_accounts.user_comptoken_token_account.unwrap(),
+            user_data_account: verified_accounts.user_data_account.unwrap(),
+            transfer_hook_program: verified_accounts.transfer_hook_program.unwrap(),
+            extra_account_metas: verified_accounts.extra_account_metas.unwrap(),
+            world_id_program: verified_accounts.world_id_program.unwrap(),
+            world_id_root: verified_accounts.world_id_root.unwrap(),
+            world_id_latest_root: verified_accounts.world_id_latest_root.unwrap(),
+            world_id_config: verified_accounts.world_id_config.unwrap(),
+            world_id_nullifier: verified_accounts.world_id_nullifier.unwrap(),
+            world_id_nullifier_bump: verified_accounts.world_id_nullifier_bump.unwrap(),
+        })
+    }
+}
+
 pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  Account Order
     //      [s, w] Payer Account
@@ -78,50 +160,25 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     let VerifyHumanData { rent_lamports, root_hash, nullifier_hash, proof } =
         VerifyHumanData::from_instruction_data(instruction_data)?;
 
-    #[rustfmt::skip]
-    let verified_accounts = verify_accounts(
-        accounts,
-        program_id,
-        AccountsToVerify {
-            payer:                        Some(AccountMetaType::SignerAndWritable),
-            comptoken_program:            Some(AccountMetaType::None),
-            comptoken_mint:               Some(AccountMetaType::None),
-            global_data:                  Some(AccountMetaType::Writable),
-            future_ubi_bank:              Some(AccountMetaType::Writable),
-            future_ubi_bank_data:         Some(AccountMetaType::None),
-            user_wallet:                  Some(AccountMetaType::Signer),
-            user_comptoken_token_account: Some(AccountMetaType::Writable),
-            user_data:                    Some((true, AccountMetaType::Writable)),
-            transfer_hook_program:        Some(AccountMetaType::None),
-            extra_account_metas:          Some(AccountMetaType::None),
-            world_id_program:             Some(AccountMetaType::None),
-            world_id_root:                Some((&root_hash, AccountMetaType::None)),
-            world_id_latest_root:         Some(AccountMetaType::None),
-            world_id_config:              Some(AccountMetaType::None),
-            world_id_nullifier:           Some((&nullifier_hash, AccountMetaType::Writable)),
-            solana_program:               Some(AccountMetaType::None),
-            solana_token_2022_program:    Some(AccountMetaType::None),
-            ..Default::default()
-        },
-    )?;
-
-    let payer = verified_accounts.payer.unwrap();
-    let comptoken_program = verified_accounts.comptoken_program.unwrap();
-    let comptoken_mint = verified_accounts.comptoken_mint.unwrap();
-    let global_data_account = verified_accounts.global_data.unwrap();
-    let unpaid_future_ubi_bank_account = verified_accounts.future_ubi_bank.unwrap();
-    let unpaid_future_ubi_bank_data_pda = verified_accounts.future_ubi_bank_data.unwrap();
-    let user_wallet = verified_accounts.user_wallet.unwrap();
-    let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
-    let user_data_account = verified_accounts.user_data.unwrap();
-    let transfer_hook_program = verified_accounts.transfer_hook_program.unwrap();
-    let extra_account_metas_account = verified_accounts.extra_account_metas.unwrap();
-    let world_id_program = verified_accounts.world_id_program.unwrap();
-    let world_id_root = verified_accounts.world_id_root.unwrap();
-    let world_id_latest_root = verified_accounts.world_id_latest_root.unwrap();
-    let world_id_config = verified_accounts.world_id_config.unwrap();
-    let world_id_nullifier = verified_accounts.world_id_nullifier.unwrap();
-    let world_id_nullifier_bump = verified_accounts.world_id_nullifier_bump.unwrap();
+    let VerifyHumanAccounts {
+        payer,
+        comptoken_program,
+        comptoken_mint,
+        global_data_account,
+        unpaid_future_ubi_bank,
+        unpaid_future_ubi_bank_data_account,
+        user_wallet,
+        user_comptoken_token_account,
+        user_data_account,
+        transfer_hook_program,
+        extra_account_metas,
+        world_id_program,
+        world_id_root,
+        world_id_latest_root,
+        world_id_config,
+        world_id_nullifier,
+        world_id_nullifier_bump,
+    } = VerifyHumanAccounts::verify_accounts(accounts, program_id, (root_hash, nullifier_hash))?;
 
     let user_data: &mut UserData = (&user_data_account).into();
     assert!(user_data.is_current(), "user data account is not current");
@@ -195,6 +252,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     };
 
     // If the cpi fails, the program will fail, which will prevent the user from being verified, and not create the nullifier pda
+    msg!("Invoking World ID CPI to verify human...");
     invoke_verified(
         &world_id_cpi_instruction,
         &[&world_id_program, &world_id_root, &world_id_latest_root, &world_id_config],
@@ -202,38 +260,44 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
 
     // 3. update user data
 
+    msg!("Successfully verified human with World ID, updating user data...");
     user_data.verification_date = normalize_time(get_current_time());
 
     let global_data: &mut GlobalData = (&global_data_account).into();
     let verified_humans = global_data.daily_distribution_data.verified_humans;
     global_data.daily_distribution_data.verified_humans += 1;
 
-    let unpaid_future_ubi_bank_data = unpaid_future_ubi_bank_account.try_borrow_data().unwrap();
-    let unpaid_future_ubi_bank = StateWithExtensions::<Account>::unpack(&unpaid_future_ubi_bank_data).unwrap().base;
+    let unpaid_future_ubi_bank_raw_data = unpaid_future_ubi_bank.try_borrow_data().unwrap();
+    let unpaid_future_ubi_bank_data =
+        StateWithExtensions::<Account>::unpack(&unpaid_future_ubi_bank_raw_data).unwrap().base;
 
-    let future_ubi_amount = unpaid_future_ubi_bank.amount;
+    let future_ubi_amount = unpaid_future_ubi_bank_data.amount;
 
-    std::mem::drop(unpaid_future_ubi_bank_data); // drop mutable borrow to allow transfer
+    std::mem::drop(unpaid_future_ubi_bank_raw_data); // drop mutable borrow to allow transfer
+
+    msg!("successfully updated user data");
 
     if verified_humans <= FUTURE_UBI_VERIFIED_HUMANS {
+        msg!("Distributing future UBI to user...");
         let amount = future_ubi_amount / (FUTURE_UBI_VERIFIED_HUMANS - verified_humans);
         transfer(
-            &unpaid_future_ubi_bank_account,
+            &unpaid_future_ubi_bank,
             &user_comptoken_token_account,
             &comptoken_mint,
             &global_data_account,
             &[
-                &extra_account_metas_account,
+                &extra_account_metas,
                 &transfer_hook_program,
                 &comptoken_program,
                 &user_data_account,
-                &unpaid_future_ubi_bank_account,
-                &unpaid_future_ubi_bank_data_pda,
+                &unpaid_future_ubi_bank,
+                &unpaid_future_ubi_bank_data_account,
             ],
             amount,
         )?;
     }
 
+    msg!("Success");
     Ok(())
 }
 

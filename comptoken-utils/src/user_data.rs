@@ -1,4 +1,7 @@
-use solana_program::{hash::Hash, hash::HASH_BYTES, program_error::ProgramError};
+use solana_program::{
+    hash::{Hash, HASH_BYTES},
+    program_error::ProgramError,
+};
 
 use crate::VerifiedAccountInfo;
 

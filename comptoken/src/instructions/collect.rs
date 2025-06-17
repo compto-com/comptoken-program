@@ -3,11 +3,11 @@ use solana_program::{
 };
 use spl_token_2022::{extension::StateWithExtensions, state::Account};
 
-use comptoken_utils::{get_current_time, normalize_time, user_data::UserData};
+use comptoken_utils::{get_current_time, normalize_time, user_data::UserData, verify_accounts::VerifiedAccountInfo};
 
 use crate::{
     global_data::GlobalData,
-    instructions::InstructionData,
+    instructions::{InstructionAccounts, InstructionData},
     transfer,
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };
@@ -21,6 +21,71 @@ impl InstructionData for CollectData {
         }
         // No data expected for this instruction
         Ok(CollectData {})
+    }
+}
+
+#[rustfmt::skip]
+struct CollectAccounts<'a> {
+    comptoken_program:                           VerifiedAccountInfo<'a>,
+    comptoken_mint:                              VerifiedAccountInfo<'a>,
+    global_data_account:                         VerifiedAccountInfo<'a>,
+    unpaid_interest_bank:                        VerifiedAccountInfo<'a>,
+    unpaid_verified_human_ubi_bank:              VerifiedAccountInfo<'a>,
+    unpaid_interest_bank_data_account:           VerifiedAccountInfo<'a>,
+    unpaid_verified_human_ubi_bank_data_account: VerifiedAccountInfo<'a>,
+    _user_wallet:                                VerifiedAccountInfo<'a>,
+    user_comptoken_token_account:                VerifiedAccountInfo<'a>,
+    user_data_account:                           VerifiedAccountInfo<'a>,
+    transfer_hook_program:                       VerifiedAccountInfo<'a>,
+    extra_account_metas:                         VerifiedAccountInfo<'a>,
+    _solana_token_2022_program:                  VerifiedAccountInfo<'a>,
+}
+
+impl<'a> InstructionAccounts<'a> for CollectAccounts<'a> {
+    type AdditionalVerificationData = ();
+
+    fn verify_accounts(
+        accounts: &[AccountInfo<'a>], program_id: &Pubkey, _additional_data: Self::AdditionalVerificationData,
+    ) -> Result<Self, solana_program::program_error::ProgramError> {
+        #[rustfmt::skip]
+        let verified_accounts = verify_accounts(
+            accounts,
+            program_id,
+            AccountsToVerify {
+                comptoken_program:                           Some(AccountMetaType::None),
+                comptoken_mint:                              Some(AccountMetaType::None),
+                global_data_account:                         Some(AccountMetaType::None),
+                unpaid_interest_bank:                        Some(AccountMetaType::Writable),
+                unpaid_verified_human_ubi_bank:              Some(AccountMetaType::Writable),
+                unpaid_interest_bank_data_account:           Some(AccountMetaType::None),
+                unpaid_verified_human_ubi_bank_data_account: Some(AccountMetaType::None),
+                user_wallet:                                 Some(AccountMetaType::Signer),
+                user_comptoken_token_account:                Some(AccountMetaType::Writable),
+                user_data_account:                           Some((true, AccountMetaType::Writable)),
+                transfer_hook_program:                       Some(AccountMetaType::None),
+                extra_account_metas:                         Some(AccountMetaType::None),
+                solana_token_2022_program:                   Some(AccountMetaType::None),
+                ..Default::default()
+            },
+        )?;
+
+        Ok(CollectAccounts {
+            comptoken_program: verified_accounts.comptoken_program.unwrap(),
+            comptoken_mint: verified_accounts.comptoken_mint.unwrap(),
+            global_data_account: verified_accounts.global_data_account.unwrap(),
+            unpaid_interest_bank: verified_accounts.unpaid_interest_bank.unwrap(),
+            unpaid_verified_human_ubi_bank: verified_accounts.unpaid_verified_human_ubi_bank.unwrap(),
+            unpaid_interest_bank_data_account: verified_accounts.unpaid_interest_bank_data_account.unwrap(),
+            unpaid_verified_human_ubi_bank_data_account: verified_accounts
+                .unpaid_verified_human_ubi_bank_data_account
+                .unwrap(),
+            _user_wallet: verified_accounts.user_wallet.unwrap(),
+            user_comptoken_token_account: verified_accounts.user_comptoken_token_account.unwrap(),
+            user_data_account: verified_accounts.user_data_account.unwrap(),
+            transfer_hook_program: verified_accounts.transfer_hook_program.unwrap(),
+            extra_account_metas: verified_accounts.extra_account_metas.unwrap(),
+            _solana_token_2022_program: verified_accounts.solana_token_2022_program.unwrap(),
+        })
     }
 }
 
@@ -42,39 +107,20 @@ pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: 
     //  data:
     //      None
 
-    #[rustfmt::skip]
-    let verified_accounts = verify_accounts(
-        accounts,
-        program_id,
-        AccountsToVerify {
-            comptoken_program:            Some(AccountMetaType::None),
-            comptoken_mint:               Some(AccountMetaType::None),
-            global_data:                  Some(AccountMetaType::None),
-            interest_bank:                Some(AccountMetaType::Writable),
-            verified_human_ubi_bank:      Some(AccountMetaType::Writable),
-            interest_bank_data:           Some(AccountMetaType::None),
-            verified_human_ubi_bank_data: Some(AccountMetaType::None),
-            user_wallet:                  Some(AccountMetaType::Signer),
-            user_comptoken_token_account: Some(AccountMetaType::Writable),
-            user_data:                    Some((true, AccountMetaType::Writable)),
-            transfer_hook_program:        Some(AccountMetaType::None),
-            extra_account_metas:          Some(AccountMetaType::None),
-            solana_token_2022_program:    Some(AccountMetaType::None),
-            ..Default::default()
-        },
-    )?;
-
-    let comptoken_program = verified_accounts.comptoken_program.unwrap();
-    let comptoken_mint_account = verified_accounts.comptoken_mint.unwrap();
-    let global_data_account = verified_accounts.global_data.unwrap();
-    let unpaid_interest_bank = verified_accounts.interest_bank.unwrap();
-    let unpaid_interest_bank_data_pda = verified_accounts.interest_bank_data.unwrap();
-    let unpaid_verified_human_ubi_bank = verified_accounts.verified_human_ubi_bank.unwrap();
-    let unpaid_verified_human_ubi_bank_data_pda = verified_accounts.verified_human_ubi_bank_data.unwrap();
-    let user_comptoken_token_account = verified_accounts.user_comptoken_token_account.unwrap();
-    let user_data_account = verified_accounts.user_data.unwrap();
-    let transfer_hook_program = verified_accounts.transfer_hook_program.unwrap();
-    let extra_account_metas_account = verified_accounts.extra_account_metas.unwrap();
+    let CollectAccounts {
+        comptoken_program,
+        comptoken_mint,
+        global_data_account,
+        unpaid_interest_bank,
+        unpaid_verified_human_ubi_bank,
+        unpaid_interest_bank_data_account,
+        unpaid_verified_human_ubi_bank_data_account,
+        user_comptoken_token_account,
+        user_data_account,
+        transfer_hook_program,
+        extra_account_metas,
+        ..
+    } = CollectAccounts::verify_accounts(accounts, program_id, ())?;
 
     let _ = CollectData::from_instruction_data(instruction_data)?;
 
@@ -115,14 +161,14 @@ pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: 
         transfer(
             &unpaid_interest_bank,
             &user_comptoken_token_account,
-            &comptoken_mint_account,
+            &comptoken_mint,
             &global_data_account,
             &[
-                &extra_account_metas_account,
+                &extra_account_metas,
                 &transfer_hook_program,
                 &comptoken_program,
                 &user_data_account,
-                &unpaid_interest_bank_data_pda,
+                &unpaid_interest_bank_data_account,
             ],
             interest,
         )?;
@@ -134,14 +180,14 @@ pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: 
         transfer(
             &unpaid_verified_human_ubi_bank,
             &user_comptoken_token_account,
-            &comptoken_mint_account,
+            &comptoken_mint,
             &global_data_account,
             &[
-                &extra_account_metas_account,
+                &extra_account_metas,
                 &transfer_hook_program,
                 &comptoken_program,
                 &user_data_account,
-                &unpaid_verified_human_ubi_bank_data_pda,
+                &unpaid_verified_human_ubi_bank_data_account,
             ],
             ubi,
         )?;

@@ -1,3 +1,5 @@
+use solana_program::{account_info::AccountInfo, pubkey::Pubkey};
+
 mod mint_unchecked;
 pub use mint_unchecked::*;
 
@@ -27,4 +29,12 @@ pub use verify_human::*;
 
 trait InstructionData: Sized {
     fn from_instruction_data(instruction_data: &[u8]) -> Result<Self, solana_program::program_error::ProgramError>;
+}
+
+trait InstructionAccounts<'a>: Sized {
+    type AdditionalVerificationData;
+
+    fn verify_accounts(
+        accounts: &[AccountInfo<'a>], program_id: &Pubkey, additional_data: Self::AdditionalVerificationData,
+    ) -> Result<Self, solana_program::program_error::ProgramError>;
 }

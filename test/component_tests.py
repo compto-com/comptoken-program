@@ -93,7 +93,7 @@ def file_or_stdout(outfile: Path | None):
 if __name__ == "__main__":
     tests: list[str] = [
         "comptoken-tests/initializeComptokenProgram",
-        "comptoken-tests/mint",  # testing to see if the timeout problem is mint or first test
+        "comptoken-tests/mint",
         "comptoken-tests/createUserDataAccount",
         "comptoken-tests/growUserDataAccount",
         "comptoken-tests/shrinkUserDataAccount",
@@ -109,7 +109,6 @@ if __name__ == "__main__":
         "comptoken-tests/definedMultidayDailyDistribution",
         "transfer-hook-tests/initialize_extra_account_meta_list",
         "transfer-hook-tests/execute",
-        # commented out until WorldCoin integration is implemented
         "comptoken-tests/verifyHuman",
     ]
 

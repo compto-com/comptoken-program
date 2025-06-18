@@ -76,7 +76,8 @@ impl DailyDistributionData {
             ubi_for_verified_humans,
             future_ubi_distribution: total_ubi_distribution - ubi_for_verified_humans,
         };
-        let todays_interest_rate = distribution_values.interest_distribution as f64 / mint.supply as f64;
+        let todays_interest_rate =
+            distribution_values.interest_distribution as f64 / (mint.supply - self.total_stale_comptokens) as f64;
         msg!("Interest: {}", todays_interest_rate);
         // pay out interest on comptokens in the unclaimed ubi bank
         // interest for the ubi for verified humans is calculated when the owed comptokens are payed out
@@ -85,7 +86,10 @@ impl DailyDistributionData {
         distribution_values.interest_distribution =
             distribution_values.interest_distribution.saturating_sub(future_ubi_interest);
         distribution_values.future_ubi_distribution += future_ubi_interest;
-        let todays_ubi = distribution_values.ubi_for_verified_humans.checked_div(self.verified_humans).unwrap_or(0);
+        let todays_ubi = distribution_values
+            .ubi_for_verified_humans
+            .checked_div(self.verified_humans - self.stale_verified_humans)
+            .unwrap_or(0);
         msg!("UBI: {}", todays_ubi);
         self.insert(1. + todays_interest_rate, todays_ubi);
         self.yesterday_supply = mint.supply + distribution_values.total_distributed();
@@ -106,6 +110,7 @@ impl DailyDistributionData {
 
     fn calculate_distribution_limiter(supply: u64) -> f64 {
         // the function (x - M)^(-a) + E was found to give what we felt were reasonable values for limits on the maximum growth
+        // where M is the minimum supply limit, a is the adjust factor, and E is the end goal percent increase
         let x = supply - MIN_SUPPLY_LIMIT_AMT;
         f64::powf(x as f64, -ADJUST_FACTOR) + END_GOAL_PERCENT_INCREASE
     }
@@ -213,7 +218,7 @@ pub trait RoundEven {
 impl RoundEven for f64 {
     fn round_ties_even(self) -> Self {
         let res = self.round();
-        if about_equal((self - res).abs(), 0.5) && res % 2. != 0. {
+        if about_equal(self.fract(), 0.5) && res % 2. != 0. {
             self.trunc()
         } else {
             res

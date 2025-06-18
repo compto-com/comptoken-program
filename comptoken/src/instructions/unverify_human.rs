@@ -10,9 +10,8 @@ use solana_program::{
 use comptoken_utils::{user_data::UserData, verify_accounts::VerifiedAccountInfo};
 
 use crate::{
-    data::nullifier::Nullifier,
+    data::{global_data::GlobalData, nullifier::Nullifier},
     get_next_data,
-    global_data::GlobalData,
     instructions::{InstructionAccounts, InstructionData},
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };

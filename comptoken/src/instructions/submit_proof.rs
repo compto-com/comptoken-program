@@ -5,7 +5,7 @@ use comptoken_utils::{user_data::UserData, verify_accounts::VerifiedAccountInfo}
 use crate::{
     comptoken_proof::ComptokenProof,
     constants::MINING_AMOUNT,
-    global_data::{valid_blockhashes::ValidBlockhashes, GlobalData},
+    data::global_data::{valid_blockhashes::ValidBlockhashes, GlobalData},
     instructions::{InstructionAccounts, InstructionData},
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
     {get_next_data, mint},

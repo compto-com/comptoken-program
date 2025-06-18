@@ -6,7 +6,7 @@ use solana_program::{
 use comptoken_utils::verify_accounts::VerifiedAccountInfo;
 
 use crate::{
-    global_data::GlobalData,
+    data::global_data::GlobalData,
     instructions::{InstructionAccounts, InstructionData},
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };

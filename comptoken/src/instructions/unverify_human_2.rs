@@ -11,9 +11,8 @@ use comptoken_utils::{user_data::UserData, verify_accounts::VerifiedAccountInfo}
 
 use crate::{
     constants::WORLD_PROOF_LENGTH,
-    data::nullifier::Nullifier,
+    data::{global_data::GlobalData, nullifier::Nullifier},
     get_next_data,
-    global_data::GlobalData,
     instructions::{verify, InstructionAccounts, InstructionData, WorldIdVerifyAccounts},
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };

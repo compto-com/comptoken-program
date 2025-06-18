@@ -9,7 +9,7 @@ use spl_token_2022::{
 use comptoken_utils::{get_current_time, verify_accounts::VerifiedAccountInfo};
 
 use crate::{
-    global_data::{daily_distribution_data::DailyDistributionValues, GlobalData},
+    data::global_data::{daily_distribution_data::DailyDistributionValues, GlobalData},
     instructions::{InstructionAccounts, InstructionData},
     mint,
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},

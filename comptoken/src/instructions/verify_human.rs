@@ -18,8 +18,7 @@ use comptoken_utils::{
 
 use crate::{
     constants::{FUTURE_UBI_VERIFIED_HUMANS, SOLANA_WORLD_ID_PROGRAM, WORLD_PROOF_LENGTH, WORLD_VERIFICATION_TYPE},
-    data::nullifier::Nullifier,
-    global_data::GlobalData,
+    data::{global_data::GlobalData, nullifier::Nullifier},
     instructions::{InstructionAccounts, InstructionData},
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
     {get_next_data, transfer},

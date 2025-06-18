@@ -6,7 +6,7 @@ use spl_token_2022::{extension::StateWithExtensions, state::Account};
 use comptoken_utils::{get_current_time, normalize_time, user_data::UserData, verify_accounts::VerifiedAccountInfo};
 
 use crate::{
-    global_data::GlobalData,
+    data::global_data::GlobalData,
     instructions::{InstructionAccounts, InstructionData},
     transfer,
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},

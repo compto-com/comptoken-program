@@ -7,12 +7,12 @@ use comptoken_utils::{create_pda, invoke_signed_verified, verify_accounts::Verif
 
 use crate::{
     constants::COMPTOKEN_ACCOUNT_SPACE,
+    data::global_data::{GlobalData, GLOBAL_DATA_ACCOUNT_SPACE},
     generated::{
         COMPTOKEN_MINT_ADDRESS, COMPTO_FUTURE_UBI_BANK_ACCOUNT_SEEDS, COMPTO_GLOBAL_DATA_ACCOUNT_SEEDS,
         COMPTO_INTEREST_BANK_ACCOUNT_SEEDS, COMPTO_VERIFIED_HUMAN_UBI_BANK_ACCOUNT_SEEDS, TRANSFER_HOOK_ID,
     },
     get_next_data,
-    global_data::{GlobalData, GLOBAL_DATA_ACCOUNT_SPACE},
     instructions::{InstructionAccounts, InstructionData},
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
 };

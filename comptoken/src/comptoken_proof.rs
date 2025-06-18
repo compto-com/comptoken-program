@@ -6,7 +6,7 @@ use solana_program::{
 
 use comptoken_utils::verify_accounts::VerifiedAccountInfo;
 
-use crate::global_data::valid_blockhashes::ValidBlockhashes;
+use crate::data::global_data::valid_blockhashes::ValidBlockhashes;
 
 // Ensure changes to this struct remain consistent with comptoken_proof.js
 #[derive(Debug)]

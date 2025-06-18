@@ -5,7 +5,7 @@ use solana_program::{account_info::AccountInfo, msg, pubkey::Pubkey};
 use spl_token_2022::{extension::StateWithExtensions, state::Account};
 
 use crate::{
-    global_data::{daily_distribution_data::DailyDistributionData, GlobalData},
+    data::global_data::{daily_distribution_data::DailyDistributionData, GlobalData},
     instructions,
     verify_accounts::AccountMetaType,
     ProgramResult,

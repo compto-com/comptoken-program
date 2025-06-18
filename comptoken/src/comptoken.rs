@@ -2,7 +2,6 @@ mod comptoken_proof;
 mod constants;
 mod data;
 mod generated;
-mod global_data;
 mod instructions;
 mod verify_accounts;
 

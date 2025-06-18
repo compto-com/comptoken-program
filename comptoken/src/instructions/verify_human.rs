@@ -62,7 +62,7 @@ struct VerifyHumanAccounts<'a> {
     global_data_account:                 VerifiedAccountInfo<'a>,
     unpaid_future_ubi_bank:              VerifiedAccountInfo<'a>,
     unpaid_future_ubi_bank_data_account: VerifiedAccountInfo<'a>,
-    user_wallet:                         VerifiedAccountInfo<'a>,
+    _user_wallet:                        VerifiedAccountInfo<'a>,
     user_comptoken_token_account:        VerifiedAccountInfo<'a>,
     user_data_account:                   VerifiedAccountInfo<'a>,
     transfer_hook_program:               VerifiedAccountInfo<'a>,
@@ -117,7 +117,7 @@ impl<'a> InstructionAccounts<'a> for VerifyHumanAccounts<'a> {
             global_data_account: verified_accounts.global_data_account.unwrap(),
             unpaid_future_ubi_bank: verified_accounts.unpaid_future_ubi_bank.unwrap(),
             unpaid_future_ubi_bank_data_account: verified_accounts.unpaid_future_ubi_bank_data_account.unwrap(),
-            user_wallet: verified_accounts.user_wallet.unwrap(),
+            _user_wallet: verified_accounts.user_wallet.unwrap(),
             user_comptoken_token_account: verified_accounts.user_comptoken_token_account.unwrap(),
             user_data_account: verified_accounts.user_data_account.unwrap(),
             transfer_hook_program: verified_accounts.transfer_hook_program.unwrap(),
@@ -168,7 +168,6 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
         global_data_account,
         unpaid_future_ubi_bank,
         unpaid_future_ubi_bank_data_account,
-        user_wallet,
         user_comptoken_token_account,
         user_data_account,
         transfer_hook_program,
@@ -179,6 +178,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
         world_id_config,
         world_id_nullifier,
         world_id_nullifier_bump,
+        ..
     } = VerifyHumanAccounts::verify_accounts(accounts, program_id, (root_hash, nullifier_hash))?;
 
     let user_data: &mut UserData = (&user_data_account).into();
@@ -187,15 +187,28 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     // 1. verify unique nullifier hash
     // TODO what to do when people die?
 
-    // this will fail if the nullifier already exists
-    create_pda(
+    // this will fail if the nullifier already exists and is not empty
+    if let Err(e) = create_pda(
         &payer,
         &world_id_nullifier,
         rent_lamports,
-        32,
+        std::mem::size_of::<Nullifier>() as u64,
         program_id,
         &[&[b"Nullifier", nullifier_hash.as_ref(), &[world_id_nullifier_bump]]],
-    )?;
+    ) {
+        if e != ProgramError::AccountAlreadyInitialized {
+            return Err(e);
+        }
+        let nullifier: &Nullifier = (&world_id_nullifier).into();
+        assert_eq!(nullifier.account, Pubkey::default(), "nullifier account already exists but is not empty");
+
+        let global_data: &mut GlobalData = (&global_data_account).into();
+        global_data.daily_distribution_data.stale_verified_humans -= 1;
+
+        // if this nullifier already exists, it means the user has already been verified, so we should not count them as a new verified human
+        // the verified_humans count will be incremented later, so we decrement it here to ensure it remains accurate
+        global_data.daily_distribution_data.verified_humans -= 1;
+    }
 
     // Set the nullifier data to the user's wallet pubkey
     let nullifier: &mut Nullifier = (&world_id_nullifier).into();
@@ -205,7 +218,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
 
     verify(
         WorldIdVerifyAccounts {
-            user_wallet,
+            user_comptoken_token_account: user_comptoken_token_account.clone(),
             world_id_program,
             world_id_root,
             world_id_latest_root,
@@ -220,6 +233,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
 
     msg!("Successfully verified human with World ID, updating user data...");
     user_data.verification_date = normalize_time(get_current_time());
+    user_data.nullifier_hash = nullifier_hash;
 
     let global_data: &mut GlobalData = (&global_data_account).into();
     let verified_humans = global_data.daily_distribution_data.verified_humans;
@@ -287,14 +301,14 @@ impl InstructionData for ReverifyHumanData {
 
 #[rustfmt::skip]
 struct ReverifyHumanAccounts<'a> {
-    user_wallet:                   VerifiedAccountInfo<'a>,
-    _user_comptoken_token_account: VerifiedAccountInfo<'a>,
-    user_data_account:             VerifiedAccountInfo<'a>,
-    world_id_program:              VerifiedAccountInfo<'a>,
-    world_id_root:                 VerifiedAccountInfo<'a>,
-    world_id_latest_root:          VerifiedAccountInfo<'a>,
-    world_id_config:               VerifiedAccountInfo<'a>,
-    world_id_nullifier:            VerifiedAccountInfo<'a>,
+    _user_wallet:                 VerifiedAccountInfo<'a>,
+    user_comptoken_token_account: VerifiedAccountInfo<'a>,
+    user_data_account:            VerifiedAccountInfo<'a>,
+    world_id_program:             VerifiedAccountInfo<'a>,
+    world_id_root:                VerifiedAccountInfo<'a>,
+    world_id_latest_root:         VerifiedAccountInfo<'a>,
+    world_id_config:              VerifiedAccountInfo<'a>,
+    world_id_nullifier:           VerifiedAccountInfo<'a>,
 }
 
 impl<'a> InstructionAccounts<'a> for ReverifyHumanAccounts<'a> {
@@ -323,8 +337,8 @@ impl<'a> InstructionAccounts<'a> for ReverifyHumanAccounts<'a> {
         )?;
 
         Ok(ReverifyHumanAccounts {
-            user_wallet: verified_accounts.user_wallet.unwrap(),
-            _user_comptoken_token_account: verified_accounts.user_comptoken_token_account.unwrap(),
+            _user_wallet: verified_accounts.user_wallet.unwrap(),
+            user_comptoken_token_account: verified_accounts.user_comptoken_token_account.unwrap(),
             user_data_account: verified_accounts.user_data_account.unwrap(),
             world_id_program: verified_accounts.world_id_program.unwrap(),
             world_id_root: verified_accounts.world_id_root.unwrap(),
@@ -354,7 +368,7 @@ pub fn reverify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction
         ReverifyHumanData::from_instruction_data(instruction_data)?;
 
     let ReverifyHumanAccounts {
-        user_wallet,
+        user_comptoken_token_account,
         user_data_account,
         world_id_program,
         world_id_root,
@@ -376,9 +390,12 @@ pub fn reverify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction
 
     assert_eq!(nullifier.account, *user_data_account.key, "nullifier account does not match user data account");
 
+    let user_data: &UserData = (&user_data_account).into();
+    assert_eq!(nullifier_hash, user_data.nullifier_hash, "nullifier hash does not match user data");
+
     verify(
         WorldIdVerifyAccounts {
-            user_wallet,
+            user_comptoken_token_account,
             world_id_program,
             world_id_root,
             world_id_latest_root,
@@ -396,19 +413,19 @@ pub fn reverify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction
     Ok(())
 }
 
-struct WorldIdVerifyAccounts<'a> {
-    user_wallet: VerifiedAccountInfo<'a>,
-    world_id_program: VerifiedAccountInfo<'a>,
-    world_id_root: VerifiedAccountInfo<'a>,
-    world_id_latest_root: VerifiedAccountInfo<'a>,
-    world_id_config: VerifiedAccountInfo<'a>,
+pub(super) struct WorldIdVerifyAccounts<'a> {
+    pub(super) user_comptoken_token_account: VerifiedAccountInfo<'a>,
+    pub(super) world_id_program: VerifiedAccountInfo<'a>,
+    pub(super) world_id_root: VerifiedAccountInfo<'a>,
+    pub(super) world_id_latest_root: VerifiedAccountInfo<'a>,
+    pub(super) world_id_config: VerifiedAccountInfo<'a>,
 }
 
-fn verify(
+pub(super) fn verify(
     accounts: WorldIdVerifyAccounts, root_hash: &Hash, nullifier_hash: &Hash, proof: &[u8; WORLD_PROOF_LENGTH],
 ) -> ProgramResult {
     let external_nullifier_hash = get_external_nullifier_hash(); // TODO: make this a constant
-    let signal_bytes = accounts.user_wallet.key.to_bytes();
+    let signal_bytes = accounts.user_comptoken_token_account.key.to_bytes();
     let signal_hash = hash_to_field(&signal_bytes);
 
     let mut world_id_cpi_data = Vec::with_capacity(393);

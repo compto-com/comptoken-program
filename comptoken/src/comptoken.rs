@@ -59,6 +59,14 @@ pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instru
             instructions::reverify_human(program_id, accounts, instruction_data)
         }
         10 => {
+            msg!("Unverify Human");
+            instructions::unverify_human(program_id, accounts, instruction_data)
+        }
+        11 => {
+            msg!("Unverify Human 2");
+            instructions::unverify_human_2(program_id, accounts, instruction_data)
+        }
+        12 => {
             msg!("Flag Stale Account");
             instructions::flag_stale_account(program_id, accounts, instruction_data)
         }

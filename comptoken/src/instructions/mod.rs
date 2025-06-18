@@ -24,6 +24,12 @@ pub use collect::*;
 mod resize_user_data_account;
 pub use resize_user_data_account::*;
 
+mod unverify_human;
+pub use unverify_human::*;
+
+mod unverify_human_2;
+pub use unverify_human_2::*;
+
 mod verify_human;
 pub use verify_human::*;
 

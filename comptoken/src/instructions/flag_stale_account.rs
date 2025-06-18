@@ -42,7 +42,7 @@ impl<'a> FlagStaleAccountAccounts<'a> {
             accounts,
             program_id,
             crate::verify_accounts::AccountsToVerify {
-                global_data_account:            Some(AccountMetaType::None),
+                global_data_account:            Some(AccountMetaType::Writable),
                 user_comptoken_token_account:   Some((false, AccountMetaType::None)),
                 user_data_account:              Some((true, AccountMetaType::Writable)),
                 ..Default::default()
@@ -59,7 +59,7 @@ impl<'a> FlagStaleAccountAccounts<'a> {
 
 pub fn flag_stale_account(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
-    //      [] Comptoken Global Data (also mint authority)
+    //      [w] Comptoken Global Data (also mint authority)
     //      [] user comptoken token account
     //      [w] user data account
     //  data:

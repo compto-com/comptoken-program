@@ -50,7 +50,7 @@ mod mint_unchecked_impl {
                     comptoken_mint:               Some(AccountMetaType::Writable),
                     global_data_account:          Some(AccountMetaType::None),
                     user_wallet:                  Some(AccountMetaType::Signer),
-                    user_comptoken_token_account: Some((true, AccountMetaType::None)),
+                    user_comptoken_token_account: Some((true, AccountMetaType::Writable)),
                     solana_token_2022_program:    Some(AccountMetaType::None),
                     ..Default::default()
                 },
@@ -71,7 +71,7 @@ mod mint_unchecked_impl {
         //      [w] Comptoken Mint Account
         //      [] Comptoken Global Data Account (also Mint Authority)
         //      [s] User Wallet
-        //      [] User Comptoken Token Account
+        //      [w] User Comptoken Token Account
         //      [] Solana Token 2022
         //  data:
         //      8 bytes - amount

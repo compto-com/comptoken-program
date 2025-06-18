@@ -78,6 +78,7 @@ impl<'a> InstructionAccounts<'a> for UnverifyHumanAccounts<'a> {
 
 pub fn unverify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instruction_data: &[u8]) -> ProgramResult {
     //  Account Order
+    //      [w] Global Data Account
     //      [s] User Solana Wallet
     //      [] User's Comptoken Token Account
     //      [w] User's Data

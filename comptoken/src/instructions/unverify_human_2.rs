@@ -69,7 +69,7 @@ impl<'a> InstructionAccounts<'a> for UnverifyHuman2Accounts<'a> {
             program_id,
             AccountsToVerify {
                 global_data_account:          Some(AccountMetaType::Writable),
-                user_comptoken_token_account: Some((false, AccountMetaType::Writable)),
+                user_comptoken_token_account: Some((false, AccountMetaType::None)),
                 user_data_account:            Some((true, AccountMetaType::Writable)),
                 world_id_program:             Some(AccountMetaType::None),
                 world_id_root:                Some((root_hash, AccountMetaType::None)),

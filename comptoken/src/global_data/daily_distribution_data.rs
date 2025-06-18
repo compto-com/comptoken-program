@@ -208,51 +208,12 @@ impl DailyDistributionValues {
     }
 }
 
-// rust implements round_ties_even in version 1.77, which is more recent than
-// the version (1.75) solana uses. this is a reimplementation, however rust's
-// uses compiler intrinsics, so we can't just use their code
-pub trait RoundEven {
-    fn round_ties_even(self) -> Self;
-}
-
-impl RoundEven for f64 {
-    fn round_ties_even(self) -> Self {
-        let res = self.round();
-        if about_equal(self.fract(), 0.5) && res % 2. != 0. {
-            self.trunc()
-        } else {
-            res
-        }
-    }
-}
-
-fn about_equal(left: f64, right: f64) -> bool {
-    // this is technically wrong, but becuase it is only used for comparing against 0.5 it's good enough
-    // a more correct implementation would use relative error to accurately compare across a larger range
-    // of floats, but absolute error is fine for our purposes
-    (left - right).abs() < f64::EPSILON
-}
-
 #[cfg(test)]
 mod test {
     use crate::constants::MINT_DECIMALS;
     use solana_program::pubkey::Pubkey;
 
     use super::*;
-
-    #[test]
-    fn test_round_ties_even() {
-        assert_eq!(1.5.round_ties_even(), 2.);
-        assert_eq!(2.5.round_ties_even(), 2.);
-        assert_eq!(3.5.round_ties_even(), 4.);
-        assert_eq!(4.5.round_ties_even(), 4.);
-        assert_eq!(5.5.round_ties_even(), 6.);
-        assert_eq!(6.5.round_ties_even(), 6.);
-        assert_eq!(7.5.round_ties_even(), 8.);
-        assert_eq!(8.5.round_ties_even(), 8.);
-        assert_eq!(9.5.round_ties_even(), 10.);
-        assert_eq!(10.5.round_ties_even(), 10.);
-    }
 
     #[test]
     fn test_daily_distribution_data() {

@@ -14,12 +14,12 @@ pub struct UserDataBase<T: ?Sized> {
     // capacity is stored in the fat pointer
     pub last_interest_payout_date: i64,
     pub verification_date: i64,
-    pub length: usize,
-    pub recent_blockhash: Hash,
     // the amounts of comptokens owed to the user when they were marked as stale
     // this is used to determine how many comptokens to pay out if/when the user collects again
     pub stale_interest: u64,
     pub stale_ubi: u64,
+    pub length: usize,
+    pub recent_blockhash: Hash,
     pub proofs: T,
 }
 

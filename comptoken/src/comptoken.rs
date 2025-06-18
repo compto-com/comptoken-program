@@ -1,5 +1,6 @@
 mod comptoken_proof;
 mod constants;
+mod data;
 mod generated;
 mod global_data;
 mod instructions;
@@ -52,6 +53,10 @@ pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instru
         8 => {
             msg!("Verify Human");
             instructions::verify_human(program_id, accounts, instruction_data)
+        }
+        9 => {
+            msg!("Reverify Human");
+            instructions::reverify_human(program_id, accounts, instruction_data)
         }
         10 => {
             msg!("Flag Stale Account");

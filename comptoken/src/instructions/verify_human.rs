@@ -18,6 +18,7 @@ use comptoken_utils::{
 
 use crate::{
     constants::{FUTURE_UBI_VERIFIED_HUMANS, SOLANA_WORLD_ID_PROGRAM, WORLD_PROOF_LENGTH, WORLD_VERIFICATION_TYPE},
+    data::nullifier::Nullifier,
     global_data::GlobalData,
     instructions::{InstructionAccounts, InstructionData},
     verify_accounts::{verify_accounts, AccountMetaType, AccountsToVerify},
@@ -186,76 +187,33 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     // 1. verify unique nullifier hash
     // TODO what to do when people die?
 
-    // because this is the only place where nullifierAccounts are interacted with, no formal struct is defined
-    // but this is what it would look like:
-    //
-    // struct NullifierAccount {
-    //     pub verified_wallet: Pubkey, // the wallet that has been verified with this nullifier
-    // }
-    if world_id_nullifier.lamports() > 0 {
-        // nullifier pda already exists, so this unique human has already been verified
-        let nullifier_data_borrow =
-            world_id_nullifier.try_borrow_data().map_err(|_| ProgramError::AccountBorrowFailed)?;
-        let nullifier_data: &[u8] = nullifier_data_borrow.as_ref();
+    // this will fail if the nullifier already exists
+    create_pda(
+        &payer,
+        &world_id_nullifier,
+        rent_lamports,
+        32,
+        program_id,
+        &[&[b"Nullifier", nullifier_hash.as_ref(), &[world_id_nullifier_bump]]],
+    )?;
 
-        assert_eq!(nullifier_data.len(), 32, "nullifier data is too short");
-
-        let verified_wallet =
-            &Pubkey::new_from_array(nullifier_data[..32].try_into().expect("slice with incorrect length"));
-
-        assert_eq!(verified_wallet, user_data_account.key, "nullifier already used by another wallet");
-    } else {
-        create_pda(
-            &payer,
-            &world_id_nullifier,
-            rent_lamports,
-            32,
-            program_id,
-            &[&[b"Nullifier", nullifier_hash.as_ref(), &[world_id_nullifier_bump]]],
-        )?;
-
-        // Set the nullifier data to the user's wallet pubkey
-        let mut nullifier_data_borrow =
-            world_id_nullifier.try_borrow_mut_data().map_err(|_| ProgramError::AccountBorrowFailed)?;
-        nullifier_data_borrow.copy_from_slice(user_data_account.key.as_ref());
-    }
+    // Set the nullifier data to the user's wallet pubkey
+    let nullifier: &mut Nullifier = (&world_id_nullifier).into();
+    nullifier.account = *user_data_account.key;
 
     // 2. cpi to world id program
 
-    // self hosted apps don't have an app registered with the world id program, so they don't have an app id
-    // instead they use a globally unique action to differentiate between different types of verifications
-    // the suggested way to do this is to prefix the action with the program/app name
-    // for verification, the app id is "self_hosted" https://github.com/worldcoin/idkit-js/blob/main/packages/react/src/store/idkit.ts#L15
-    const APP_ID: &str = "self_hosted";
-    const ACTION: &str = "COMPTO-verifyHuman";
-    let external_nullifier_hash = app_id_to_external_nullifier_hash(APP_ID, ACTION); // TODO: make this a constant
-    let signal_bytes = user_wallet.key.to_bytes();
-    let signal_hash = hash_to_field(&signal_bytes);
-
-    let mut world_id_cpi_data = Vec::with_capacity(393);
-    world_id_cpi_data.extend_from_slice(&[54, 190, 59, 14, 54, 75, 155, 6]); // discriminator https://github.com/wormholelabs-xyz/solana-world-id-onchain-template/blob/main/idls/solana_world_id_program.ts#L801-L808
-    world_id_cpi_data.extend_from_slice(root_hash.as_ref());
-    world_id_cpi_data.extend_from_slice(&WORLD_VERIFICATION_TYPE);
-    world_id_cpi_data.extend_from_slice(&signal_hash);
-    world_id_cpi_data.extend_from_slice(nullifier_hash.as_ref());
-    world_id_cpi_data.extend_from_slice(&external_nullifier_hash);
-    world_id_cpi_data.extend_from_slice(&proof);
-
-    let world_id_cpi_instruction = Instruction {
-        program_id: SOLANA_WORLD_ID_PROGRAM,
-        accounts: vec![
-            AccountMeta::new_readonly(*world_id_root.key, false),
-            AccountMeta::new_readonly(*world_id_latest_root.key, false),
-            AccountMeta::new_readonly(*world_id_config.key, false),
-        ],
-        data: world_id_cpi_data,
-    };
-
-    // If the cpi fails, the program will fail, which will prevent the user from being verified, and not create the nullifier pda
-    msg!("Invoking World ID CPI to verify human...");
-    invoke_verified(
-        &world_id_cpi_instruction,
-        &[&world_id_program, &world_id_root, &world_id_latest_root, &world_id_config],
+    verify(
+        WorldIdVerifyAccounts {
+            user_wallet,
+            world_id_program,
+            world_id_root,
+            world_id_latest_root,
+            world_id_config,
+        },
+        &root_hash,
+        &nullifier_hash,
+        &proof,
     )?;
 
     // 3. update user data
@@ -273,7 +231,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
 
     let future_ubi_amount = unpaid_future_ubi_bank_data.amount;
 
-    std::mem::drop(unpaid_future_ubi_bank_raw_data); // drop mutable borrow to allow transfer
+    std::mem::drop(unpaid_future_ubi_bank_raw_data); // drop borrow to allow transfer
 
     msg!("successfully updated user data");
 
@@ -301,6 +259,200 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     Ok(())
 }
 
+struct ReverifyHumanData {
+    root_hash: Hash,
+    nullifier_hash: Hash,
+    proof: [u8; WORLD_PROOF_LENGTH],
+}
+
+impl InstructionData for ReverifyHumanData {
+    fn from_instruction_data(instruction_data: &[u8]) -> Result<Self, solana_program::program_error::ProgramError> {
+        if instruction_data.len() != std::mem::size_of::<ReverifyHumanData>() {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+
+        let (root_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, |b| {
+            Hash::new_from_array(b.try_into().expect("slice with incorrect length"))
+        });
+        let (nullifier_hash, instruction_data) = get_next_data(instruction_data, HASH_BYTES, |b| {
+            Hash::new_from_array(b.try_into().expect("slice with incorrect length"))
+        });
+        let (proof, instruction_data) =
+            get_next_data(instruction_data, WORLD_PROOF_LENGTH, |b| b.try_into().expect("slice with incorrect length"));
+        assert!(instruction_data.is_empty(), "incorrect instruction data");
+
+        Ok(ReverifyHumanData { root_hash, nullifier_hash, proof })
+    }
+}
+
+#[rustfmt::skip]
+struct ReverifyHumanAccounts<'a> {
+    user_wallet:                   VerifiedAccountInfo<'a>,
+    _user_comptoken_token_account: VerifiedAccountInfo<'a>,
+    user_data_account:             VerifiedAccountInfo<'a>,
+    world_id_program:              VerifiedAccountInfo<'a>,
+    world_id_root:                 VerifiedAccountInfo<'a>,
+    world_id_latest_root:          VerifiedAccountInfo<'a>,
+    world_id_config:               VerifiedAccountInfo<'a>,
+    world_id_nullifier:            VerifiedAccountInfo<'a>,
+}
+
+impl<'a> InstructionAccounts<'a> for ReverifyHumanAccounts<'a> {
+    type AdditionalVerificationData = (Hash, Hash); // root_hash, nullifier_hash
+
+    fn verify_accounts(
+        accounts: &[AccountInfo<'a>], program_id: &Pubkey, additional_data: Self::AdditionalVerificationData,
+    ) -> Result<Self, solana_program::program_error::ProgramError> {
+        let (root_hash, nullifier_hash) = &additional_data;
+
+        #[rustfmt::skip]
+        let verified_accounts = verify_accounts(
+            accounts,
+            program_id,
+            AccountsToVerify {
+                user_wallet:                  Some(AccountMetaType::Signer),
+                user_comptoken_token_account: Some((true, AccountMetaType::None)),
+                user_data_account:            Some((true, AccountMetaType::Writable)),
+                world_id_program:             Some(AccountMetaType::None),
+                world_id_root:                Some((root_hash, AccountMetaType::None)),
+                world_id_latest_root:         Some(AccountMetaType::None),
+                world_id_config:              Some(AccountMetaType::None),
+                world_id_nullifier:           Some((nullifier_hash, AccountMetaType::None)),
+                ..Default::default()
+            },
+        )?;
+
+        Ok(ReverifyHumanAccounts {
+            user_wallet: verified_accounts.user_wallet.unwrap(),
+            _user_comptoken_token_account: verified_accounts.user_comptoken_token_account.unwrap(),
+            user_data_account: verified_accounts.user_data_account.unwrap(),
+            world_id_program: verified_accounts.world_id_program.unwrap(),
+            world_id_root: verified_accounts.world_id_root.unwrap(),
+            world_id_latest_root: verified_accounts.world_id_latest_root.unwrap(),
+            world_id_config: verified_accounts.world_id_config.unwrap(),
+            world_id_nullifier: verified_accounts.world_id_nullifier.unwrap(),
+        })
+    }
+}
+
+pub fn reverify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
+    //  Account Order
+    //      [s] User Solana Wallet
+    //      [] User's Comptoken Token Account
+    //      [w] User's Data (does not need to be current)
+    //      [] World ID Program
+    //      [] World ID Root
+    //      [] World ID Latest Root
+    //      [] World ID Config
+    //      [] World ID Nullifier
+    // data:
+    //      32 bytes - root hash
+    //      32 bytes - nullifier hash
+    //      256 bytes - proof
+
+    let ReverifyHumanData { root_hash, nullifier_hash, proof } =
+        ReverifyHumanData::from_instruction_data(instruction_data)?;
+
+    let ReverifyHumanAccounts {
+        user_wallet,
+        user_data_account,
+        world_id_program,
+        world_id_root,
+        world_id_latest_root,
+        world_id_config,
+        world_id_nullifier,
+        ..
+    } = ReverifyHumanAccounts::verify_accounts(accounts, program_id, (root_hash, nullifier_hash))?;
+
+    assert!(world_id_nullifier.lamports() > 0, "nullifier account does not exist");
+    assert_eq!(
+        world_id_nullifier.data_len(),
+        std::mem::size_of::<Nullifier>(),
+        "nullifier account data length is not 32 bytes"
+    );
+    assert_eq!(world_id_nullifier.owner, program_id, "nullifier account owner does not match world id program");
+
+    let nullifier: &Nullifier = (&world_id_nullifier).into();
+
+    assert_eq!(nullifier.account, *user_data_account.key, "nullifier account does not match user data account");
+
+    verify(
+        WorldIdVerifyAccounts {
+            user_wallet,
+            world_id_program,
+            world_id_root,
+            world_id_latest_root,
+            world_id_config,
+        },
+        &root_hash,
+        &nullifier_hash,
+        &proof,
+    )?;
+
+    let user_data: &mut UserData = (&user_data_account).into();
+    user_data.verification_date = normalize_time(get_current_time());
+
+    msg!("Successfully reverified human with World ID");
+    Ok(())
+}
+
+struct WorldIdVerifyAccounts<'a> {
+    user_wallet: VerifiedAccountInfo<'a>,
+    world_id_program: VerifiedAccountInfo<'a>,
+    world_id_root: VerifiedAccountInfo<'a>,
+    world_id_latest_root: VerifiedAccountInfo<'a>,
+    world_id_config: VerifiedAccountInfo<'a>,
+}
+
+fn verify(
+    accounts: WorldIdVerifyAccounts, root_hash: &Hash, nullifier_hash: &Hash, proof: &[u8; WORLD_PROOF_LENGTH],
+) -> ProgramResult {
+    let external_nullifier_hash = get_external_nullifier_hash(); // TODO: make this a constant
+    let signal_bytes = accounts.user_wallet.key.to_bytes();
+    let signal_hash = hash_to_field(&signal_bytes);
+
+    let mut world_id_cpi_data = Vec::with_capacity(393);
+    world_id_cpi_data.extend_from_slice(&[54, 190, 59, 14, 54, 75, 155, 6]); // discriminator https://github.com/wormholelabs-xyz/solana-world-id-onchain-template/blob/main/idls/solana_world_id_program.ts#L801-L808
+    world_id_cpi_data.extend_from_slice(root_hash.as_ref());
+    world_id_cpi_data.extend_from_slice(&WORLD_VERIFICATION_TYPE);
+    world_id_cpi_data.extend_from_slice(&signal_hash);
+    world_id_cpi_data.extend_from_slice(nullifier_hash.as_ref());
+    world_id_cpi_data.extend_from_slice(&external_nullifier_hash);
+    world_id_cpi_data.extend_from_slice(proof);
+
+    let world_id_cpi_instruction = Instruction {
+        program_id: SOLANA_WORLD_ID_PROGRAM,
+        accounts: vec![
+            AccountMeta::new_readonly(*accounts.world_id_root.key, false),
+            AccountMeta::new_readonly(*accounts.world_id_latest_root.key, false),
+            AccountMeta::new_readonly(*accounts.world_id_config.key, false),
+        ],
+        data: world_id_cpi_data,
+    };
+
+    // If the cpi fails, the program will fail, which will prevent the user from being verified, and not create the nullifier pda
+    msg!("Invoking World ID CPI to verify human...");
+    invoke_verified(
+        &world_id_cpi_instruction,
+        &[
+            &accounts.world_id_program,
+            &accounts.world_id_root,
+            &accounts.world_id_latest_root,
+            &accounts.world_id_config,
+        ],
+    )?;
+
+    msg!("World ID CPI invoked successfully, humanness verified.");
+    Ok(())
+}
+
+// self hosted apps don't have an app registered with the world id program, so they don't have an app id
+// instead they use a globally unique action to differentiate between different types of verifications
+// the suggested way to do this is to prefix the action with the program/app name
+// for verification, the app id is "self_hosted" https://github.com/worldcoin/idkit-js/blob/main/packages/react/src/store/idkit.ts#L15
+const APP_ID: &str = "self_hosted";
+const ACTION: &str = "COMPTO-verifyHuman";
+
 fn hash_to_field(val: &[u8]) -> [u8; 32] {
     let hash_result = keccak::hash(val).to_bytes();
     let big_int = u256::from_be_bytes(hash_result);
@@ -308,9 +460,9 @@ fn hash_to_field(val: &[u8]) -> [u8; 32] {
     shifted.to_be_bytes()
 }
 
-fn app_id_to_external_nullifier_hash(app_id: &str, action: &str) -> [u8; 32] {
-    let app_hash = hash_to_field(app_id.as_bytes());
+fn get_external_nullifier_hash() -> [u8; 32] {
+    let app_hash = hash_to_field(APP_ID.as_bytes());
     let mut combined = app_hash.to_vec();
-    combined.extend_from_slice(action.as_bytes());
+    combined.extend_from_slice(ACTION.as_bytes());
     hash_to_field(&combined)
 }

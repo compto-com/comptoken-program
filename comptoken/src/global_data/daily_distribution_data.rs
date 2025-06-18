@@ -13,16 +13,33 @@ const HISTORY_SIZE: usize = 365;
 #[repr(C)]
 #[derive(Debug)]
 pub struct DailyDistributionData {
+    /// the supply of comptokens at the last daily distribution
     pub yesterday_supply: u64,
+
+    /// the number of comptokens that need to exist before a distribution can occur
     pub high_water_mark: u64,
+
+    /// the time of the last daily distribution, normalized to the start of the day
     pub last_daily_distribution_time: i64,
+
+    /// the number of verified humans that are eligible for UBI, including those that are stale
     pub verified_humans: u64,
+
+    /// the number of people that are verified but should not receive UBI (they have not been active)
+    pub stale_verified_humans: u64,
+
+    /// comptokens that are in (or owed to) stale accounts and should not receive interest
+    pub total_stale_comptokens: u64,
+
+    /// the index of the oldest historic distribution, used to index the ring buffer in `historic_distributions`
     pub oldest_historic_index: usize,
+
+    /// a ring buffer of the last `HISTORY_SIZE` daily distributions, each entry is (interest rate, UBI per verified human)
     pub historic_distributions: [(f64, u64); HISTORY_SIZE],
 }
 
 impl DailyDistributionData {
-    const HISTORY_SIZE: usize = HISTORY_SIZE;
+    pub const HISTORY_SIZE: usize = HISTORY_SIZE;
 
     pub(super) fn initialize(&mut self) {
         self.last_daily_distribution_time = normalize_time(get_current_time());
@@ -239,6 +256,8 @@ mod test {
             high_water_mark: 0,
             last_daily_distribution_time: 0,
             verified_humans: 0,
+            stale_verified_humans: 0,
+            total_stale_comptokens: 0,
             oldest_historic_index: 0,
             historic_distributions: [(0., 0); HISTORY_SIZE],
         };
@@ -268,6 +287,8 @@ mod test {
             high_water_mark: 0,
             last_daily_distribution_time: 0,
             verified_humans: 0,
+            stale_verified_humans: 0,
+            total_stale_comptokens: 0,
             oldest_historic_index: 3,
             historic_distributions: [(0., 0); HISTORY_SIZE],
         };

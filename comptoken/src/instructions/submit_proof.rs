@@ -54,7 +54,7 @@ impl<'a> InstructionAccounts<'a> for SubmitProofAccounts<'a> {
                 comptoken_mint:               Some(AccountMetaType::Writable),
                 global_data_account:          Some(AccountMetaType::None),
                 user_wallet:                  Some(AccountMetaType::Signer),
-                user_comptoken_token_account: Some(AccountMetaType::Writable),
+                user_comptoken_token_account: Some((true, AccountMetaType::Writable)),
                 user_data_account:            Some((true, AccountMetaType::Writable)),
                 solana_token_2022_program:    Some(AccountMetaType::None),
                 ..Default::default()

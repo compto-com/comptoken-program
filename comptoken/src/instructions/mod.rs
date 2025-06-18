@@ -27,6 +27,9 @@ pub use resize_user_data_account::*;
 mod verify_human;
 pub use verify_human::*;
 
+mod flag_stale_account;
+pub use flag_stale_account::*;
+
 trait InstructionData: Sized {
     fn from_instruction_data(instruction_data: &[u8]) -> Result<Self, solana_program::program_error::ProgramError>;
 }

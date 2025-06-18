@@ -16,6 +16,10 @@ pub struct UserDataBase<T: ?Sized> {
     pub verification_date: i64,
     pub length: usize,
     pub recent_blockhash: Hash,
+    // the amounts of comptokens owed to the user when they were marked as stale
+    // this is used to determine how many comptokens to pay out if/when the user collects again
+    pub stale_interest: u64,
+    pub stale_ubi: u64,
     pub proofs: T,
 }
 
@@ -59,6 +63,12 @@ impl UserData {
 
     pub fn is_verified(&self) -> bool {
         self.verification_date >= crate::normalize_time(crate::get_current_time()) - MAX_REVERIFICATION_WAIT
+    }
+
+    pub fn is_stale(&self) -> bool {
+        // interest is probably sufficient to determine if the user is stale
+        // but we also check ubi just in case
+        self.stale_interest > 0 || self.stale_ubi > 0
     }
 }
 

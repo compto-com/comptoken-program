@@ -50,7 +50,7 @@ mod mint_unchecked_impl {
                     comptoken_mint:               Some(AccountMetaType::Writable),
                     global_data_account:          Some(AccountMetaType::None),
                     user_wallet:                  Some(AccountMetaType::Signer),
-                    user_comptoken_token_account: Some(AccountMetaType::None),
+                    user_comptoken_token_account: Some((true, AccountMetaType::None)),
                     solana_token_2022_program:    Some(AccountMetaType::None),
                     ..Default::default()
                 },

@@ -58,7 +58,7 @@ impl<'a> InstructionAccounts<'a> for CreateUserDataAccountAccounts<'a> {
             AccountsToVerify {
                 payer:                        Some(AccountMetaType::SignerAndWritable),
                 user_wallet:                  Some(AccountMetaType::Signer),
-                user_comptoken_token_account: Some(AccountMetaType::None),
+                user_comptoken_token_account: Some((true, AccountMetaType::None)),
                 user_data_account:            Some((false, AccountMetaType::Writable)),
                 solana_program:               Some(AccountMetaType::None),
                 ..Default::default()

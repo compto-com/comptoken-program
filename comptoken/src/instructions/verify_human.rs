@@ -94,7 +94,7 @@ impl<'a> InstructionAccounts<'a> for VerifyHumanAccounts<'a> {
                 unpaid_future_ubi_bank:              Some(AccountMetaType::Writable),
                 unpaid_future_ubi_bank_data_account: Some(AccountMetaType::None),
                 user_wallet:                         Some(AccountMetaType::Signer),
-                user_comptoken_token_account:        Some(AccountMetaType::Writable),
+                user_comptoken_token_account:        Some((true, AccountMetaType::Writable)),
                 user_data_account:                   Some((true, AccountMetaType::Writable)),
                 transfer_hook_program:               Some(AccountMetaType::None),
                 extra_account_metas:                 Some(AccountMetaType::None),

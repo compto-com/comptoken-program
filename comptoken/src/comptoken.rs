@@ -53,6 +53,10 @@ pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instru
             msg!("Verify Human");
             instructions::verify_human(program_id, accounts, instruction_data)
         }
+        10 => {
+            msg!("Flag Stale Account");
+            instructions::flag_stale_account(program_id, accounts, instruction_data)
+        }
         255 => {
             msg!("Mint Unchecked");
             instructions::mint_unchecked(program_id, accounts, instruction_data)

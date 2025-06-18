@@ -73,11 +73,13 @@ pub fn verify_future_ubi_bank_account<'a>(
 }
 
 pub fn verify_user_comptoken_token_account<'a>(
-    account: &AccountInfo<'a>, wallet_owner: &VerifiedAccountInfo<'a>, needs_writable: bool,
+    account: &AccountInfo<'a>, wallet_owner_opt: Option<&VerifiedAccountInfo<'a>>, needs_writable: bool,
 ) -> VerifiedAccountInfo<'a> {
     let account_data = &account.data.borrow();
     let wallet = StateWithExtensions::<Account>::unpack(account_data).expect("valid account state");
-    assert!(*wallet_owner.key == wallet.base.owner);
+    if let Some(wallet_owner) = wallet_owner_opt {
+        assert_eq!(wallet.base.owner, *wallet_owner.key);
+    }
     assert_eq!(wallet.base.mint, COMPTOKEN_MINT_ADDRESS);
     VerifiedAccountInfo::verify_account_signer_or_writable(account, false, needs_writable)
 }
@@ -199,15 +201,19 @@ pub struct AccountsToVerify<'a> {
     pub unpaid_verified_human_ubi_bank_data_account: Option<AccountMetaType>,
     pub unpaid_future_ubi_bank_data_account:         Option<AccountMetaType>,
     pub user_wallet:                                 Option<AccountMetaType>,
-    pub user_comptoken_token_account:                Option<AccountMetaType>,
-    pub user_data_account:                           Option<(bool, AccountMetaType)>, // isCreated
+    /// (check_owner, AccountMetaType)
+    pub user_comptoken_token_account:                Option<(bool, AccountMetaType)>,
+    /// (is_created, AccountMetaType)
+    pub user_data_account:                           Option<(bool, AccountMetaType)>,
     pub transfer_hook_program:                       Option<AccountMetaType>,
     pub extra_account_metas:                         Option<AccountMetaType>,
     pub world_id_program:                            Option<AccountMetaType>,
-    pub world_id_root:                               Option<(&'a Hash, AccountMetaType)>, // rootHash
+    /// (root_hash, AccountMetaType)
+    pub world_id_root:                               Option<(&'a Hash, AccountMetaType)>,
     pub world_id_latest_root:                        Option<AccountMetaType>,
     pub world_id_config:                             Option<AccountMetaType>,
-    pub world_id_nullifier:                          Option<(&'a Hash, AccountMetaType)>, // nullifierHash
+    /// (nullifier_hash, AccountMetaType)
+    pub world_id_nullifier:                          Option<(&'a Hash, AccountMetaType)>,
     pub solana_program:                              Option<AccountMetaType>,
     pub solana_token_2022_program:                   Option<AccountMetaType>,
     pub slothashes:                                  Option<AccountMetaType>,
@@ -328,13 +334,14 @@ pub fn verify_accounts<'a>(
     let user_wallet = accounts_to_verify
         .user_wallet
         .map(|_| verify_wallet_account(next_account_info(account_info_iter).unwrap()));
-    let user_comptoken_token_account = accounts_to_verify.user_comptoken_token_account.map(|account_meta_type| {
-        verify_user_comptoken_token_account(
-            next_account_info(account_info_iter).unwrap(),
-            user_wallet.as_ref().unwrap(),
-            account_meta_type.needs_writable(),
-        )
-    });
+    let user_comptoken_token_account =
+        accounts_to_verify.user_comptoken_token_account.map(|(check_owner, account_meta_type)| {
+            verify_user_comptoken_token_account(
+                next_account_info(account_info_iter).unwrap(),
+                if check_owner { Some(user_wallet.as_ref().unwrap()) } else { None },
+                account_meta_type.needs_writable(),
+            )
+        });
     let (user_data, user_data_bump) = accounts_to_verify
         .user_data_account
         .map(|(is_created, account_meta_type)| {

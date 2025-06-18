@@ -40,6 +40,20 @@ impl<'a> From<&VerifiedAccountInfo<'a>> for &'a mut GlobalData {
     }
 }
 
+impl<'a> From<&VerifiedAccountInfo<'a>> for &'a GlobalData {
+    fn from(account: &VerifiedAccountInfo) -> Self {
+        let data = account.try_borrow_data().unwrap();
+        let data = data.as_ref();
+
+        data.into()
+    }
+}
+
+/// # Safety
+///
+/// The byte slice must be at least as large as `GlobalData` and must be properly aligned and initialized.
+/// The memory must represent a valid `GlobalData` struct. Using this on an invalid or uninitialized slice
+/// may cause undefined behavior.
 impl From<&mut [u8]> for &mut GlobalData {
     fn from(value: &mut [u8]) -> Self {
         assert!(
@@ -50,5 +64,23 @@ impl From<&mut [u8]> for &mut GlobalData {
         );
 
         unsafe { &mut *(value as *mut _ as *mut GlobalData) }
+    }
+}
+
+/// # Safety
+///
+/// The byte slice must be at least as large as `GlobalData` and must be properly aligned and initialized.
+/// The memory must represent a valid `GlobalData` struct. Using this on an invalid or uninitialized slice
+/// may cause undefined behavior.
+impl From<&[u8]> for &GlobalData {
+    fn from(value: &[u8]) -> Self {
+        assert!(
+            value.len() >= std::mem::size_of::<GlobalData>(),
+            "\n    note: left = `{}`\n    note: right = `{}`",
+            value.len(),
+            std::mem::size_of::<GlobalData>()
+        );
+
+        unsafe { &*(value as *const _ as *const GlobalData) }
     }
 }

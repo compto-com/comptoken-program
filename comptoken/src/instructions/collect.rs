@@ -60,7 +60,7 @@ impl<'a> InstructionAccounts<'a> for CollectAccounts<'a> {
                 unpaid_interest_bank_data_account:           Some(AccountMetaType::None),
                 unpaid_verified_human_ubi_bank_data_account: Some(AccountMetaType::None),
                 user_wallet:                                 Some(AccountMetaType::Signer),
-                user_comptoken_token_account:                Some(AccountMetaType::Writable),
+                user_comptoken_token_account:                Some((true, AccountMetaType::Writable)),
                 user_data_account:                           Some((true, AccountMetaType::Writable)),
                 transfer_hook_program:                       Some(AccountMetaType::None),
                 extra_account_metas:                         Some(AccountMetaType::None),
@@ -124,39 +124,22 @@ pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: 
 
     let _ = CollectData::from_instruction_data(instruction_data)?;
 
-    let interest;
-    let is_verified_human;
-    let ubi;
-    {
+    // borrow of user_comptoken_token_account must be scoped to avoid reborrowing issues TODO: is this needed?
+    let original_balance = {
         let user_wallet_data = user_comptoken_token_account.try_borrow_data().unwrap();
         let user_comptoken_wallet = StateWithExtensions::<Account>::unpack(user_wallet_data.as_ref()).unwrap();
-        let global_data: &mut GlobalData = (&global_data_account).into();
+        user_comptoken_wallet.base.amount
+    };
+
+    let (interest, ubi) = get_stale_or_distribution_amounts(&global_data_account, &user_data_account, original_balance);
+
+    // borrow of user_data must be scoped to avoid reborrowing issues
+    let is_verified_human = {
         let user_data: &mut UserData = (&user_data_account).into();
-        is_verified_human = user_data.is_verified();
+        user_data.last_interest_payout_date = normalize_time(get_current_time());
+        user_data.is_verified()
+    };
 
-        // get days since last update
-        let current_day = normalize_time(get_current_time());
-        let days_since_last_update = (current_day - user_data.last_interest_payout_date) / (SECONDS_PER_DAY as i64);
-
-        msg!("total before interest: {}", user_comptoken_wallet.base.amount);
-        // get interest and ubi
-        if is_verified_human {
-            msg!("verified human");
-            (interest, ubi) = global_data
-                .daily_distribution_data
-                .get_distributions_for_n_days(days_since_last_update as usize, user_comptoken_wallet.base.amount);
-        } else {
-            msg!("not verified human");
-            interest = global_data
-                .daily_distribution_data
-                .get_interest_for_n_days(days_since_last_update as usize, user_comptoken_wallet.base.amount);
-            ubi = 0;
-        }
-
-        msg!("Interest: {}", interest);
-        msg!("ubi: {}", ubi);
-        user_data.last_interest_payout_date = current_day;
-    }
     if interest > 0 {
         transfer(
             &unpaid_interest_bank,
@@ -197,4 +180,61 @@ pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: 
     }
 
     Ok(())
+}
+
+/// Returns (interest, ubi).
+///
+/// If the user is stale, uses the precomputed `stale_interest` and `stale_ubi` values,
+/// resets them to zero, and returns early to avoid recalculating distributions.
+fn get_stale_or_distribution_amounts(
+    global_data_account: &VerifiedAccountInfo, user_data_account: &VerifiedAccountInfo, original_balance: u64,
+) -> (u64, u64) {
+    let user_data: &mut UserData = user_data_account.into();
+
+    if user_data.is_stale() {
+        msg!("User account is stale, using precomputed stale values.");
+        let interest = user_data.stale_interest;
+        let ubi = user_data.stale_ubi;
+        user_data.stale_interest = 0;
+        user_data.stale_ubi = 0;
+
+        let global_data: &mut GlobalData = global_data_account.into();
+        let daily_distribution_data = &mut global_data.daily_distribution_data;
+        if user_data.verification_date != 0 {
+            // the user was verified
+            daily_distribution_data.stale_verified_humans -= 1;
+        }
+        daily_distribution_data.total_stale_comptokens -= original_balance + interest + ubi;
+
+        return (interest, ubi);
+    }
+
+    get_distribution_amounts(global_data_account.into(), user_data, original_balance)
+}
+
+pub(super) fn get_distribution_amounts(
+    global_data: &GlobalData, user_data: &UserData, original_balance: u64,
+) -> (u64, u64) {
+    // This function is used to get the distribution amounts; It returns a tuple of (interest, ubi)
+
+    // get days since last update
+    let current_day = normalize_time(get_current_time());
+    let days_since_last_update = (current_day - user_data.last_interest_payout_date) / (SECONDS_PER_DAY as i64);
+
+    msg!("total before interest: {}", original_balance);
+    // get interest and ubi
+    let (interest, ubi) = if user_data.is_verified() {
+        msg!("verified human");
+        global_data
+            .daily_distribution_data
+            .get_distributions_for_n_days(days_since_last_update as usize, original_balance)
+    } else {
+        msg!("not verified human");
+        let interest = global_data
+            .daily_distribution_data
+            .get_interest_for_n_days(days_since_last_update as usize, original_balance);
+        (interest, 0)
+    };
+
+    (interest, ubi)
 }

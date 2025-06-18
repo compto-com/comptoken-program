@@ -96,6 +96,14 @@ pub fn submit_proof(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
 
     let SubmitProofData { submitted_proof } = SubmitProofData::from_instruction_data(instruction_data)?;
 
+    // scoping to prevent reborrowing issues TODO: is this needed?
+    {
+        let user_data: &UserData = (&user_data_account).into();
+        if !user_data.is_current() {
+            return Err(solana_program::program_error::ProgramError::InvalidAccountData);
+        }
+    }
+
     let global_data: &mut GlobalData = (&global_data_account).into();
 
     let proof = ComptokenProof::verify_submitted_proof(

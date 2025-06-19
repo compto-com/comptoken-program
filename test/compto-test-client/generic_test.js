@@ -264,7 +264,7 @@ export async function run_test(name, context, instructions, signers, should_fail
     if (should_fail) {
         Assert.assertNotNull(result.result, "transaction should have failed");
     } else {
-        Assert.assert(result.result === null, "transaction should have succeeded");
+        Assert.assert(result.result === null, `transaction should have succeeded but failed with: ${result.result}`);
     }
 
 

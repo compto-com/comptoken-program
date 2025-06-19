@@ -107,9 +107,9 @@ if __name__ == "__main__":
         "comptoken-tests/multidayDailyDistribution",
         "comptoken-tests/randomMultidayDailyDistribution",
         "comptoken-tests/definedMultidayDailyDistribution",
+        "comptoken-tests/verifyHuman",
         "transfer-hook-tests/initialize_extra_account_meta_list",
         "transfer-hook-tests/execute",
-        "comptoken-tests/verifyHuman",
     ]
 
     args = parseArgs()

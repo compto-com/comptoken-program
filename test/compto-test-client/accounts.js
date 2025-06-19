@@ -5,6 +5,7 @@ import {
     DataTypeWithExtensions,
     GlobalData,
     GlobalDataAccount,
+    SEC_PER_DAY,
     TLV,
     Token,
     TokenAccount,
@@ -228,6 +229,8 @@ export function get_default_global_data() {
                 highWaterMark: 0n,
                 lastDailyDistributionTime: DEFAULT_DISTRIBUTION_TIME,
                 verifiedHumans: 0n,
+                staleVerifiedHumans: 0n,
+                totalStaleComptokens: 0n,
                 oldestHistoricValue: 0n,
                 historicDistributions: Array.from({ length: GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE }, (v, i) => [0, 0n]),
             },
@@ -282,7 +285,10 @@ export function get_default_user_data_account(address) {
         compto_public_keys.compto_program_id_pubkey,
         new UserData({
             lastInterestPayoutDate: DEFAULT_DISTRIBUTION_TIME,
-            isVerifiedHuman: false,
+            verificationDate: DEFAULT_DISTRIBUTION_TIME + BigInt(SEC_PER_DAY),
+            nullifierHash: new Uint8Array(32),
+            staleInterest: 0n,
+            staleUbi: 0n,
             length: 0n,
             recentBlockhash: new Uint8Array(32),
             proofs: Array.from({ length: 8 }, (v, i) => new Uint8Array(32))

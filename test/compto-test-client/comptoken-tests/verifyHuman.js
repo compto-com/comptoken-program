@@ -22,7 +22,7 @@ import {
     WorldIdRootAccount,
 } from "../accounts.js";
 import { Assert } from "../assert.js";
-import { compto_public_keys, DEFAULT_START_TIME } from "../common.js";
+import { compto_public_keys, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 
 async function testVerifyHuman() {
@@ -61,7 +61,7 @@ async function testVerifyHuman() {
     const original_global_data = get_default_global_data();
     let original_unpaid_future_ubi_bank = get_default_unpaid_future_ubi_bank();
     original_unpaid_future_ubi_bank.data.amount = 1_000_000_000n;
-    const original_user_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), user.publicKey);
+    const original_user_comptoken_wallet = get_default_comptoken_token_account(new PublicKey(Buffer.from("8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c", "hex")), user.publicKey);
 
     const user_data_pda = PublicKey.findProgramAddressSync([original_user_comptoken_wallet.address.toBytes()], compto_public_keys.compto_program_id_pubkey)[0];
     const original_user_data_account = get_default_user_data_account(user_data_pda);
@@ -145,7 +145,7 @@ async function testVerifyHuman() {
 
     context = await run_test("VerifyHuman", context, instructions, [context.payer, user], false, async (context, result) => {
         const final_user_data_account = await get_account(context, user_data_pda, UserDataAccount);
-        Assert.assert(final_user_data_account.data.isVerifiedHuman, "user data isVerifiedHuman");
+        Assert.assertEqual(final_user_data_account.data.verificationDate, DEFAULT_DISTRIBUTION_TIME, "user data verificationDate");
 
         const final_user_comptoken_wallet = await get_account(context, original_user_comptoken_wallet.address, TokenAccount);
         // one billionth of one billion tokens

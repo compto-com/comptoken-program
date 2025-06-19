@@ -27,10 +27,9 @@ async function test_failShrinkUserDataAccount() {
         }
     }
 
-    let new_user_data_size = BigInt(UserData.MIN_SIZE);
     let instructions = [
         await createGrowUserDataAccountInstruction(
-            connection, new_user_data_size, context.payer.publicKey, user.publicKey, user_comptoken_wallet.address, compto_public_keys
+            connection, 1, context.payer.publicKey, user.publicKey, user_comptoken_wallet.address, compto_public_keys
         ),
     ];
 

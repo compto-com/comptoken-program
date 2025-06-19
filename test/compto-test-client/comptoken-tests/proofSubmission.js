@@ -53,7 +53,10 @@ async function test_proofSubmission() {
         const final_user_data_account = await get_account(context, original_user_data_account.address, UserDataAccount);
         Assert.assert(
             isArrayEqual(final_user_data_account.data.recentBlockhash, original_global_data_account.data.validBlockhashes.validBlockhash),
-            "user datas recent blockhash is the valid blockhash"
+            `user datas recent blockhash is the valid blockhash` +
+            `\n    expected: ${Buffer.from(original_global_data_account.data.validBlockhashes.validBlockhash).toString("hex")}` +
+            `\n    actual:   ${Buffer.from(final_user_data_account.data.recentBlockhash).toString("hex")}`
+
         );
         Assert.assertEqual(
             final_user_data_account.data.length, original_user_data_account.data.length + 1n, "user data has stored a proof"

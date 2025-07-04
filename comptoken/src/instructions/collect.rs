@@ -1,9 +1,11 @@
-use solana_program::{
-    account_info::AccountInfo, clock::SECONDS_PER_DAY, entrypoint::ProgramResult, msg, pubkey::Pubkey,
-};
+use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, msg, pubkey::Pubkey};
 use spl_token_2022::{extension::StateWithExtensions, state::Account};
 
-use comptoken_utils::{get_current_time, normalize_time, user_data::UserData, verify_accounts::VerifiedAccountInfo};
+use comptoken_utils::{
+    get_current_time, normalize_time,
+    user_data::{UserData, UserDataVerificationState},
+    verify_accounts::VerifiedAccountInfo,
+};
 
 use crate::{
     data::global_data::GlobalData,
@@ -54,7 +56,7 @@ impl<'a> InstructionAccounts<'a> for CollectAccounts<'a> {
             AccountsToVerify {
                 comptoken_program:                           Some(AccountMetaType::None),
                 comptoken_mint:                              Some(AccountMetaType::None),
-                global_data_account:                         Some(AccountMetaType::None),
+                global_data_account:                         Some(AccountMetaType::Writable),
                 unpaid_interest_bank:                        Some(AccountMetaType::Writable),
                 unpaid_verified_human_ubi_bank:              Some(AccountMetaType::Writable),
                 unpaid_interest_bank_data_account:           Some(AccountMetaType::None),
@@ -93,7 +95,7 @@ pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: 
     //  accounts order:
     //      [] Comptoken Program
     //      [] Comptoken Mint
-    //      [] Comptoken Global Data (also mint authority)
+    //      [w] Comptoken Global Data (also mint authority)
     //      [w] Comptoken Interest Bank
     //      [w] Comptoken Verified Human UBI Bank
     //      [] Interest Bank Data PDA (doesn't actually exist)
@@ -131,16 +133,25 @@ pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: 
         user_comptoken_wallet.base.amount
     };
 
-    let (interest, ubi) = get_stale_or_distribution_amounts(&global_data_account, &user_data_account, original_balance);
+    let (interest, ubi_interest, ubi) =
+        get_stale_or_distribution_amounts(&global_data_account, &user_data_account, original_balance);
 
     // borrow of user_data must be scoped to avoid reborrowing issues
-    let is_verified_human = {
+    let verification_state = {
         let user_data: &mut UserData = (&user_data_account).into();
         user_data.last_interest_payout_date = normalize_time(get_current_time());
-        user_data.is_verified()
+        user_data.verification_state()
     };
 
-    if interest > 0 {
+    let payout_interest = if verification_state == UserDataVerificationState::Verified {
+        // if the user is verified, we can use the full interest
+        interest + ubi_interest
+    } else {
+        // if the user is not verified, we only use the interest part
+        interest
+    };
+
+    if payout_interest > 0 {
         transfer(
             &unpaid_interest_bank,
             &user_comptoken_token_account,
@@ -153,88 +164,128 @@ pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: 
                 &user_data_account,
                 &unpaid_interest_bank_data_account,
             ],
-            interest,
+            payout_interest,
         )?;
     }
     msg!("interest transferred");
 
     // get ubi if verified
-    if is_verified_human && ubi > 0 {
-        transfer(
-            &unpaid_verified_human_ubi_bank,
-            &user_comptoken_token_account,
-            &comptoken_mint,
-            &global_data_account,
-            &[
-                &extra_account_metas,
-                &transfer_hook_program,
-                &comptoken_program,
-                &user_data_account,
-                &unpaid_verified_human_ubi_bank_data_account,
-            ],
-            ubi,
-        )?;
-        msg!("ubi transferred");
-    } else {
-        msg!("user not verified human, skipping ubi transfer");
+    if ubi + ubi_interest > 0 {
+        use UserDataVerificationState::*;
+        match verification_state {
+            Verified => {
+                msg!("verified human");
+                transfer(
+                    &unpaid_verified_human_ubi_bank,
+                    &user_comptoken_token_account,
+                    &comptoken_mint,
+                    &global_data_account,
+                    &[
+                        &extra_account_metas,
+                        &transfer_hook_program,
+                        &comptoken_program,
+                        &user_data_account,
+                        &unpaid_verified_human_ubi_bank_data_account,
+                    ],
+                    ubi + ubi_interest,
+                )?;
+                msg!("ubi transferred");
+            }
+            Stale => {
+                burn(ubi_interest, ubi, (&global_data_account).into());
+                msg!("ubi burned");
+            }
+            Unverified => msg!("Unverified users should not receive UBI"), // should never happen, but have to handle it
+        }
     }
 
     Ok(())
 }
 
-/// Returns (interest, ubi).
+/// Returns (interest, ubi_interest, ubi).
 ///
-/// If the user is stale, uses the precomputed `stale_interest` and `stale_ubi` values,
-/// resets them to zero, and returns early to avoid recalculating distributions.
+/// If the user is stale, uses the precomputed `stale_<name>` values,
+/// resets them to zero, and returns early to avoid calculating incorrect distributions.
 fn get_stale_or_distribution_amounts(
     global_data_account: &VerifiedAccountInfo, user_data_account: &VerifiedAccountInfo, original_balance: u64,
-) -> (u64, u64) {
+) -> (u64, u64, u64) {
     let user_data: &mut UserData = user_data_account.into();
 
-    if user_data.is_stale() {
-        msg!("User account is stale, using precomputed stale values.");
-        let interest = user_data.stale_interest;
-        let ubi = user_data.stale_ubi;
-        user_data.stale_interest = 0;
-        user_data.stale_ubi = 0;
-
-        let global_data: &mut GlobalData = global_data_account.into();
-        let daily_distribution_data = &mut global_data.daily_distribution_data;
-        if user_data.verification_date != 0 {
-            // the user was verified
-            daily_distribution_data.stale_verified_humans -= 1;
+    let (interest, ubi_interest, ubi) = if user_data.is_stale() {
+        get_stale_distribution_amounts(global_data_account.into(), user_data, original_balance)
+    } else {
+        let distribution_amounts = get_distribution_amounts(
+            global_data_account.into(),
+            user_data.get_days_since_last_payout(),
+            original_balance,
+        );
+        if user_data.verification_state() == UserDataVerificationState::Verified {
+            // if the user is verified, we can use the full distribution amounts
+            distribution_amounts
+        } else {
+            // if the user is not verified, we only use the interest part
+            (distribution_amounts.0, 0, 0)
         }
-        daily_distribution_data.total_stale_comptokens -= original_balance + interest + ubi;
+    };
 
-        return (interest, ubi);
-    }
-
-    get_distribution_amounts(global_data_account.into(), user_data, original_balance)
+    (interest, ubi_interest, ubi)
 }
 
 pub(super) fn get_distribution_amounts(
-    global_data: &GlobalData, user_data: &UserData, original_balance: u64,
-) -> (u64, u64) {
-    // This function is used to get the distribution amounts; It returns a tuple of (interest, ubi)
+    global_data: &GlobalData, days_since_last_update: usize, original_balance: u64,
+) -> (u64, u64, u64) {
+    msg!("verified human");
+    global_data
+        .daily_distribution_data
+        .get_distributions_for_n_days(days_since_last_update, original_balance)
+}
 
-    // get days since last update
-    let current_day = normalize_time(get_current_time());
-    let days_since_last_update = (current_day - user_data.last_interest_payout_date) / (SECONDS_PER_DAY as i64);
+fn get_stale_distribution_amounts(
+    global_data: &mut GlobalData, user_data: &mut UserData, original_balance: u64,
+) -> (u64, u64, u64) {
+    let mut distribution_amounts = (user_data.stale_interest, user_data.stale_ubi_interest, user_data.stale_ubi);
+    user_data.stale_interest = 0;
+    user_data.stale_ubi_interest = 0;
+    user_data.stale_ubi = 0;
 
-    msg!("total before interest: {}", original_balance);
-    // get interest and ubi
-    let (interest, ubi) = if user_data.is_verified() {
-        msg!("verified human");
-        global_data
-            .daily_distribution_data
-            .get_distributions_for_n_days(days_since_last_update as usize, original_balance)
-    } else {
-        msg!("not verified human");
-        let interest = global_data
-            .daily_distribution_data
-            .get_interest_for_n_days(days_since_last_update as usize, original_balance);
-        (interest, 0)
-    };
+    let daily_distribution_data = &mut global_data.daily_distribution_data;
 
-    (interest, ubi)
+    use UserDataVerificationState::*;
+    match user_data.verification_state() {
+        Verified => {
+            msg!("verified human");
+            // the user was verified
+            daily_distribution_data.stale_verified_humans -= 1;
+            daily_distribution_data.total_stale_comptokens -=
+                original_balance + distribution_amounts.0 + distribution_amounts.1 + distribution_amounts.2;
+        }
+        Stale => {
+            msg!("stale verified human");
+            daily_distribution_data.stale_verified_humans -= 1;
+            // the user was verified, but is now stale, the ubi and ubi_interest are not paid out
+            // the ubi and ubi_interest are burned, so they need to be subtracted from the total stale comptokens
+            daily_distribution_data.total_stale_comptokens -=
+                original_balance + distribution_amounts.0 + distribution_amounts.1 + distribution_amounts.2;
+        }
+        Unverified => {
+            // ubi should already be 0 for unverified users, but just in case
+            msg!("stale unverified human");
+            distribution_amounts.1 = 0;
+            distribution_amounts.2 = 0;
+        }
+    }
+
+    distribution_amounts
+}
+
+fn burn(ubi_interest: u64, ubi: u64, global_data: &mut GlobalData) {
+    msg!("burning UBI: {} + {} interest = {}", ubi, ubi_interest, ubi + ubi_interest);
+    // actually burning the tokens (using spl_token_2022::instruction::burn) reduces the comptoken supply,
+    // which will interfere with the daily distribution calculations,
+    // so we instead increase the total stale comptokens. this removes them from distribution calculations
+    // but leaves the comptoken supply intact for determining if a distribution should occur.
+    // TODO: should we actually burn the tokens?
+    // TODO: should we transfer the tokens to a burn address?
+
+    global_data.daily_distribution_data.total_stale_comptokens += ubi + ubi_interest;
 }

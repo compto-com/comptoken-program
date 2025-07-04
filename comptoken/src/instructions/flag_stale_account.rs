@@ -79,9 +79,9 @@ pub fn flag_stale_account(program_id: &Pubkey, accounts: &[AccountInfo], instruc
     let user_comptoken_wallet = StateWithExtensions::<Account>::unpack(user_wallet_data.as_ref()).unwrap();
     let original_balance = user_comptoken_wallet.base.amount;
 
-    let (interest, ubi) = instructions::get_distribution_amounts(
+    let (interest, ubi_interest, ubi) = instructions::get_distribution_amounts(
         (&global_data_account).into(),
-        (&user_data_account).into(),
+        <&mut UserData as From<&VerifiedAccountInfo>>::from(&user_data_account).get_days_since_last_payout(),
         original_balance,
     );
 
@@ -97,6 +97,7 @@ pub fn flag_stale_account(program_id: &Pubkey, accounts: &[AccountInfo], instruc
     }
 
     user_data.stale_interest = interest;
+    user_data.stale_ubi_interest = ubi_interest;
     user_data.stale_ubi = ubi;
 
     let global_data: &mut GlobalData = (&global_data_account).into();

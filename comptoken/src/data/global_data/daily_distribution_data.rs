@@ -124,26 +124,31 @@ impl DailyDistributionData {
         std::cmp::max(max_increase, 1)
     }
 
-    pub fn get_interest_for_n_days(&self, n: usize, initial_money: u64) -> u64 {
-        let new_balance = self
-            .into_iter()
-            .skip(Self::HISTORY_SIZE - n)
-            .fold(initial_money as f64, |balance, (interest_rate, _)| (balance * interest_rate).round_ties_even())
-            as u64;
-        new_balance.saturating_sub(initial_money)
+    fn n_day_iter(&self, n: usize) -> impl Iterator<Item = (f64, u64)> + '_ {
+        self.into_iter().skip(Self::HISTORY_SIZE - n)
     }
 
     // we calculate and return ubi separately so that we know how much to distribute from the ubi vs interest banks
-    // return value is (interest, ubi)
-    pub fn get_distributions_for_n_days(&self, n: usize, initial_money: u64) -> (u64, u64) {
-        let (new_balance, ubi) = self.into_iter().skip(Self::HISTORY_SIZE - n).fold(
-            (initial_money as f64, 0),
-            |(balance, ubi), (interest_rate, days_ubi)| {
-                ((balance * interest_rate).round_ties_even() + days_ubi as f64, ubi + days_ubi)
-            },
-        );
+    // we calculate both with and without UBI so we can correctly distribute to stale accounts and burn unclaimed UBI
+    // return value is (interest, ubi_interest, ubi)
+    pub fn get_distributions_for_n_days(&self, n: usize, initial_money: u64) -> (u64, u64, u64) {
+        let (new_balance, new_balance_no_ubi, ubi) = self
+            .n_day_iter(n)
+            .fold((initial_money as f64, initial_money as f64, 0), Self::accumulate_daily_distribution);
         let interest = (new_balance as u64).saturating_sub(initial_money + ubi);
-        (interest, ubi)
+        let balance_interest = (new_balance_no_ubi as u64).saturating_sub(initial_money);
+        let ubi_interest = balance_interest.saturating_sub(interest);
+        (balance_interest, ubi_interest, ubi)
+    }
+
+    fn accumulate_daily_distribution(acc: (f64, f64, u64), days_distribution: (f64, u64)) -> (f64, f64, u64) {
+        let (balance, balance_no_ubi, ubi) = acc;
+        let (interest_rate, days_ubi) = days_distribution;
+        (
+            (balance * interest_rate).round_ties_even() + days_ubi as f64, // balance if verified (i.e. w/ UBI)
+            (balance_no_ubi * interest_rate).round_ties_even(),            // balance if unverified (i.e. w/out UBI)
+            ubi + days_ubi,                                                // total UBI accumulated over the days
+        )
     }
 
     fn insert(&mut self, interest: f64, ubi: u64) {

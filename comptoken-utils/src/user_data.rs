@@ -3,7 +3,7 @@ use solana_program::{
     program_error::ProgramError,
 };
 
-use crate::VerifiedAccountInfo;
+use crate::{get_current_time, normalize_time, VerifiedAccountInfo};
 
 const MAX_REVERIFICATION_WAIT: i64 = 60 * 60 * 24 * 31; // 1 month (31 days) in seconds
 
@@ -18,6 +18,7 @@ pub struct UserDataBase<T: ?Sized> {
     // the amounts of comptokens owed to the user when they were marked as stale
     // this is used to determine how many comptokens to pay out if/when the user collects again
     pub stale_interest: u64,
+    pub stale_ubi_interest: u64,
     pub stale_ubi: u64,
     pub length: usize,
     pub recent_blockhash: Hash,
@@ -27,6 +28,13 @@ pub struct UserDataBase<T: ?Sized> {
 pub const USER_DATA_MIN_SIZE: usize = std::mem::size_of::<UserDataBase<Hash>>();
 
 pub type UserData = UserDataBase<[Hash]>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UserDataVerificationState {
+    Unverified,
+    Verified,
+    Stale,
+}
 
 impl UserData {
     pub fn update(&mut self, new_blockhash: &Hash) {
@@ -62,14 +70,26 @@ impl UserData {
         self.last_interest_payout_date == crate::normalize_time(crate::get_current_time())
     }
 
-    pub fn is_verified(&self) -> bool {
-        self.verification_date >= crate::normalize_time(crate::get_current_time()) - MAX_REVERIFICATION_WAIT
+    pub fn verification_state(&self) -> UserDataVerificationState {
+        let today = crate::normalize_time(crate::get_current_time());
+        match self.verification_date {
+            0 => UserDataVerificationState::Unverified,
+            time if time >= today - MAX_REVERIFICATION_WAIT => UserDataVerificationState::Verified,
+            _ => UserDataVerificationState::Stale,
+        }
     }
 
     pub fn is_stale(&self) -> bool {
         // interest is probably sufficient to determine if the user is stale
         // but we also check ubi just in case
         self.stale_interest > 0 || self.stale_ubi > 0
+    }
+
+    pub fn get_days_since_last_payout(&self) -> usize {
+        let today = normalize_time(get_current_time());
+        let last_payout = self.last_interest_payout_date;
+        const SEC_PER_DAY: i64 = 60 * 60 * 24;
+        ((today - last_payout) / SEC_PER_DAY) as usize // convert seconds to days
     }
 }
 

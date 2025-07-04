@@ -245,14 +245,14 @@ mod test {
     ///
     /// data must be large enough to hold a ProofStorage of length proofs.len()
     unsafe fn write_data(data: &mut [u8], length: usize, blockhash: &Hash, proofs: &[Hash]) {
-        let len_ptr = data.as_mut_ptr().offset(16) as *mut usize;
+        let len_ptr = data.as_mut_ptr().offset(72) as *mut usize;
         *len_ptr = length;
 
-        let blockhash_ptr = data.as_mut_ptr().offset(24) as *mut Hash;
+        let blockhash_ptr = data.as_mut_ptr().offset(80) as *mut Hash;
         *blockhash_ptr = *blockhash;
 
         for (i, proof) in proofs.iter().enumerate() {
-            let proof_ptr = data.as_mut_ptr().add(56 + i * HASH_BYTES) as *mut Hash;
+            let proof_ptr = data.as_mut_ptr().add(112 + i * HASH_BYTES) as *mut Hash;
             *proof_ptr = *proof;
         }
     }

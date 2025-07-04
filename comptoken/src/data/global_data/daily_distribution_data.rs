@@ -31,6 +31,9 @@ pub struct DailyDistributionData {
     /// comptokens that are in (or owed to) stale accounts and should not receive interest
     pub total_stale_comptokens: u64,
 
+    /// comptokens "burned" by stale accounts collecting that haven't been redistributed yet
+    pub burned_comptokens: u64,
+
     /// the index of the oldest historic distribution, used to index the ring buffer in `historic_distributions`
     pub oldest_historic_index: usize,
 
@@ -86,10 +89,10 @@ impl DailyDistributionData {
         distribution_values.interest_distribution =
             distribution_values.interest_distribution.saturating_sub(future_ubi_interest);
         distribution_values.future_ubi_distribution += future_ubi_interest;
-        let todays_ubi = distribution_values
-            .ubi_for_verified_humans
+        let todays_ubi = (self.burned_comptokens + distribution_values.ubi_for_verified_humans)
             .checked_div(self.verified_humans - self.stale_verified_humans)
             .unwrap_or(0);
+        self.burned_comptokens = 0; // reset burned comptokens for the next distribution
         msg!("UBI: {}", todays_ubi);
         self.insert(1. + todays_interest_rate, todays_ubi);
         self.yesterday_supply = mint.supply + distribution_values.total_distributed();
@@ -229,6 +232,7 @@ mod test {
             verified_humans: 0,
             stale_verified_humans: 0,
             total_stale_comptokens: 0,
+            burned_comptokens: 0,
             oldest_historic_index: 0,
             historic_distributions: [(0., 0); HISTORY_SIZE],
         };
@@ -260,6 +264,7 @@ mod test {
             verified_humans: 0,
             stale_verified_humans: 0,
             total_stale_comptokens: 0,
+            burned_comptokens: 0,
             oldest_historic_index: 3,
             historic_distributions: [(0., 0); HISTORY_SIZE],
         };

@@ -192,7 +192,21 @@ pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: 
                 msg!("ubi transferred");
             }
             Stale => {
-                burn(ubi_interest, ubi, (&global_data_account).into());
+                burn(
+                    ubi_interest,
+                    ubi,
+                    BurnAccounts {
+                        global_data_account: &global_data_account,
+                        comptoken_mint: &comptoken_mint,
+                        unpaid_interest_bank: &unpaid_interest_bank,
+                        unpaid_verified_human_ubi_bank: &unpaid_verified_human_ubi_bank,
+                        unpaid_interest_bank_data_account: &unpaid_interest_bank_data_account,
+                        unpaid_verified_human_ubi_bank_data_account: &unpaid_verified_human_ubi_bank_data_account,
+                        transfer_hook_program: &transfer_hook_program,
+                        extra_account_metas: &extra_account_metas,
+                        comptoken_program: &comptoken_program,
+                    },
+                )?;
                 msg!("ubi burned");
             }
             Unverified => msg!("Unverified users should not receive UBI"), // should never happen, but have to handle it
@@ -278,7 +292,20 @@ fn get_stale_distribution_amounts(
     distribution_amounts
 }
 
-fn burn(ubi_interest: u64, ubi: u64, global_data: &mut GlobalData) {
+#[rustfmt::skip]
+struct BurnAccounts<'a, 'b> {
+    global_data_account:                         &'a VerifiedAccountInfo<'b>,
+    comptoken_mint:                              &'a VerifiedAccountInfo<'b>,
+    unpaid_interest_bank:                        &'a VerifiedAccountInfo<'b>,
+    unpaid_verified_human_ubi_bank:              &'a VerifiedAccountInfo<'b>,
+    unpaid_interest_bank_data_account:           &'a VerifiedAccountInfo<'b>,
+    unpaid_verified_human_ubi_bank_data_account: &'a VerifiedAccountInfo<'b>,
+    transfer_hook_program:                       &'a VerifiedAccountInfo<'b>,
+    extra_account_metas:                         &'a VerifiedAccountInfo<'b>,
+    comptoken_program:                           &'a VerifiedAccountInfo<'b>,
+}
+
+fn burn(ubi_interest: u64, ubi: u64, accounts: BurnAccounts) -> ProgramResult {
     msg!("burning UBI: {} + {} interest = {}", ubi, ubi_interest, ubi + ubi_interest);
     // actually burning the tokens (using spl_token_2022::instruction::burn) reduces the comptoken supply,
     // which will interfere with the daily distribution calculations,
@@ -287,5 +314,21 @@ fn burn(ubi_interest: u64, ubi: u64, global_data: &mut GlobalData) {
     // TODO: should we actually burn the tokens?
     // TODO: should we transfer the tokens to a burn address?
 
-    global_data.daily_distribution_data.total_stale_comptokens += ubi + ubi_interest;
+    let global_data: &mut GlobalData = accounts.global_data_account.into();
+    global_data.daily_distribution_data.burned_comptokens += ubi + ubi_interest;
+
+    transfer(
+        accounts.unpaid_interest_bank,
+        accounts.unpaid_verified_human_ubi_bank,
+        accounts.comptoken_mint,
+        accounts.global_data_account,
+        &[
+            accounts.extra_account_metas,
+            accounts.transfer_hook_program,
+            accounts.comptoken_program,
+            accounts.unpaid_interest_bank_data_account,
+            accounts.unpaid_verified_human_ubi_bank_data_account,
+        ],
+        ubi_interest,
+    )
 }

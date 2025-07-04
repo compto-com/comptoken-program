@@ -1,4 +1,5 @@
 import math
+
 # calculates the difficulty target for a comptoken, used in comptoken_proof.rs
 # copied from https://github.com/compto-com/comptoken-mining-pool/blob/e59fabe642c851ce5bf4bada124ff8c485d0052d/difficulty_calculator.py
 

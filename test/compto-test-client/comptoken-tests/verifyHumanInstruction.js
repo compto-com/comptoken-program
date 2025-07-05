@@ -25,7 +25,7 @@ import { Assert } from "../assert.js";
 import { compto_public_keys, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 
-async function testVerifyHuman() {
+async function test_verifyHumanInstruction() {
     // appId:  "self_hosted"
     // action: "COMPTO-VerifyHuman"
     // signal: "0x8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c" // user wallet address
@@ -160,4 +160,4 @@ async function testVerifyHuman() {
     });
 }
 
-(async () => { await testVerifyHuman(); })();
+(async () => { await test_verifyHumanInstruction(); })();

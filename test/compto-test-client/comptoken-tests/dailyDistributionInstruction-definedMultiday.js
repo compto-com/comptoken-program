@@ -127,7 +127,7 @@ class DefinedMultidayDailyDistributionDaysParameters extends DaysParameters {
     }
 }
 
-async function test_multidayDailyDistribution() {
+async function test_dailyDistributionInstruction_definedMultiday() {
     const testuser = Keypair.generate();
     const user_comptoken_token_account = get_default_comptoken_token_account(PublicKey.unique(), testuser.publicKey);
 
@@ -251,4 +251,4 @@ async function test_multidayDailyDistribution() {
     await run_multiday_test("multiday_daily_distribution_1", context, days_parameters_arr);
 }
 
-(async () => { await test_multidayDailyDistribution(); })();
+(async () => { await test_dailyDistributionInstruction_definedMultiday(); })();

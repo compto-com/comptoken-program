@@ -12,7 +12,7 @@ import { Assert } from "../assert.js";
 import { compto_public_keys } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 
-async function test_earlyDailyDistributionEvent() {
+async function test_dailyDistributionInstruction_early() {
     let original_comptoken_mint = get_default_comptoken_mint();
     original_comptoken_mint.data.supply += 1n;
 
@@ -36,5 +36,5 @@ async function test_earlyDailyDistributionEvent() {
     });
 }
 
-(async () => { await test_earlyDailyDistributionEvent(); })();
+(async () => { await test_dailyDistributionInstruction_early(); })();
 

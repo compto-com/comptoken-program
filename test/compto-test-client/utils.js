@@ -67,6 +67,7 @@ export function* take(num, iterable) {
         ++i;
     }
 }
+
 export function clamp(min, val, max) {
     return min > val ? min : (val < max ? val : max);
 }

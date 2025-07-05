@@ -20,7 +20,7 @@ import { isArrayEqual, zip } from "../utils.js";
  * @import { Commitment } from "@solana/web3.js";
  */
 
-async function initialize_comptoken_program() {
+async function test_initializeInstruction() {
     const existing_accounts = [get_default_comptoken_mint()];
 
     let context = await setup_test(existing_accounts);
@@ -85,4 +85,4 @@ async function initialize_comptoken_program() {
     });
 }
 
-(async () => { await initialize_comptoken_program(); })();
+(async () => { await test_initializeInstruction(); })();

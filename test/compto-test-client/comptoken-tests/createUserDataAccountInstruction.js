@@ -14,7 +14,7 @@ import { get_account, run_test, setup_test } from "../generic_test.js";
  * @import { Commitment } from "@solana/web3.js";
  */
 
-async function test_createUserDataAccount() {
+async function test_createUserDataAccountInstruction() {
     const user = Keypair.generate();
 
     const original_user_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), user.publicKey);
@@ -55,4 +55,4 @@ async function test_createUserDataAccount() {
     });
 }
 
-(async () => { await test_createUserDataAccount(); })();
+(async () => { await test_createUserDataAccountInstruction(); })();

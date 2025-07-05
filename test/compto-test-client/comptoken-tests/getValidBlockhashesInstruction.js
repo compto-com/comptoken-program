@@ -6,7 +6,7 @@ import { compto_public_keys } from "../common.js";
 import { run_test, setup_test } from "../generic_test.js";
 import { isArrayEqual } from "../utils.js";
 
-async function test_getValidBlockhashes() {
+async function test_getValidBlockhashesInstruction() {
     const original_global_data_account = get_default_global_data()
     const existing_accounts = [get_default_comptoken_mint(), original_global_data_account];
 
@@ -31,4 +31,4 @@ async function test_getValidBlockhashes() {
     });
 }
 
-(async () => { await test_getValidBlockhashes(); })();
+(async () => { await test_getValidBlockhashesInstruction(); })();

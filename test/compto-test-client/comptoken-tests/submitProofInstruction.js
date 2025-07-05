@@ -14,7 +14,7 @@ import { compto_public_keys, MINING_AMOUNT } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 import { isArrayEqual } from "../utils.js";
 
-async function test_proofSubmission() {
+async function test_submitProofInstruction() {
     const user = Keypair.generate();
 
     const original_comptoken_mint = get_default_comptoken_mint();
@@ -65,4 +65,4 @@ async function test_proofSubmission() {
     });
 }
 
-(async () => { await test_proofSubmission(); })();
+(async () => { await test_submitProofInstruction(); })();

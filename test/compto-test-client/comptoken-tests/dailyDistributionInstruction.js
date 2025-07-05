@@ -95,6 +95,8 @@ export async function testDailyDistributionEvent(inputs) {
         Assert.assertEqual(final_unpaid_future_ubi_bank.data.amount,
             original_unpaid_future_ubi_bank.data.amount + total_ubi_distribution + future_ubi_interest, // no verified humans so all ubi goes to future
             "future UBI bank has increased");
+
+        // TODO: distribution assertions?
     });
 }
 

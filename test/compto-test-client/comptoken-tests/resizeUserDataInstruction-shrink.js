@@ -15,7 +15,7 @@ import { run_test, setup_test } from "../generic_test.js";
  * @import { Commitment } from "@solana/web3.js"
  */
 
-async function test_failShrinkUserDataAccount() {
+async function test_resizeUserDataInstruction_shrink() {
     const user = Keypair.generate();
 
     const user_comptoken_wallet = get_default_comptoken_token_account(PublicKey.unique(), user.publicKey);
@@ -56,4 +56,4 @@ async function test_failShrinkUserDataAccount() {
     });
 }
 
-(async () => { await test_failShrinkUserDataAccount(); })();
+(async () => { await test_resizeUserDataInstruction_shrink(); })();

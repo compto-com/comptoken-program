@@ -76,7 +76,7 @@ class MultidayDailyDistributionDaysParameters extends DaysParameters {
     }
 }
 
-async function test_multidayDailyDistribution() {
+async function test_dailyDistributionInstruction_multiday() {
     // this is a test for daily distributions only, none of the other features are tested
     // it is also a greatly simplified version of reality
     const testuser = Keypair.generate();
@@ -101,4 +101,4 @@ async function test_multidayDailyDistribution() {
     await run_multiday_test("multiday_daily_distribution_1", context, days_parameters_arr);
 }
 
-(async () => { await test_multidayDailyDistribution(); })();
+(async () => { await test_dailyDistributionInstruction_multiday(); })();

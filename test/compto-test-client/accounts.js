@@ -883,6 +883,18 @@ export class WorldIdConfigAccount {
     }
 }
 
+const NullifierLayout = struct([
+    publicKey("account"),
+]);
+
+export class Nullifier extends DataType {
+    static LAYOUT = NullifierLayout;
+}
+
+export class NullifierAccount extends Account {
+    static DATA_TYPE = Nullifier;
+}
+
 // ======================================== Default Constructors ========================================
 
 /**

@@ -50,8 +50,8 @@ export class Assert {
     static assertEqual(left, right, msg) {
         if (left !== right) {
             throw new AssertionError("left should equal right", [
-                `left is '${left}'`,
-                `right is '${right}'`,
+                `left is\t'${left}'`,
+                `right is\t'${right}'`,
             ], msg);
         }
     }
@@ -65,8 +65,8 @@ export class Assert {
     static assertNotEqual(left, right, msg) {
         if (left === right) {
             throw new AssertionError("left should not equal right", [
-                `left is '${left}'`,
-                `right is '${right}'`,
+                `left is\t'${left}'`,
+                `right is\t'${right}'`,
             ], msg);
         }
     }

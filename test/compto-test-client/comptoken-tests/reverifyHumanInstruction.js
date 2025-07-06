@@ -1,5 +1,5 @@
 import {
-    createVerifyHumanInstruction,
+    createReverifyHumanInstruction,
     GlobalDataAccount,
     SEC_PER_DAY,
     TokenAccount,
@@ -14,6 +14,7 @@ import {
     get_default_global_data,
     get_default_unpaid_future_ubi_bank,
     get_default_user_data_account,
+    Nullifier,
     NullifierAccount,
     WorldIdConfig,
     WorldIdConfigAccount,
@@ -26,7 +27,7 @@ import { Assert } from "../assert.js";
 import { compto_public_keys, DEFAULT_DISTRIBUTION_TIME, DEFAULT_START_TIME } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 
-async function test_verifyHumanInstruction() {
+async function test_reverifyHumanInstruction() {
     // appId:  "self_hosted"
     // action: "COMPTO-VerifyHuman"
     // signal: "0x8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c" // user wallet address
@@ -65,8 +66,9 @@ async function test_verifyHumanInstruction() {
     const original_user_comptoken_wallet = get_default_comptoken_token_account(new PublicKey(Buffer.from("8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c", "hex")), user.publicKey);
 
     const user_data_pda = PublicKey.findProgramAddressSync([original_user_comptoken_wallet.address.toBytes()], compto_public_keys.compto_program_id_pubkey)[0];
-    const original_user_data_account = get_default_user_data_account(user_data_pda);
-
+    let original_user_data_account = get_default_user_data_account(user_data_pda);
+    original_user_data_account.data.verificationDate = DEFAULT_DISTRIBUTION_TIME - BigInt(SEC_PER_DAY * 30);
+    original_user_data_account.data.nullifierHash = nullifier_hash;
 
     const [world_id_root_address, world_id_root_bump] = PublicKey.findProgramAddressSync([Buffer.from("Root"), root_hash, [WORLD_VERIFICATION_TYPE]], WORLD_ID_PROGRAM);
     const world_id_root_account = new WorldIdRootAccount(
@@ -117,24 +119,25 @@ async function test_verifyHumanInstruction() {
         }),
     );
 
+    const nullifier_account = new NullifierAccount(
+        PublicKey.findProgramAddressSync([Buffer.from("Nullifier"), nullifier_hash], compto_public_keys.compto_program_id_pubkey)[0],
+        10_000n,
+        compto_public_keys.compto_program_id_pubkey,
+        new Nullifier({
+            account: user_data_pda,
+        }),
+    );
+
     const existing_accounts = [
         original_comptoken_mint, original_global_data, original_unpaid_future_ubi_bank, original_user_comptoken_wallet, original_user_data_account,
-        get_default_extra_account_metas_account(), world_id_root_account, world_id_config_account, world_id_latest_root_account,
+        get_default_extra_account_metas_account(), world_id_root_account, world_id_config_account, world_id_latest_root_account, nullifier_account
     ];
 
     let context = await setup_test(existing_accounts);
-    let connection = {
-        async getMinimumBalanceForRentExemption(dataLength, commitment) {
-            let rent = await context.banksClient.getRent();
-            return rent.minimumBalance(BigInt(dataLength));
-        }
-    }
 
     const instructions = [
         ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
-        await createVerifyHumanInstruction(
-            connection,
-            context.payer.publicKey,
+        await createReverifyHumanInstruction(
             user.publicKey,
             original_user_comptoken_wallet.address,
             root_hash,
@@ -144,21 +147,22 @@ async function test_verifyHumanInstruction() {
         ),
     ];
 
-    context = await run_test("VerifyHuman", context, instructions, [context.payer, user], false, async (context, result) => {
+    context = await run_test("ReverifyHuman", context, instructions, [context.payer, user], false, async (context, result) => {
         const final_user_data_account = await get_account(context, user_data_pda, UserDataAccount);
         Assert.assertEqual(final_user_data_account.data.verificationDate, DEFAULT_DISTRIBUTION_TIME, "user data verificationDate");
         Assert.assertEqual(nullifier_hash.toString('hex'), final_user_data_account.data.nullifierHash.toString('hex'), "nullifier PDA address");
 
         const final_user_comptoken_wallet = await get_account(context, original_user_comptoken_wallet.address, TokenAccount);
-        // one billionth of one billion tokens
-        Assert.assertEqual(final_user_comptoken_wallet.data.amount, original_user_comptoken_wallet.data.amount + 1n, "user comptoken wallet amount");
+
+        Assert.assertEqual(final_user_comptoken_wallet.data.amount, original_user_comptoken_wallet.data.amount, "user comptoken wallet amount");
 
         const final_global_data = await get_account(context, original_global_data.address, GlobalDataAccount);
         Assert.assertEqual(
             final_global_data.data.dailyDistributionData.verifiedHumans,
-            original_global_data.data.dailyDistributionData.verifiedHumans + 1n,
+            original_global_data.data.dailyDistributionData.verifiedHumans,
             "global data totalVerifiedHumans"
         );
+
 
         const nullifier_pda = PublicKey.findProgramAddressSync([Buffer.from("Nullifier"), nullifier_hash], compto_public_keys.compto_program_id_pubkey)[0];
         const final_nullifier_account = await get_account(context, nullifier_pda, NullifierAccount);
@@ -166,4 +170,4 @@ async function test_verifyHumanInstruction() {
     });
 }
 
-(async () => { await test_verifyHumanInstruction(); })();
+(async () => { await test_reverifyHumanInstruction(); })();

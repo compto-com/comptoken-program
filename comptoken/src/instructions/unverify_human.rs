@@ -83,6 +83,8 @@ pub fn unverify_human(program_id: &Pubkey, accounts: &[AccountInfo], _instructio
     //      [] User's Comptoken Token Account
     //      [w] User's Data
     //      [w] World ID Nullifier
+    //  Instruction Data
+    //      32 bytes - nullifier hash
 
     let UnverifyHumanData { nullifier_hash } = UnverifyHumanData::from_instruction_data(_instruction_data)?;
 

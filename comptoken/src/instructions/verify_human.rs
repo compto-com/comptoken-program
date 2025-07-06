@@ -187,7 +187,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     // TODO what to do when people die?
 
     // this will fail if the nullifier already exists and is not empty
-    if let Err(e) = create_pda(
+    let is_new_verification = if let Err(e) = create_pda(
         &payer,
         &world_id_nullifier,
         rent_lamports,
@@ -204,10 +204,10 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
         let global_data: &mut GlobalData = (&global_data_account).into();
         global_data.daily_distribution_data.stale_verified_humans -= 1;
 
-        // if this nullifier already exists, it means the user has already been verified, so we should not count them as a new verified human
-        // the verified_humans count will be incremented later, so we decrement it here to ensure it remains accurate
-        global_data.daily_distribution_data.verified_humans -= 1;
-    }
+        false
+    } else {
+        true
+    };
 
     // Set the nullifier data to the user's wallet pubkey
     let nullifier: &mut Nullifier = (&world_id_nullifier).into();
@@ -236,7 +236,9 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
 
     let global_data: &mut GlobalData = (&global_data_account).into();
     let verified_humans = global_data.daily_distribution_data.verified_humans;
-    global_data.daily_distribution_data.verified_humans += 1;
+    if is_new_verification {
+        global_data.daily_distribution_data.stale_verified_humans += 1; // this prevents ubi from being allocated for this user in the future, while preventing more than FUTURE_UBI_VERIFIED_HUMANS from getting extra ubi
+    }
 
     let unpaid_future_ubi_bank_raw_data = unpaid_future_ubi_bank.try_borrow_data().unwrap();
     let unpaid_future_ubi_bank_data =
@@ -248,7 +250,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
 
     msg!("successfully updated user data");
 
-    if verified_humans < FUTURE_UBI_VERIFIED_HUMANS {
+    if verified_humans < FUTURE_UBI_VERIFIED_HUMANS && is_new_verification {
         msg!("Distributing future UBI to user...");
         let amount = future_ubi_amount / (FUTURE_UBI_VERIFIED_HUMANS - verified_humans);
         transfer(

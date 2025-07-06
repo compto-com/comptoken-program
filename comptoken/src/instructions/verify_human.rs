@@ -248,7 +248,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
 
     msg!("successfully updated user data");
 
-    if verified_humans <= FUTURE_UBI_VERIFIED_HUMANS {
+    if verified_humans < FUTURE_UBI_VERIFIED_HUMANS {
         msg!("Distributing future UBI to user...");
         let amount = future_ubi_amount / (FUTURE_UBI_VERIFIED_HUMANS - verified_humans);
         transfer(

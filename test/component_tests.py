@@ -98,6 +98,7 @@ if __name__ == "__main__":
         "comptoken-tests/dailyDistributionInstruction-randomMultiday",
         "comptoken-tests/verifyHumanInstruction",
         "comptoken-tests/reverifyHumanInstruction",
+        "comptoken-tests/unverifyHumanInstruction",
         #
         "transfer-hook-tests/initialize_extra_account_meta_list",
         "transfer-hook-tests/execute",

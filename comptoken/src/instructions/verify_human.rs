@@ -237,7 +237,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
     let global_data: &mut GlobalData = (&global_data_account).into();
     let verified_humans = global_data.daily_distribution_data.verified_humans;
     if is_new_verification {
-        global_data.daily_distribution_data.stale_verified_humans += 1; // this prevents ubi from being allocated for this user in the future, while preventing more than FUTURE_UBI_VERIFIED_HUMANS from getting extra ubi
+        global_data.daily_distribution_data.verified_humans += 1;
     }
 
     let unpaid_future_ubi_bank_raw_data = unpaid_future_ubi_bank.try_borrow_data().unwrap();

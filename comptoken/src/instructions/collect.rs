@@ -134,7 +134,7 @@ pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: 
     };
 
     let (interest, ubi_interest, ubi) =
-        get_stale_or_distribution_amounts(&global_data_account, &user_data_account, original_balance);
+        get_inactive_or_distribution_amounts(&global_data_account, &user_data_account, original_balance);
 
     // borrow of user_data must be scoped to avoid reborrowing issues
     let verification_state = {
@@ -218,15 +218,15 @@ pub fn collect(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: 
 
 /// Returns (interest, ubi_interest, ubi).
 ///
-/// If the user is stale, uses the precomputed `stale_<name>` values,
+/// If the user is inactive, uses the precomputed `inactive_<name>` values,
 /// resets them to zero, and returns early to avoid calculating incorrect distributions.
-fn get_stale_or_distribution_amounts(
+fn get_inactive_or_distribution_amounts(
     global_data_account: &VerifiedAccountInfo, user_data_account: &VerifiedAccountInfo, original_balance: u64,
 ) -> (u64, u64, u64) {
     let user_data: &mut UserData = user_data_account.into();
 
-    let (interest, ubi_interest, ubi) = if user_data.is_stale() {
-        get_stale_distribution_amounts(global_data_account.into(), user_data, original_balance)
+    let (interest, ubi_interest, ubi) = if user_data.is_flagged_inactive() {
+        get_inactive_distribution_amounts(global_data_account.into(), user_data, original_balance)
     } else {
         let distribution_amounts = get_distribution_amounts(
             global_data_account.into(),
@@ -254,13 +254,14 @@ pub(super) fn get_distribution_amounts(
         .get_distributions_for_n_days(days_since_last_update, original_balance)
 }
 
-fn get_stale_distribution_amounts(
+fn get_inactive_distribution_amounts(
     global_data: &mut GlobalData, user_data: &mut UserData, original_balance: u64,
 ) -> (u64, u64, u64) {
-    let mut distribution_amounts = (user_data.stale_interest, user_data.stale_ubi_interest, user_data.stale_ubi);
-    user_data.stale_interest = 0;
-    user_data.stale_ubi_interest = 0;
-    user_data.stale_ubi = 0;
+    let mut distribution_amounts =
+        (user_data.inactive_interest, user_data.inactive_ubi_interest, user_data.inactive_ubi);
+    user_data.inactive_interest = 0;
+    user_data.inactive_ubi_interest = 0;
+    user_data.inactive_ubi = 0;
 
     let daily_distribution_data = &mut global_data.daily_distribution_data;
 
@@ -269,16 +270,16 @@ fn get_stale_distribution_amounts(
         Verified => {
             msg!("verified human");
             // the user was verified
-            daily_distribution_data.stale_verified_humans -= 1;
-            daily_distribution_data.total_stale_comptokens -=
+            daily_distribution_data.inactive_verified_humans -= 1;
+            daily_distribution_data.total_inactive_comptokens -=
                 original_balance + distribution_amounts.0 + distribution_amounts.1 + distribution_amounts.2;
         }
         Stale => {
             msg!("stale verified human");
-            daily_distribution_data.stale_verified_humans -= 1;
+            daily_distribution_data.inactive_verified_humans -= 1;
             // the user was verified, but is now stale, the ubi and ubi_interest are not paid out
-            // the ubi and ubi_interest are burned, so they need to be subtracted from the total stale comptokens
-            daily_distribution_data.total_stale_comptokens -=
+            // the ubi and ubi_interest are burned, so they need to be subtracted from the total inactive comptokens
+            daily_distribution_data.total_inactive_comptokens -=
                 original_balance + distribution_amounts.0 + distribution_amounts.1 + distribution_amounts.2;
         }
         Unverified => {

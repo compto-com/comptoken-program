@@ -887,13 +887,93 @@ const NullifierLayout = struct([
     publicKey("account"),
 ]);
 
-export class Nullifier extends DataType {
+/**
+ * @implements {DataType<Nullifier>}
+ */
+export class Nullifier {
     static LAYOUT = NullifierLayout;
-}
 
-export class NullifierAccount extends Account {
-    static DATA_TYPE = Nullifier;
+    /**
+     * @param {Object}    params
+     * @param {PublicKey} params.account
+     */
+    constructor({ account }) {
+        this.account = account;
+    }
+
+    get data() {
+        return this;
+    }
+
+    getSize() {
+        return Nullifier.LAYOUT.span;
+    }
+
+    toBytes() {
+        let buffer = new Uint8Array(this.getSize());
+        Nullifier.LAYOUT.encode(this.data, buffer);
+        return buffer;
+    }
+
+    /**
+     * @param {Uint8Array} buffer
+     */
+    static fromBytes(buffer) {
+        let data = Nullifier.LAYOUT.decode(buffer);
+        return new Nullifier(data);
+    }
 }
+/** @type {DataTypeStatic<Nullifier>} */ const _NullifierStatic = Nullifier;
+
+/**
+ * @implements {Account<Nullifier>}
+ */
+export class NullifierAccount {
+    static DATA_TYPE = Nullifier;
+
+    get data() { return this._data.data; }
+
+    /**
+     * @param {PublicKey}             address
+     * @param {number}                lamports
+     * @param {PublicKey}             owner
+     * @param {DataType<Nullifier>} data
+     */
+    constructor(address, lamports, owner, data) {
+        this.address = address;
+        this.lamports = lamports;
+        this.owner = owner;
+        this._data = data;
+    }
+
+    toAddedAccount() {
+        return {
+            address: this.address,
+            info: {
+                lamports: this.lamports,
+                data: this._data.toBytes(),
+                owner: this.owner,
+                executable: false,
+            },
+        };
+    }
+    toAccount = this.toAddedAccount;
+
+    /**
+     * @param {PublicKey} address 
+     * @param {AccountInfo<Uint8Array>} accountInfo 
+     */
+    static fromAccountInfoBytes(address, accountInfo) {
+        let data = NullifierAccount.DATA_TYPE.fromBytes(accountInfo.data);
+        return new NullifierAccount(
+            address,
+            accountInfo.lamports,
+            accountInfo.owner,
+            data
+        );
+    }
+}
+/** @type {AccountStatic<Nullifier>} */ const _NullifierAccountStatic = NullifierAccount;
 
 // ======================================== Default Constructors ========================================
 

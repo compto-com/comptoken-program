@@ -11,25 +11,25 @@ use crate::{
     ProgramResult,
 };
 
-struct FlagStaleAccountData {}
-impl FlagStaleAccountData {
+struct FlagInactiveAccountData {}
+impl FlagInactiveAccountData {
     fn from_instruction_data(instruction_data: &[u8]) -> Result<Self, solana_program::program_error::ProgramError> {
         if !instruction_data.is_empty() {
             return Err(solana_program::program_error::ProgramError::InvalidInstructionData);
         }
         // No data expected for this instruction
-        Ok(FlagStaleAccountData {})
+        Ok(FlagInactiveAccountData {})
     }
 }
 
 #[rustfmt::skip]
-struct FlagStaleAccountAccounts<'a> {
+struct FlagInactiveAccountAccounts<'a> {
     global_data_account:            VerifiedAccountInfo<'a>,
     user_comptoken_token_account:   VerifiedAccountInfo<'a>,
     user_data_account:              VerifiedAccountInfo<'a>,
 }
 
-impl<'a> FlagStaleAccountAccounts<'a> {
+impl<'a> FlagInactiveAccountAccounts<'a> {
     fn verify_accounts(
         accounts: &[AccountInfo<'a>], program_id: &Pubkey, _additional_data: (),
     ) -> Result<Self, solana_program::program_error::ProgramError> {
@@ -49,7 +49,7 @@ impl<'a> FlagStaleAccountAccounts<'a> {
             },
         )?;
 
-        Ok(FlagStaleAccountAccounts {
+        Ok(FlagInactiveAccountAccounts {
             global_data_account: verified_accounts.global_data_account.unwrap(),
             user_comptoken_token_account: verified_accounts.user_comptoken_token_account.unwrap(),
             user_data_account: verified_accounts.user_data_account.unwrap(),
@@ -57,7 +57,7 @@ impl<'a> FlagStaleAccountAccounts<'a> {
     }
 }
 
-pub fn flag_stale_account(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
+pub fn flag_inactive_account(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
     //  accounts order:
     //      [w] Comptoken Global Data (also mint authority)
     //      [] user comptoken token account
@@ -65,15 +65,15 @@ pub fn flag_stale_account(program_id: &Pubkey, accounts: &[AccountInfo], instruc
     //  data:
     //      None
 
-    let FlagStaleAccountAccounts {
+    let FlagInactiveAccountAccounts {
         global_data_account,
         user_comptoken_token_account,
         user_data_account,
-    } = FlagStaleAccountAccounts::verify_accounts(accounts, program_id, ())?;
+    } = FlagInactiveAccountAccounts::verify_accounts(accounts, program_id, ())?;
 
-    let _ = FlagStaleAccountData::from_instruction_data(instruction_data)?;
+    let _ = FlagInactiveAccountData::from_instruction_data(instruction_data)?;
 
-    const STALE_ACCOUNT_THRESHOLD: i64 = SEC_PER_DAY * DailyDistributionData::HISTORY_SIZE as i64;
+    const INACTIVE_ACCOUNT_THRESHOLD: i64 = SEC_PER_DAY * DailyDistributionData::HISTORY_SIZE as i64;
 
     let user_wallet_data = user_comptoken_token_account.try_borrow_data().unwrap();
     let user_comptoken_wallet = StateWithExtensions::<Account>::unpack(user_wallet_data.as_ref()).unwrap();
@@ -87,28 +87,28 @@ pub fn flag_stale_account(program_id: &Pubkey, accounts: &[AccountInfo], instruc
 
     // this is done after calculating distributions to prevent double borrow of user_data_account
     let user_data: &mut UserData = (&user_data_account).into();
-    if user_data.last_interest_payout_date > normalize_time(get_current_time()) - STALE_ACCOUNT_THRESHOLD {
-        msg!("User account is not stale, no action taken.");
+    if user_data.last_interest_payout_date > normalize_time(get_current_time()) - INACTIVE_ACCOUNT_THRESHOLD {
+        msg!("User account is not inactive, no action taken.");
         return Err(solana_program::program_error::ProgramError::InvalidAccountData);
     }
-    if user_data.is_stale() {
-        msg!("User account is already marked as stale, no action taken.");
+    if user_data.is_flagged_inactive() {
+        msg!("User account is already marked as inactive, no action taken.");
         return Err(solana_program::program_error::ProgramError::InvalidAccountData);
     }
 
-    user_data.stale_interest = interest;
-    user_data.stale_ubi_interest = ubi_interest;
-    user_data.stale_ubi = ubi;
+    user_data.inactive_interest = interest;
+    user_data.inactive_ubi_interest = ubi_interest;
+    user_data.inactive_ubi = ubi;
 
     let global_data: &mut GlobalData = (&global_data_account).into();
     let daily_distribution_data = &mut global_data.daily_distribution_data;
 
     if user_data.verification_date != 0 {
         // the user was verified
-        daily_distribution_data.stale_verified_humans += 1;
+        daily_distribution_data.inactive_verified_humans += 1;
     }
-    daily_distribution_data.total_stale_comptokens += original_balance + interest + ubi;
+    daily_distribution_data.total_inactive_comptokens += original_balance + interest + ubi;
 
-    msg!("User account marked as stale. Interest: {}, UBI: {}", interest, ubi);
+    msg!("User account marked as inactive. Interest: {}, UBI Interest: {}, UBI: {}", interest, ubi_interest, ubi);
     Ok(())
 }

@@ -15,11 +15,11 @@ pub struct UserDataBase<T: ?Sized> {
     pub last_interest_payout_date: i64,
     pub verification_date: i64,
     pub nullifier_hash: Hash,
-    // the amounts of comptokens owed to the user when they were marked as stale
+    // the amounts of comptokens owed to the user when they were marked as inactive
     // this is used to determine how many comptokens to pay out if/when the user collects again
-    pub stale_interest: u64,
-    pub stale_ubi_interest: u64,
-    pub stale_ubi: u64,
+    pub inactive_interest: u64,
+    pub inactive_ubi_interest: u64,
+    pub inactive_ubi: u64,
     pub length: usize,
     pub recent_blockhash: Hash,
     pub proofs: T,
@@ -79,10 +79,10 @@ impl UserData {
         }
     }
 
-    pub fn is_stale(&self) -> bool {
-        // interest is probably sufficient to determine if the user is stale
+    pub fn is_flagged_inactive(&self) -> bool {
+        // interest is probably sufficient to determine if the user is inactive
         // but we also check ubi just in case
-        self.stale_interest > 0 || self.stale_ubi > 0
+        self.inactive_interest > 0 || self.inactive_ubi > 0 || self.inactive_ubi_interest > 0
     }
 
     pub fn get_days_since_last_payout(&self) -> usize {

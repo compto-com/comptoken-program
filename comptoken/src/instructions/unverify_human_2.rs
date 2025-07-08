@@ -155,7 +155,7 @@ pub fn unverify_human_2(program_id: &Pubkey, accounts: &[AccountInfo], instructi
     nullifier.account = Pubkey::default(); // Clear the nullifier account
 
     let global_data: &mut GlobalData = (&global_data_account).into();
-    global_data.daily_distribution_data.stale_verified_humans += 1; // this prevents ubi from being allocated for this user in the future, while preventing more than FUTURE_UBI_VERIFIED_HUMANS from getting extra ubi
+    global_data.daily_distribution_data.inactive_verified_humans += 1; // this prevents ubi from being allocated for this user in the future, while preventing more than FUTURE_UBI_VERIFIED_HUMANS from getting extra ubi
 
     msg!("Successfully unverfied human with World ID");
     Ok(())

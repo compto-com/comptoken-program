@@ -202,7 +202,7 @@ pub fn verify_human(program_id: &Pubkey, accounts: &[AccountInfo], instruction_d
         assert_eq!(nullifier.account, Pubkey::default(), "nullifier account already exists but is not empty");
 
         let global_data: &mut GlobalData = (&global_data_account).into();
-        global_data.daily_distribution_data.stale_verified_humans -= 1;
+        global_data.daily_distribution_data.inactive_verified_humans -= 1;
 
         false
     } else {

@@ -66,8 +66,8 @@ pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], instru
             instructions::unverify_human_2(program_id, accounts, instruction_data)
         }
         12 => {
-            msg!("Flag Stale Account");
-            instructions::flag_stale_account(program_id, accounts, instruction_data)
+            msg!("Flag Inactive Account");
+            instructions::flag_inactive_account(program_id, accounts, instruction_data)
         }
         255 => {
             msg!("Mint Unchecked");

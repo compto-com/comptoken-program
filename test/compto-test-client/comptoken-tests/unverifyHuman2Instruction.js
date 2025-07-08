@@ -161,16 +161,16 @@ async function test_unverifyHuman2Instruction() {
         Assert.assertEqual(final_user_comptoken_wallet.data.amount, original_user_comptoken_wallet.data.amount, "user comptoken wallet amount");
 
         const final_global_data = await get_account(context, original_global_data.address, GlobalDataAccount);
-        // unverifyHuman increases staleVerifiedHumans rather than decreasing verifiedHumans to prevent double dipping on "future" ubi
+        // unverifyHuman increases inactiveVerifiedHumans rather than decreasing verifiedHumans to prevent double dipping on "future" ubi
         Assert.assertEqual(
             final_global_data.data.dailyDistributionData.verifiedHumans,
             original_global_data.data.dailyDistributionData.verifiedHumans,
             "global data totalVerifiedHumans"
         );
         Assert.assertEqual(
-            final_global_data.data.dailyDistributionData.staleVerifiedHumans,
-            original_global_data.data.dailyDistributionData.staleVerifiedHumans + 1n,
-            "global data totalStaleVerifiedHumans"
+            final_global_data.data.dailyDistributionData.inactiveVerifiedHumans,
+            original_global_data.data.dailyDistributionData.inactiveVerifiedHumans + 1n,
+            "global data totalInactiveVerifiedHumans"
         );
 
 

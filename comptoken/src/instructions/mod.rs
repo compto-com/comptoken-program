@@ -9,8 +9,8 @@ pub use create_user_data_account::*;
 mod daily_distribution;
 pub use daily_distribution::*;
 
-mod flag_stale_account;
-pub use flag_stale_account::*;
+mod flag_inactive_account;
+pub use flag_inactive_account::*;
 
 mod get_valid_blockhashes;
 pub use get_valid_blockhashes::*;

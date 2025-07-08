@@ -118,7 +118,6 @@ impl DailyDistributionData {
         f64::powf(x as f64, -ADJUST_FACTOR) + END_GOAL_PERCENT_INCREASE
     }
 
-    #[allow(unstable_name_collisions)]
     fn calculate_max_allowable_hwm_increase(supply: u64) -> u64 {
         // `as` casts are lossy, but it shouldn't matter in the ranges we are dealing with
         let max_increase = (supply as f64 * Self::calculate_distribution_limiter(supply)).round_ties_even() as u64
@@ -128,6 +127,12 @@ impl DailyDistributionData {
     }
 
     fn n_day_iter(&self, n: usize) -> impl Iterator<Item = (f64, u64)> + '_ {
+        let n = if n > Self::HISTORY_SIZE {
+            msg!("Warning: requested more days than history size, truncating to {}", Self::HISTORY_SIZE);
+            Self::HISTORY_SIZE
+        } else {
+            n
+        };
         self.into_iter().skip(Self::HISTORY_SIZE - n)
     }
 
@@ -138,10 +143,10 @@ impl DailyDistributionData {
         let (new_balance, new_balance_no_ubi, ubi) = self
             .n_day_iter(n)
             .fold((initial_money as f64, initial_money as f64, 0), Self::accumulate_daily_distribution);
-        let interest = (new_balance as u64).saturating_sub(initial_money + ubi);
-        let balance_interest = (new_balance_no_ubi as u64).saturating_sub(initial_money);
-        let ubi_interest = balance_interest.saturating_sub(interest);
-        (balance_interest, ubi_interest, ubi)
+        let total_interest = (new_balance as u64).saturating_sub(initial_money + ubi);
+        let interest = (new_balance_no_ubi as u64).saturating_sub(initial_money);
+        let ubi_interest = total_interest.saturating_sub(interest);
+        (interest, ubi_interest, ubi)
     }
 
     fn accumulate_daily_distribution(acc: (f64, f64, u64), days_distribution: (f64, u64)) -> (f64, f64, u64) {

@@ -310,10 +310,10 @@ fn burn(ubi_interest: u64, ubi: u64, accounts: BurnAccounts) -> ProgramResult {
     msg!("burning UBI: {} + {} interest = {}", ubi, ubi_interest, ubi + ubi_interest);
     // actually burning the tokens (using spl_token_2022::instruction::burn) reduces the comptoken supply,
     // which will interfere with the daily distribution calculations,
-    // so we instead increase the total stale comptokens. this removes them from distribution calculations
-    // but leaves the comptoken supply intact for determining if a distribution should occur.
-    // TODO: should we actually burn the tokens?
-    // TODO: should we transfer the tokens to a burn address?
+    // so we instead include the burned comptokens in the next daily distribution as ubi
+    // this way, the comptoken supply remains unchanged, and the people who collect UBI will receive the
+    // burned comptokens (which they should have received in the first place, but it was distributed to stale accounts
+    // in case they reverified themselves)
 
     let global_data: &mut GlobalData = accounts.global_data_account.into();
     global_data.daily_distribution_data.burned_comptokens += ubi + ubi_interest;

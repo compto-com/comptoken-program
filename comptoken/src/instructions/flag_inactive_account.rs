@@ -1,5 +1,8 @@
 use comptoken_utils::{
-    get_current_time, normalize_time, user_data::UserData, verify_accounts::VerifiedAccountInfo, SEC_PER_DAY,
+    get_current_time, normalize_time,
+    user_data::{UserData, UserDataVerificationState},
+    verify_accounts::VerifiedAccountInfo,
+    SEC_PER_DAY,
 };
 use solana_program::{account_info::AccountInfo, msg, pubkey::Pubkey};
 use spl_token_2022::{extension::StateWithExtensions, state::Account};
@@ -33,7 +36,7 @@ impl<'a> FlagInactiveAccountAccounts<'a> {
     fn verify_accounts(
         accounts: &[AccountInfo<'a>], program_id: &Pubkey, _additional_data: (),
     ) -> Result<Self, solana_program::program_error::ProgramError> {
-        if accounts.len() < 11 {
+        if accounts.len() < 3 {
             return Err(solana_program::program_error::ProgramError::NotEnoughAccountKeys);
         }
 
@@ -79,7 +82,7 @@ pub fn flag_inactive_account(program_id: &Pubkey, accounts: &[AccountInfo], inst
     let user_comptoken_wallet = StateWithExtensions::<Account>::unpack(user_wallet_data.as_ref()).unwrap();
     let original_balance = user_comptoken_wallet.base.amount;
 
-    let (interest, ubi_interest, ubi) = instructions::get_distribution_amounts(
+    let (interest, mut ubi_interest, mut ubi) = instructions::get_distribution_amounts(
         (&global_data_account).into(),
         <&mut UserData as From<&VerifiedAccountInfo>>::from(&user_data_account).get_days_since_last_payout(),
         original_balance,
@@ -96,18 +99,25 @@ pub fn flag_inactive_account(program_id: &Pubkey, accounts: &[AccountInfo], inst
         return Err(solana_program::program_error::ProgramError::InvalidAccountData);
     }
 
+    let global_data: &mut GlobalData = (&global_data_account).into();
+    let daily_distribution_data = &mut global_data.daily_distribution_data;
+
+    match user_data.verification_state() {
+        UserDataVerificationState::Unverified => {
+            // no ubi for unverified users
+            ubi_interest = 0;
+            ubi = 0;
+        }
+        UserDataVerificationState::Verified | UserDataVerificationState::Stale => {
+            daily_distribution_data.inactive_verified_humans += 1;
+        }
+    }
+
     user_data.inactive_interest = interest;
     user_data.inactive_ubi_interest = ubi_interest;
     user_data.inactive_ubi = ubi;
 
-    let global_data: &mut GlobalData = (&global_data_account).into();
-    let daily_distribution_data = &mut global_data.daily_distribution_data;
-
-    if user_data.verification_date != 0 {
-        // the user was verified
-        daily_distribution_data.inactive_verified_humans += 1;
-    }
-    daily_distribution_data.total_inactive_comptokens += original_balance + interest + ubi;
+    daily_distribution_data.total_inactive_comptokens += original_balance + interest + ubi + ubi_interest;
 
     msg!("User account marked as inactive. Interest: {}, UBI Interest: {}, UBI: {}", interest, ubi_interest, ubi);
     Ok(())

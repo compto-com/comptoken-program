@@ -14,6 +14,8 @@ import { Assert } from "../assert.js";
 import { compto_public_keys, DEFAULT_DISTRIBUTION_TIME } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 
+// TODO: collect inactive account
+
 async function test_collectInstruction() {
     const user = Keypair.generate();
 

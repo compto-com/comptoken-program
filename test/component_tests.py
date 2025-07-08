@@ -100,6 +100,7 @@ if __name__ == "__main__":
         "comptoken-tests/reverifyHumanInstruction",
         "comptoken-tests/unverifyHumanInstruction",
         "comptoken-tests/unverifyHuman2Instruction",
+        "comptoken-tests/flagInactiveAccountInstruction",
         #
         "transfer-hook-tests/initialize_extra_account_meta_list",
         "transfer-hook-tests/execute",

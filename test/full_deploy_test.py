@@ -2,11 +2,23 @@ import argparse
 from pathlib import Path
 
 from common import (
-    createKeyPair, createTestValidator, generateDirectories, generateTestUser, run,
-    SubprocessFailedException,
-    COMPTO_KEYPAIR, COMPTO_PROGRAM_ID_JSON, COMPTO_SO, COMPTO_TRANSFER_HOOK_ID_JSON, LOGS_PATH,
-    MINT_KEYPAIR, TEST_PATH, TEST_USER_ACCOUNT_JSON, TOKEN_2022_PROGRAM_ID, TRANSFER_HOOK_KEYPAIR,
+    COMPTO_KEYPAIR,
+    COMPTO_PROGRAM_ID_JSON,
+    COMPTO_SO,
+    COMPTO_TRANSFER_HOOK_ID_JSON,
+    LOGS_PATH,
+    MINT_KEYPAIR,
+    TEST_PATH,
+    TEST_USER_ACCOUNT_JSON,
+    TOKEN_2022_PROGRAM_ID,
+    TRANSFER_HOOK_KEYPAIR,
     TRANSFER_HOOK_SO,
+    SubprocessFailedException,
+    createKeyPair,
+    createTestValidator,
+    generateDirectories,
+    generateTestUser,
+    run,
 )
 
 # ==== SOLANA COMMANDS ====
@@ -58,7 +70,15 @@ def getTokenAddress():
 def runTestClient():
     return run("node --trace-warnings compto-test-client/test_client.js", TEST_PATH)
 
-def parseArgs():
+class FullDeployArgs(argparse.Namespace):
+    verbose: int
+    log_directory: Path | None
+    build: bool
+    generate: bool
+    reset: bool
+    kill_immediately: bool
+
+def parseArgs() -> FullDeployArgs:
     parser = argparse.ArgumentParser(prog="comptoken component tests")
     parser.add_argument("--verbose", "-v", action="count", default=0)
     parser.add_argument("--log-directory", type=Path, help="logs test output to the specified directory")
@@ -74,7 +94,7 @@ def parseArgs():
     parser.add_argument("--no-reset", action="store_false", dest="reset", help="skip resetting the validator")
     parser.add_argument("--kill-immediately", action="store_true", dest="kill_immediately", help="kill the validator immediately after tests, rather than waiting for input")
 
-    args = parser.parse_args()
+    args = parser.parse_args(namespace=FullDeployArgs())
     if not args.build:
         args.generate = False
     return args
@@ -103,14 +123,15 @@ if __name__ == "__main__":
         print("Checking Compto Program for hardcoded Comptoken Address and static seed...")
 
         if args.build:
-            from build_comptoken_program import build, parseArgs as parseBuildArgs
+            from build_comptoken_program import build
+            from build_comptoken_program import parseArgs as parseBuildArgs
             buildArgsList:list[str] = []
             if args.verbose:
                 buildArgsList.append(f"-{'v' * args.verbose}")
             if not args.generate:
                 buildArgsList.extend(['--skip', 'generate'])
             if args.log_directory is not None:
-                buildArgsList.extend(['--log-directory', f'{str(args.log_directory)}'])
+                buildArgsList.extend(['--log-directory', str(args.log_directory)])
             buildArgsList.extend(['--features', 'testmode'])
             buildArgs = parseBuildArgs(buildArgsList)
             

@@ -4,12 +4,21 @@
 import argparse
 import json
 from pathlib import Path
+
 from common import (
-    build as compile, createTestValidator, generateDirectories, generateFiles, run, write,
-    COMPTOKEN_MINT_JSON, COMPTO_KEYPAIR, COMPTO_PROGRAM_ID_JSON, COMPTO_TRANSFER_HOOK_ID_JSON,
-    COMPTO_GLOBAL_DATA_ACCOUNT_JSON, MINT_DECIMALS, MINT_KEYPAIR, TOKEN_2022_PROGRAM_ID,
+    COMPTO_GLOBAL_DATA_ACCOUNT_JSON,
+    COMPTO_KEYPAIR,
+    COMPTO_PROGRAM_ID_JSON,
+    COMPTO_TRANSFER_HOOK_ID_JSON,
+    COMPTOKEN_MINT_JSON,
+    MINT_DECIMALS,
+    MINT_KEYPAIR,
+    TOKEN_2022_PROGRAM_ID,
     TRANSFER_HOOK_KEYPAIR,
 )
+from common import build as compile_programs
+from common import createTestValidator, generateDirectories, generateFiles, run, write
+
 
 def getAddress(path: Path) -> str:
     return run(f"solana address -k {path}")
@@ -68,7 +77,6 @@ def generateMockMint() -> str:
 class BuildArgs(argparse.Namespace):
     steps: list[str]
     skip: list[str] | None
-    log_directory: Path | None
     features: list[str]
     verbose: int
 
@@ -76,7 +84,6 @@ def parseArgs(rawArgs: list[str] | None = None) -> BuildArgs:
     STEPS = ["generate", "create-token", "build"]
     parser = argparse.ArgumentParser(prog="build_comptoken_program", description="Build and generate files for comptoken programs.")
     parser.add_argument("--skip", nargs='+', choices=STEPS, help="skip step")
-    parser.add_argument("--log-directory", type=Path, help="logs test output to the specified directory")
     parser.add_argument("--features", nargs="+", default=[], help="features to enable")
     parser.add_argument("--verbose", "-v", action="count", default=0)
     args = parser.parse_args(rawArgs, namespace=BuildArgs())
@@ -95,7 +102,7 @@ def build(args: BuildArgs):
         print("Files generated.")
 
     if "create-token" in args.steps:
-        with createTestValidator(reset=True) as validator:
+        with createTestValidator(reset=True):
             print("Creating token...")
             createToken()
             print("Token created.")
@@ -108,7 +115,7 @@ def build(args: BuildArgs):
 
     if "build" in args.steps:
         print("Building Compto and Transfer Hook programs...")
-        compile(None, features=args.features)
+        compile_programs(None, features=args.features)
         print("Build complete.")
 
 if __name__ == "__main__":

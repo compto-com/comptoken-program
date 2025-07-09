@@ -60,58 +60,37 @@ def getTokenAddress():
 def runTestClient():
     return run("node --trace-warnings compto-test-client/devnet_test_client.js", TEST_PATH)
 
-def parseArgs():
-    parser = argparse.ArgumentParser(prog="comptoken component tests")
-    parser.add_argument("--verbose", "-v", action="count", default=0)
-    parser.add_argument("--log-directory", type=Path, help="logs test output to the specified directory")
-    parser.add_argument(
-        "--log",
-        action="store_const",
-        const=LOGS_PATH,
-        dest="log_directory",
-        help="logs test output to the test/.cache/logs directory"
-    )
-    parser.add_argument("--no-build", action="store_false", dest="build", help="skip building, implies --no-generate")
-    parser.add_argument("--no-generate", action="store_false", dest="generate", help="skip generating files")
-    parser.add_argument("--no-reset", action="store_false", dest="reset", help="skip resetting the validator")
-    
-    args = parser.parse_args()
-    if not args.build:
-        args.generate = False
-    return args
-
 if __name__ == "__main__":
-    args = parseArgs()
     # create cache if it doesn't exist
     generateDirectories(args=argparse.Namespace(log_directory=None, verbose=0))
-    #print("Checking if Comptoken ProgramId exists...")
-    #comptokenProgramId = getComptoProgramIdIfExists()
-    #if comptokenProgramId is None:
-    #    print("Creating Comptoken ProgramId...")
-    #    createKeyPair(COMPTO_KEYPAIR)
-    #    #run("cargo build-sbf", COMPTOKEN_SRC_PATH)
-    #    comptokenProgramId = getAddress(COMPTO_KEYPAIR)
+    print("Checking if Comptoken ProgramId exists...")
+    comptokenProgramId = getComptoProgramIdIfExists()
+    if comptokenProgramId is None:
+        print("Creating Comptoken ProgramId...")
+        createKeyPair(COMPTO_KEYPAIR)
+        #run("cargo build-sbf", COMPTOKEN_SRC_PATH)
+        comptokenProgramId = getAddress(COMPTO_KEYPAIR)
 
-    #transferHookId = getTransferHookProgramIdIfExists()
-    #if transferHookId is None:
-    #    print("Creating Transfer Hook ProgramId...")
-    #    createKeyPair(TRANSFER_HOOK_KEYPAIR)
-    #    #run("cargo build-sbf", TRANSFER_HOOK_SRC_PATH)
-    #    transferHookId = getAddress(TRANSFER_HOOK_KEYPAIR)
+    transferHookId = getTransferHookProgramIdIfExists()
+    if transferHookId is None:
+        print("Creating Transfer Hook ProgramId...")
+        createKeyPair(TRANSFER_HOOK_KEYPAIR)
+        #run("cargo build-sbf", TRANSFER_HOOK_SRC_PATH)
+        transferHookId = getAddress(TRANSFER_HOOK_KEYPAIR)
 
-    #createKeyPair(MINT_KEYPAIR)
-    #mintAddress = getTokenAddress()
-    #generateFiles(comptokenProgramId, transferHookId, mintAddress)
+    createKeyPair(MINT_KEYPAIR)
+    mintAddress = getTokenAddress()
+    generateFiles(comptokenProgramId, transferHookId, mintAddress)
 
-    #input("Press Enter to Continue After Updating Rust Files to Contain Correct ProgramId's, PDA's, Bumps, etc.")
+    input("Press Enter to Continue After Updating Rust Files to Contain Correct ProgramId's, PDA's, Bumps, etc.")
 
-    #buildTransferHook()
-    #buildCompto()
+    buildTransferHook()
+    buildCompto()
 
-    #createToken()
+    createToken()
 
-    #deployTransferHook()
-    #deployCompto()
+    deployTransferHook()
+    deployCompto()
 
     print("Creating Token Account...")
     createComptoAccount()

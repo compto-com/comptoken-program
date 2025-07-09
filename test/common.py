@@ -1,14 +1,15 @@
+import argparse
 import json
 import os
 import signal
 import subprocess
-import argparse
 from contextlib import contextmanager
 from functools import reduce
 from pathlib import Path
 from time import sleep
 from types import TracebackType
 from typing import Any, Mapping, Self, Type
+
 
 def _alwaysFlush() -> None:
     """Force flush all print statements immediately, unless explicitly set to not flush."""
@@ -133,9 +134,7 @@ class PDA(dict[str, Any]):
 @contextmanager
 def createTestValidator(reset: bool, verbosity: int = 0):
     createDirIfNotExists(CACHE_PATH)
-    cmd = "solana-test-validator"
-    if reset:
-        cmd += " --reset"
+    cmd = f"solana-test-validator{' --reset' if reset else ''}"
     with BackgroundProcess(
         cmd,
         shell=True,

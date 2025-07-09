@@ -55,7 +55,13 @@ def file_or_stdout(outfile: Path | None):
     else:
         yield sys.stdout
 
-def parseArgs():
+class ComponentTestArgs(Namespace):
+    verbose: int
+    log_directory: Path | None
+    build: bool
+    generate: bool
+
+def parseArgs() -> ComponentTestArgs:
     parser = argparse.ArgumentParser(prog="comptoken component tests")
     parser.add_argument("--verbose", "-v", action="count", default=0)
     parser.add_argument("--log-directory", type=Path, help="logs test output to the specified directory")
@@ -68,9 +74,8 @@ def parseArgs():
     )
     parser.add_argument("--no-build", action="store_false", dest="build", help="skip building, implies --no-generate")
     parser.add_argument("--no-generate", action="store_false", dest="generate", help="skip generating files")
-    parser.add_argument("--no-reset", action="store_false", dest="reset", help="skip resetting the validator")
-    
-    args = parser.parse_args()
+
+    args = parser.parse_args(namespace=ComponentTestArgs())
     if not args.build:
         args.generate = False
     return args
@@ -100,7 +105,8 @@ if __name__ == "__main__":
     args = parseArgs()
     generateDirectories(args)
     if args.build:
-        from build_comptoken_program import build, parseArgs as parseBuildArgs
+        from build_comptoken_program import build
+        from build_comptoken_program import parseArgs as parseBuildArgs
         buildArgsList:list[str] = []
         if args.verbose:
             buildArgsList.append(f"-{'v' * args.verbose}")
@@ -108,7 +114,7 @@ if __name__ == "__main__":
         if not args.generate:
             buildArgsList.append('generate')
         if args.log_directory is not None:
-            buildArgsList.extend(['--log-directory', f'{str(args.log_directory)}'])
+            buildArgsList.extend(['--log-directory', str(args.log_directory)])
         buildArgsList.extend(['--features', 'testmode'])
         buildArgs = parseBuildArgs(buildArgsList)
         

@@ -100,7 +100,7 @@ jobs:
               run: npm clean-install --prefix ./test/compto-test-client
 
             - name: run component tests
-              run: python3 test/component_tests.py --no-build --no-reset # calls node.js scripts to run tests; do not reset the validator
+              run: python3 test/component_tests.py --no-build # calls node.js scripts to run tests
 
     integration-tests:
         runs-on: ubuntu-latest

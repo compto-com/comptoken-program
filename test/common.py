@@ -178,7 +178,7 @@ def generateDirectories(args: argparse.Namespace):
     createDirIfNotExists(CACHE_PATH)
     createDirIfNotExists(COMPTOKEN_GENERATED_PATH)
     createDirIfNotExists(TRANSFER_HOOK_GENERATED_PATH)
-    if args.log_directory:
+    if hasattr(args, "log_directory") and args.log_directory:
         createDirIfNotExists(args.log_directory)
         createDirIfNotExists(args.log_directory / "comptoken-tests")
         createDirIfNotExists(args.log_directory / "transfer-hook-tests")

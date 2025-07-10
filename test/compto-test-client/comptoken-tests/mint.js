@@ -28,7 +28,8 @@ async function test_mint() {
         const final_user_comptoken_wallet = await get_account(context, user_comptoken_wallet.address, TokenAccount);
         Assert.assertEqual(
             final_user_comptoken_wallet.data.amount,
-            user_comptoken_wallet.data.amount + amount
+            user_comptoken_wallet.data.amount + amount,
+            "user comptoken wallet amount"
         );
     });
 }

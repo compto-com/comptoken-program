@@ -31,8 +31,8 @@ async function test_initializeExtraAccountMetaList() {
 
     // first 8 bytes of sha256 of "spl-transfer-hook-interface:execute"
     // see https://spl.solana.com/transfer-hook-interface/specification
-    let instruction_data = Buffer.from([43, 34, 13, 49, 167, 88, 235, 235]);
-    let extra_account_meta_list_data = Buffer.alloc(4); // empty ExtraAccountMetaList size
+    let instruction_data = Uint8Array.from([43, 34, 13, 49, 167, 88, 235, 235]);
+    let extra_account_meta_list_data = new Uint8Array(4); // empty ExtraAccountMetaList size
     ExtraAccountMetaListLayout.encode({
         count: 0,
         extraAccounts: [],
@@ -46,8 +46,8 @@ async function test_initializeExtraAccountMetaList() {
         const default_account_meta_list = get_default_extra_account_metas_account()
         Assert.assert(final_extra_account_meta_list_account.address.equals(default_account_meta_list.address), "address isn't correct");
         Assert.assertEqual(
-            final_extra_account_meta_list_account.data.extraAccountsList.length,
-            default_account_meta_list.data.extraAccountsList.length,
+            final_extra_account_meta_list_account.data.extraAccountsList.extraAccounts.length,
+            default_account_meta_list.data.extraAccountsList.extraAccounts.length,
             "length isn't correct");
         let zipped = zip(
             final_extra_account_meta_list_account.data.extraAccountsList.extraAccounts,

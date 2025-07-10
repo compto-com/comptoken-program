@@ -6,6 +6,10 @@ import { get_default_comptoken_token_account } from "./accounts.js";
 import { bigintAsU64ToBytes } from "./utils.js";
 
 /**
+ * @import { Connection } from "@solana/web3.js";
+ */
+
+/**
  * @param {PublicKey} user_wallet_address
  * @param {PublicKey} user_comptoken_token_account_address
  * @param {BigInt} amount
@@ -36,14 +40,18 @@ export async function createTestInstruction(user_wallet_address, user_comptoken_
 
 /**
  * 
- * @param {PublicKey} connection 
+ * @param {Connection} connection 
  * @param {PublicKey} payer
  * @param {ComptoPublicKeys} compto_public_keys 
  * @returns 
  */
 export async function createInitializeComptokenProgramInstruction(connection, payer, compto_public_keys) {
-    let lamports_global_data_account = await connection.getMinimumBalanceForRentExemption(new GlobalData().getSize());
-    let bank_account_size = get_default_comptoken_token_account(1, PublicKey.default).data.getSize();
+    let lamports_global_data_account = await connection.getMinimumBalanceForRentExemption(
+        /* @ts-ignore */ // we don't actually need a global data account, so bad data is fine
+        new GlobalData({})
+            .getSize()
+    );
+    let bank_account_size = get_default_comptoken_token_account(PublicKey.default, PublicKey.default)._data.getSize();
     console.log(`bank_account_size: ${bank_account_size}`);
     let lamports_bank_account = await connection.getMinimumBalanceForRentExemption(bank_account_size);
     return new TransactionInstruction({

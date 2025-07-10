@@ -26,7 +26,7 @@ async function test_earlyDailyDistributionEvent() {
 
     context = await run_test("earlyDailyDistributionEvent", context, instructions, [context.payer], true, async (context, result) => {
         Assert.assert(
-            result.meta.logMessages.some((msg, i) => msg.includes("daily distribution already called today")),
+            result.meta?.logMessages.some((msg) => msg.includes("daily distribution already called today")) ?? false,
             "daily distribution already called"
         );
 

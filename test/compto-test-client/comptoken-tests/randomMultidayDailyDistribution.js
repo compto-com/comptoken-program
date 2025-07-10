@@ -15,14 +15,20 @@ import { createTestInstruction } from "../instruction.js";
 import { debug } from "../parse_args.js";
 import { clamp, take } from "../utils.js";
 
+/**
+ * @import { BanksTransactionResultWithMeta, ProgramTestContext } from "solana-bankrun";
+ */
+
 class RandomMultidayDailyDistributionDaysParameters extends DaysParameters {
     static yesterdays_accounts = new YesterdaysAccounts();
 
-    testuser;
-    payer;
-    user_comptoken_token_account_address;
-    comptokens_minted;
-
+    /**
+     * @param {bigint} day
+     * @param {Keypair} testuser
+     * @param {Keypair} payer
+     * @param {PublicKey} user_comptoken_token_account_address
+     * @param {number} comptokens_minted
+     */
     constructor(day, testuser, payer, user_comptoken_token_account_address, comptokens_minted) {
         super(day);
         this.testuser = testuser;
@@ -31,7 +37,12 @@ class RandomMultidayDailyDistributionDaysParameters extends DaysParameters {
         this.comptokens_minted = BigInt(comptokens_minted);
     }
 
-    assert_fn = async (context, result) => {
+    /**
+     * @override
+     * @param {ProgramTestContext} context
+     * @param {BanksTransactionResultWithMeta} result
+     */
+    async assert_fn(context, result) {
         const yesterdays_accounts = RandomMultidayDailyDistributionDaysParameters.yesterdays_accounts;
         await generic_daily_distribution_assertions(context, result, yesterdays_accounts, this.day, this.comptokens_minted, 0n, 0n);
 
@@ -75,7 +86,7 @@ async function test_multidayDailyDistribution() {
     log_random_walk_stats(random_walk);
 
     let days_parameters_arr = Array.from(random_walk, (v, i) => {
-        return new RandomMultidayDailyDistributionDaysParameters(i + 1, testuser, context.payer, user_comptoken_token_account.address, v);
+        return new RandomMultidayDailyDistributionDaysParameters(BigInt(i + 1), testuser, context.payer, user_comptoken_token_account.address, v);
     });
 
     await run_multiday_test("multiday_daily_distribution_1", context, days_parameters_arr);
@@ -83,10 +94,26 @@ async function test_multidayDailyDistribution() {
 
 (async () => { await test_multidayDailyDistribution(); })();
 
+/**
+ * @param {number} length 
+ * @param {number} max_step 
+ * @param {number} min 
+ * @param {number} max 
+ * @param {number} bias 
+ * @param {number} start 
+ * @returns {number[]}
+ */
 function generate_random_walk(length, max_step = 1, min = -Infinity, max = Infinity, bias = 0, start = 0) {
     return [...take(length, random_walk_generator(max_step, min, max, bias, start))];
 }
 
+/**
+ * @param {number} max_step 
+ * @param {number} min 
+ * @param {number} max 
+ * @param {number} bias 
+ * @param {number} start 
+ */
 function* random_walk_generator(max_step, min, max, bias, start) {
     let current = start;
     while (true) {
@@ -113,7 +140,14 @@ function log_random_walk_stats(random_walk) {
     debug("median: ", median);
 }
 
-// from https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript/47593316#47593316
+/**
+ * from https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript/47593316#47593316
+ * @param {number} a 
+ * @param {number} b 
+ * @param {number} c 
+ * @param {number} d 
+ * @returns 
+ */
 function sfc32(a, b, c, d) {
     return function () {
         a |= 0; b |= 0; c |= 0; d |= 0;

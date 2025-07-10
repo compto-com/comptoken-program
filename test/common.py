@@ -4,11 +4,28 @@ import os
 import platform
 import signal
 import subprocess
-from argparse import ArgumentParser
+from contextlib import contextmanager
 from functools import reduce
 from pathlib import Path
+from time import sleep
 from types import TracebackType
 from typing import Any, Mapping, Self, Type
+
+
+def _alwaysFlush() -> None:
+    """Force flush all print statements immediately, unless explicitly set to not flush."""
+    # This is a workaround for the fact that the ci tests don't flush the output, so if
+    # they hang, we don't see the output.
+    import builtins
+
+    def printWrapper(*args: object, sep: str | None = " ", end: str | None = "\n", flush: bool = True, file: None = None) -> None:
+        import sys
+        builtins._original_print(f"[{sys.argv[0]}]", *args, flush=flush, sep=sep, end=end, file=file) # type: ignore 
+
+    builtins._original_print = builtins.print # type: ignore
+    builtins.print = printWrapper
+
+_alwaysFlush()
 
 TEST_PATH = Path(__file__).parent
 PROJECT_PATH = TEST_PATH.parent
@@ -55,6 +72,8 @@ class BackgroundProcess:
         self._kwargs = kwargs
 
     def __enter__(self) -> Self:
+        self._kwargs.setdefault("stdout", subprocess.PIPE)
+        self._kwargs.setdefault("stderr", subprocess.PIPE)
         self._process = subprocess.Popen(self._cmd, **self._kwargs)
         return self
 
@@ -67,10 +86,27 @@ class BackgroundProcess:
         print("Killing Background Process...")
         if self._process is not None and self.checkIfProcessRunning():
             os.killpg(os.getpgid(self._process.pid), signal.SIGTERM)
+            self._process.wait()
+
+        if exc_type is not None:
+            stdout, stderr = self.getOutput()
+            print(f"stdout: {stdout}")
+            print(f"stderr: {stderr}")
         return False
 
     def checkIfProcessRunning(self):
         return self._process is not None and self._process.poll() is None
+
+    def getOutput(self) -> tuple[str, str]:
+        if self._process is None:
+            raise ValueError("Process not started")
+        if self.checkIfProcessRunning():
+            raise ValueError("Process is still running")
+        try:
+            stdout, stderr = self._process.communicate(timeout=5)
+            return stdout.decode("utf-8"), stderr.decode("utf-8")
+        except subprocess.TimeoutExpired:
+            return "Timeout", "Timeout"
 
     def __repr__(self) -> str:
         return f"BackgroundProcess{{_cmd: {self._cmd}, _kwargs: {self._kwargs}, _process: {self._process}}}"
@@ -96,8 +132,48 @@ class PDA(dict[str, Any]):
 
         super().__init__(json.loads(run(f"solana find-program-derived-address {programId} {seeds_str} --output json")))
 
+@contextmanager
+def createTestValidator(reset: bool, verbosity: int = 0):
+    createDirIfNotExists(CACHE_PATH)
+    cmd = f"solana-test-validator{' --reset' if reset else ''}"
+    with BackgroundProcess(
+        cmd,
+        shell=True,
+        cwd=CACHE_PATH,
+        preexec_fn=os.setsid,
+    ) as validator:
+        waitTillValidatorReady(validator, verbosity)
+        yield validator
+
+def checkIfValidatorReady(validator: BackgroundProcess, verbosity: int) -> bool:
+    if not validator.checkIfProcessRunning():
+        return False
+    try:
+        run("solana ping -u localhost -c 1")
+        return True
+    except Exception as e:
+        if verbosity > 1:
+            print(f"Validator not ready: {e}")
+        return False
+
+def waitTillValidatorReady(validator: BackgroundProcess, verbosity: int):
+    print("Checking Validator Ready...")
+    MAX_ATTEMPTS = 10
+    attempts = 0
+    while not checkIfValidatorReady(validator, verbosity):
+        if attempts >= MAX_ATTEMPTS:
+            print("Validator Timeout, Exiting...")
+            exit(1)
+        print("Validator Not Ready")
+        sleep(1)
+        attempts += 1
+        if attempts + 1 == MAX_ATTEMPTS:
+            # extra verbose mode for last attempt
+            verbosity += 1
+    print("Validator Ready")
+
 def createDirIfNotExists(path: str | Path):
-    run(f"[ -d {path} ] || mkdir {path} ")
+    run(f"mkdir -p {path}")
 
 def is_running_on_wsl():
     return 'microsoft-standard' in platform.release()
@@ -109,7 +185,7 @@ def generateDirectories(args: argparse.Namespace):
     createDirIfNotExists(CACHE_PATH)
     createDirIfNotExists(COMPTOKEN_GENERATED_PATH)
     createDirIfNotExists(TRANSFER_HOOK_GENERATED_PATH)
-    if args.log_directory:
+    if hasattr(args, "log_directory") and args.log_directory:
         createDirIfNotExists(args.log_directory)
         createDirIfNotExists(args.log_directory / "comptoken-tests")
         createDirIfNotExists(args.log_directory / "transfer-hook-tests")
@@ -134,10 +210,15 @@ def run(
         )
     return result.stdout.rstrip()
 
-def build(package: str, features: list[str] = []):
-    print(f"Building {package}...")
-    features_flag: str = "" if len(features) == 0 else f"--features \"{' '.join(features)}\""
-    run(f'cargo build-sbf {features_flag} -- -v -p {package}', PROJECT_PATH)
+def build(package: str | None, features: list[str] = []):
+    if package is None:
+        print("No package specified, building all packages")
+        print("Building...")
+    else:
+        print(f"Building {package}...")
+    features_flag = "" if len(features) == 0 else f"--features \"{' '.join(features)}\""
+    package_flag = "" if package is None else f"--package {package}"
+    run(f'cargo build-sbf {features_flag} -- -v {package_flag}', PROJECT_PATH)
     print(f"Done Building {package}")
 
 def buildCompto(features: list[str] = []):
@@ -278,23 +359,3 @@ def generateFiles(comptokenProgramId: str, transferHookId: str, mintAddress: str
         comptokenProgramId, extraAccountMetasSeed, mintAddress, interestBankAddress, verifiedHumanUBIBankAddress, futureUBIBankAddress
     )
     print("done generating files")
-
-def parseArgs():
-    parser = ArgumentParser(prog="comptoken component tests")
-    parser.add_argument("--verbose", "-v", action="count", default=0)
-    parser.add_argument("--log-directory", type=Path, help="logs test output to the specified directory")
-    parser.add_argument(
-        "--log",
-        action="store_const",
-        const=LOGS_PATH,
-        dest="log_directory",
-        help="logs test output to the test/.cache/logs directory"
-    )
-    parser.add_argument("--no-build", action="store_false", dest="build", help="skip building, implies --no-generate")
-    parser.add_argument("--no-generate", action="store_false", dest="generate", help="skip generating files")
-    parser.add_argument("--manual-validator", action="store_true", help="use a manually started validator")
-
-    args = parser.parse_args()
-    if not args.build:
-        args.generate = False
-    return args

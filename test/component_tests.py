@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 from argparse import Namespace
@@ -9,40 +8,6 @@ from common import *
 ANSI_GREEN = "\033[92m"
 ANSI_RED = "\033[91m"
 ANSI_RESET = "\033[0m"
-
-def generateMockFiles():
-    comptokenProgramId = generateMockComptokenProgramIdFile()
-    transferHookId = generateMockTransferHookProgramIdFile()
-    mintAddress = generateMockMint()
-    return (comptokenProgramId, transferHookId, mintAddress)
-
-
-def generateMockComptokenProgramIdFile():
-    programId = randAddress()
-    write(COMPTO_PROGRAM_ID_JSON, json.dumps({"programId": programId}))
-    return programId
-
-def generateMockTransferHookProgramIdFile():
-    programId = randAddress()
-    write(COMPTO_TRANSFER_HOOK_ID_JSON, json.dumps({"programId": programId}))
-    return programId
-
-def generateMockMint() -> str:
-    address = randAddress()
-    file_data = f'''\
-{{
-    "commandName": "CreateToken",
-    "commandOutput": {{
-        "address": "{address}",
-        "decimals": {MINT_DECIMALS},
-        "transactionData": {{
-            "signature": ""
-        }}
-    }}
-}}\
-'''
-    write(COMPTOKEN_MINT_JSON, file_data)
-    return address
 
 def runTest(args: Namespace, file: str) -> bool:
     print(f"running {file}")
@@ -90,6 +55,31 @@ def file_or_stdout(outfile: Path | None):
     else:
         yield sys.stdout
 
+class ComponentTestArgs(Namespace):
+    verbose: int
+    log_directory: Path | None
+    build: bool
+    generate: bool
+
+def parseArgs() -> ComponentTestArgs:
+    parser = argparse.ArgumentParser(prog="comptoken component tests")
+    parser.add_argument("--verbose", "-v", action="count", default=0)
+    parser.add_argument("--log-directory", type=Path, help="logs test output to the specified directory")
+    parser.add_argument(
+        "--log",
+        action="store_const",
+        const=LOGS_PATH,
+        dest="log_directory",
+        help="logs test output to the test/.cache/logs directory"
+    )
+    parser.add_argument("--no-build", action="store_false", dest="build", help="skip building, implies --no-generate")
+    parser.add_argument("--no-generate", action="store_false", dest="generate", help="skip generating files")
+
+    args = parser.parse_args(namespace=ComponentTestArgs())
+    if not args.build:
+        args.generate = False
+    return args
+
 if __name__ == "__main__":
     tests: list[str] = [
         "comptoken-tests/initializeComptokenProgram",
@@ -114,12 +104,21 @@ if __name__ == "__main__":
 
     args = parseArgs()
     generateDirectories(args)
-    if args.generate:
-        (comptokenProgramId, transferHookId, mintAddress) = generateMockFiles()
-        generateFiles(comptokenProgramId, transferHookId, mintAddress)
     if args.build:
-        buildCompto(features=["testmode"])
-        buildTransferHook(features=["testmode"])
+        from build_comptoken_program import build
+        from build_comptoken_program import parseArgs as parseBuildArgs
+        buildArgsList:list[str] = []
+        if args.verbose:
+            buildArgsList.append(f"-{'v' * args.verbose}")
+        buildArgsList.extend([f"--skip", "create-token"])
+        if not args.generate:
+            buildArgsList.append('generate')
+        if args.log_directory is not None:
+            buildArgsList.extend(['--log-directory', str(args.log_directory)])
+        buildArgsList.extend(['--features', 'testmode'])
+        buildArgs = parseBuildArgs(buildArgsList)
+        
+        build(buildArgs)
     else:
         print("skipping generating files")
         print("skipping building")

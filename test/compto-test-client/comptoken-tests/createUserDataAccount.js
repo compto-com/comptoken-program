@@ -10,6 +10,10 @@ import { Assert } from "../assert.js";
 import { compto_public_keys, DEFAULT_DISTRIBUTION_TIME } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
 
+/**
+ * @import { Commitment } from "@solana/web3.js";
+ */
+
 async function test_createUserDataAccount() {
     const user = Keypair.generate();
 
@@ -20,14 +24,27 @@ async function test_createUserDataAccount() {
     let context = await setup_test(existing_accounts);
 
     const rent = {
-        getMinimumBalanceForRentExemption: async function (dataLength, commitment) {
+        /**
+         * @param {number} dataLength 
+         * @param {Commitment} _commitment 
+         * @returns 
+         */
+        getMinimumBalanceForRentExemption: async function (dataLength, _commitment) {
             let rent = await context.banksClient.getRent();
             return Number(rent.minimumBalance(BigInt(dataLength)));
         }
     }
 
     const instructions = [
-        await createCreateUserDataAccountInstruction(rent, UserData.MIN_SIZE, context.payer.publicKey, user.publicKey, original_user_comptoken_wallet.address, compto_public_keys),
+        await createCreateUserDataAccountInstruction(
+            /* @ts-ignore */// rent has the important funtions
+            rent,
+            UserData.MIN_SIZE,
+            context.payer.publicKey,
+            user.publicKey,
+            original_user_comptoken_wallet.address,
+            compto_public_keys,
+        ),
     ];
 
     context = await run_test("createUserDataAccount", context, instructions, [context.payer, user], false, async (context, result) => {

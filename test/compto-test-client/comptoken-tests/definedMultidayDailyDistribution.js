@@ -15,17 +15,24 @@ import { DaysParameters, generic_daily_distribution_assertions, run_multiday_tes
 import { createTestInstruction } from "../instruction.js";
 import { clamp } from "../utils.js";
 
+/**
+ * @import { BanksTransactionResultWithMeta, ProgramTestContext } from "solana-bankrun";
+ */
+
+/**
+ * @typedef {(ctx: ProgramTestContext, res: BanksTransactionResultWithMeta, yest_accts: YesterdaysAccounts, today_accts: YesterdaysAccounts) => void} AssertFn
+ */
+
 class DefinedMultidayDailyDistributionDaysParameters extends DaysParameters {
-    static yesterdays_accounts;
+    /** @type {YesterdaysAccounts} */ static yesterdays_accounts;
 
-    testuser;
-    payer;
-    user_comptoken_token_account_address;
-    comptokens_minted;
-    max_hwm_increase;
-    added_asserts = [];
+    /** @type {AssertFn[]} */ added_asserts = [];
 
-    assert_fn = async (context, result) => {
+    /**
+     * @param {ProgramTestContext} context
+     * @param {BanksTransactionResultWithMeta} result
+     */
+    async assert_fn(context, result) {
         const yesterdays_accounts = DefinedMultidayDailyDistributionDaysParameters.yesterdays_accounts;
         const yesterdays_comptoken_mint = yesterdays_accounts.comptoken_mint;
         const yesterdays_global_data_account = yesterdays_accounts.global_data_account;
@@ -81,6 +88,14 @@ class DefinedMultidayDailyDistributionDaysParameters extends DaysParameters {
         DefinedMultidayDailyDistributionDaysParameters.yesterdays_accounts = todays_accounts;
     }
 
+    /**
+     * @param {bigint} day
+     * @param {Keypair} testuser
+     * @param {Keypair} payer
+     * @param {PublicKey} user_comptoken_token_account_address
+     * @param {bigint} comptokens_minted
+     * @param {BigInt} max_hwm_increase
+     */
     constructor(day, testuser, payer, user_comptoken_token_account_address, comptokens_minted, max_hwm_increase) {
         super(day);
         this.testuser = testuser;
@@ -103,6 +118,9 @@ class DefinedMultidayDailyDistributionDaysParameters extends DaysParameters {
         return [this.payer];
     }
 
+    /**
+     * @param {AssertFn} assert_fn
+     */
     add_asserts(assert_fn) {
         this.added_asserts.push(assert_fn);
         return this;
@@ -137,8 +155,12 @@ async function test_multidayDailyDistribution() {
 
     let context = await setup_test(existing_accounts);
 
-    let day = 1;
-    const new_days_parameters = function (comptokens_minted, max_hwm_increase) {
+    let day = 1n;
+    /**
+     * @param {bigint} comptokens_minted
+     * @param {bigint} max_hwm_increase
+     */
+    function new_days_parameters(comptokens_minted, max_hwm_increase) {
         return new DefinedMultidayDailyDistributionDaysParameters(day++, testuser, context.payer, user_comptoken_token_account.address, comptokens_minted, max_hwm_increase);
     };
 
@@ -153,7 +175,7 @@ async function test_multidayDailyDistribution() {
         new_days_parameters(6750n, 17n), // no distribution
         // hwm: 6750
         new_days_parameters(6751n, 17n) // 146,000 distributed
-            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+            .add_asserts((_context, _result, yesterdays_accounts, todays_accounts) => {
                 Assert.assertEqual(
                     todays_accounts.comptoken_mint.data.supply,
                     yesterdays_accounts.comptoken_mint.data.supply + 6751n + 146_000n,
@@ -162,7 +184,7 @@ async function test_multidayDailyDistribution() {
             }),
         // hwm: 6751
         new_days_parameters(6768n, 17n) // 17 * 146000 distributed
-            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+            .add_asserts((_context, _result, yesterdays_accounts, todays_accounts) => {
                 Assert.assertEqual(
                     todays_accounts.comptoken_mint.data.supply,
                     yesterdays_accounts.comptoken_mint.data.supply + 6768n + 17n * 146_000n,
@@ -171,7 +193,7 @@ async function test_multidayDailyDistribution() {
             }),
         // hwm: 6768
         new_days_parameters(6786n, 17n) // 17 * 146000 distributed
-            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+            .add_asserts((_context, _result, yesterdays_accounts, todays_accounts) => {
                 Assert.assertEqual(
                     todays_accounts.comptoken_mint.data.supply,
                     yesterdays_accounts.comptoken_mint.data.supply + 6786n + 17n * 146_000n,
@@ -180,7 +202,7 @@ async function test_multidayDailyDistribution() {
             }),
         // hwm: 6785
         new_days_parameters(7000n, 17n) // 17 * 146000 distributed
-            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+            .add_asserts((_context, _result, yesterdays_accounts, todays_accounts) => {
                 Assert.assertEqual(
                     todays_accounts.comptoken_mint.data.supply,
                     yesterdays_accounts.comptoken_mint.data.supply + 7000n + 17n * 146_000n,
@@ -189,7 +211,7 @@ async function test_multidayDailyDistribution() {
             }),
         // hwm: 6802
         new_days_parameters(6805n, 17n) // 3 * 146000 distributed
-            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+            .add_asserts((_context, _result, yesterdays_accounts, todays_accounts) => {
                 Assert.assertEqual(
                     todays_accounts.comptoken_mint.data.supply,
                     yesterdays_accounts.comptoken_mint.data.supply + 6805n + 3n * 146_000n,
@@ -198,7 +220,7 @@ async function test_multidayDailyDistribution() {
             }),
         // hwm: 6805
         new_days_parameters(6806n, 17n) // 1 * 146000 distributed
-            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+            .add_asserts((_context, _result, yesterdays_accounts, todays_accounts) => {
                 Assert.assertEqual(
                     todays_accounts.comptoken_mint.data.supply,
                     yesterdays_accounts.comptoken_mint.data.supply + 6806n + 1n * 146_000n,
@@ -207,7 +229,7 @@ async function test_multidayDailyDistribution() {
             }),
         // hwm: 6806
         new_days_parameters(6805n, 17n) // no distribution
-            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+            .add_asserts((_context, _result, yesterdays_accounts, todays_accounts) => {
                 Assert.assertEqual(
                     todays_accounts.comptoken_mint.data.supply,
                     yesterdays_accounts.comptoken_mint.data.supply + 6805n,
@@ -216,7 +238,7 @@ async function test_multidayDailyDistribution() {
             }),
         // hwm: 6806
         new_days_parameters(6810n, 17n) // 4 * 146000 distributed
-            .add_asserts((context, result, yesterdays_accounts, todays_accounts) => {
+            .add_asserts((_context, _result, yesterdays_accounts, todays_accounts) => {
                 Assert.assertEqual(
                     todays_accounts.comptoken_mint.data.supply,
                     yesterdays_accounts.comptoken_mint.data.supply + 6810n + 4n * 146_000n,

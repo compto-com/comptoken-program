@@ -11,6 +11,10 @@ import { Assert } from "../assert.js";
 import { compto_public_keys } from "../common.js";
 import { run_test, setup_test } from "../generic_test.js";
 
+/**
+ * @import { Commitment } from "@solana/web3.js"
+ */
+
 async function test_growUserDataAccount() {
     const user = Keypair.generate();
 
@@ -24,19 +28,32 @@ async function test_growUserDataAccount() {
 
     let context = await setup_test(existing_accounts);
     let connection = {
-        async getMinimumBalanceForRentExemption(dataLength, commitment) {
+        /**
+         * @param {bigint}     dataLength 
+         * @param {Commitment} _commitment 
+         */
+        async getMinimumBalanceForRentExemption(dataLength, _commitment) {
             let rent = await context.banksClient.getRent();
             return rent.minimumBalance(BigInt(dataLength));
         }
     }
 
     let instructions = [
-        await createGrowUserDataAccountInstruction(connection, 10, context.payer.publicKey, user.publicKey, user_comptoken_wallet.address, compto_public_keys)
+        await createGrowUserDataAccountInstruction(
+            /* @ts-ignore */// connection has the important funtions
+            connection,
+            10,
+            context.payer.publicKey,
+            user.publicKey,
+            user_comptoken_wallet.address,
+            compto_public_keys,
+        )
     ];
 
     context = await run_test("growUserDataAccount", context, instructions, [context.payer, user], false, async (context, result) => {
         const packed_final_user_data_account = await context.banksClient.getAccount(user_data_account.address);
-        Assert.assertEqual(UserData.MIN_SIZE + 32 * 9, packed_final_user_data_account.data.length);
+        Assert.assertNotNull(packed_final_user_data_account, "user data account exists");
+        Assert.assertEqual(UserData.MIN_SIZE + 32 * 9, packed_final_user_data_account.data.length, "user data account size");
     });
 }
 

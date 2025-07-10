@@ -24,7 +24,7 @@ import {
 
 import { MintAccount } from "./accounts.js";
 import {
-    compto_public_keys,
+    compto_public_keys as cpk,
     me_keypair,
 } from './common.js';
 import {
@@ -32,6 +32,17 @@ import {
     createTestInstruction,
 } from './instruction.js';
 
+/**
+ * @import {ComptoPublicKeys} from '@compto/comptoken.js'; 
+ */
+
+
+if (cpk.test_account === undefined || cpk.test_account === null) {
+    throw new Error("Test account not found");
+}
+
+/** @type {ComptoPublicKeys & { test_account: Keypair }} */
+const compto_public_keys = { ...cpk, test_account: /** @type {Keypair} */ (cpk.test_account) };
 
 let testuser_pubkey = getAssociatedTokenAddressSync(compto_public_keys.comptoken_mint_pubkey, compto_public_keys.test_account.publicKey, false, TOKEN_2022_PROGRAM_ID);
 
@@ -56,16 +67,26 @@ let connection = new Connection('http://localhost:8899', 'confirmed');
     //await getOwedComptokens();
 })();
 
-
+/**
+ * @param {PublicKey} pubkey 
+ */
 async function airdrop(pubkey) {
     let airdropSignature = await connection.requestAirdrop(pubkey, 3 * LAMPORTS_PER_SOL,);
-    await connection.confirmTransaction({ signature: airdropSignature });
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+    await connection.confirmTransaction({ signature: airdropSignature, blockhash, lastValidBlockHeight }, "confirmed");
     console.log("Airdrop confirmed");
 }
 
 async function setMintAuthorityIfNeeded() {
     const info = await connection.getAccountInfo(compto_public_keys.comptoken_mint_pubkey, "confirmed");
-    const mint = MintAccount.fromAccountInfoBytes(compto_public_keys.comptoken_mint_pubkey, info);
+    if (info === null) {
+        throw new Error("Failed to find mint account");
+    }
+    const mintInfo = {
+        ...info,
+        data: Uint8Array.from(info.data),
+    }
+    const mint = MintAccount.fromAccountInfoBytes(compto_public_keys.comptoken_mint_pubkey, mintInfo);
     if (mint.data.mintAuthority.toString() == compto_public_keys.global_data_account_pubkey.toString()) {
         console.log("Mint Authority already set, skipping setAuthority Transaction");
     } else {
@@ -74,6 +95,9 @@ async function setMintAuthorityIfNeeded() {
     }
 }
 
+/**
+ * @param {PublicKey} current_mint_authority_pubkey 
+ */
 async function setMintAuthority(current_mint_authority_pubkey) {
     let me_signer = { publicKey: me_keypair.publicKey, secretKey: me_keypair.secretKey }
     let new_mint_authority = compto_public_keys.global_data_account_pubkey;
@@ -150,7 +174,6 @@ async function mintComptokens(connection, user_solana_wallet_keypair, user_compt
         pubkey: user_comptoken_token_account_address,
         recentBlockHash: current_block,
         extraData: Uint8Array.from({ length: 32 }, () => 0),
-        nonce: 0,
         version: 0,
         timestamp: (Date.now() / 1000) | 0,
     });
@@ -185,6 +208,10 @@ async function getOwedComptokens() {
     console.log("getOwedComptokens transaction confirmed", getValidBlockhashesResult);
 }
 
+/**
+ * @param {string} signature 
+ * @returns {Promise<any>}
+ */
 async function waitForTransactionConfirmation(signature) {
     let attempts = 0;
     let max_attempts = 10;

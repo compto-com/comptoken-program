@@ -11,6 +11,10 @@ import { Assert } from "../assert.js";
 import { compto_public_keys } from "../common.js";
 import { run_test, setup_test } from "../generic_test.js";
 
+/**
+ * @import { Commitment } from "@solana/web3.js"
+ */
+
 async function test_failShrinkUserDataAccount() {
     const user = Keypair.generate();
 
@@ -21,7 +25,11 @@ async function test_failShrinkUserDataAccount() {
 
     let context = await setup_test(accounts);
     let connection = {
-        async getMinimumBalanceForRentExemption(dataLength, commitment) {
+        /**
+         * @param {bigint}     dataLength
+         * @param {Commitment} _commitment
+         */
+        async getMinimumBalanceForRentExemption(dataLength, _commitment) {
             let rent = await context.banksClient.getRent();
             return rent.minimumBalance(BigInt(dataLength));
         }
@@ -29,14 +37,20 @@ async function test_failShrinkUserDataAccount() {
 
     let instructions = [
         await createGrowUserDataAccountInstruction(
-            connection, 1, context.payer.publicKey, user.publicKey, user_comptoken_wallet.address, compto_public_keys
+            /* @ts-ignore */ // connection has the important funtions
+            connection,
+            1,
+            context.payer.publicKey,
+            user.publicKey,
+            user_comptoken_wallet.address,
+            compto_public_keys,
         ),
     ];
 
     context = await run_test("failShrinkUserDataAccount", context, instructions, [context.payer, user], true, async (context, result) => {
         Assert.assertNotNull(result.result, "program should fail");
         Assert.assert(
-            result.meta.logMessages.some((msg, i) => msg.includes("assertion failed: user_data_account.data_len() < new_size")),
+            result.meta?.logMessages.some((msg, i) => msg.includes("assertion failed: user_data_account.data_len() < new_size")) ?? false,
             "program should have failed b/c it wouldn't shrink"
         );
     });

@@ -84,7 +84,8 @@ export async function testDailyDistributionEvent(inputs) {
         Assert.assertEqual(
             final_unpaid_interest_bank.data.amount,
             original_unpaid_interest_bank.data.amount + naive_interest_distribution - future_ubi_interest,
-            "interest bank has increased");
+            "interest bank has increased"
+        );
 
 
         const final_unpaid_verified_human_ubi_bank = await get_account(context, original_unpaid_verified_human_ubi_bank.address, TokenAccount);

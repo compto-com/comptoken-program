@@ -1,8 +1,5 @@
 import {
-    Account,
     COMPTOKEN_DECIMALS,
-    DataType,
-    DataTypeWithExtensions,
     GlobalData,
     GlobalDataAccount,
     SEC_PER_DAY,
@@ -31,26 +28,216 @@ import {
     DEFAULT_DISTRIBUTION_TIME,
 } from "./common.js";
 
-export class Mint extends DataTypeWithExtensions {
+/**
+ * @import { AccountInfo } from "@solana/web3.js";
+ * @import {
+ *      RawMint,
+ *      ExtraAccountMetaAccountData as EAMAD,
+ *      ExtraAccountMeta as EAM,
+ * } from "@solana/spl-token";
+ * 
+ * @import {
+ *      Account,
+ *      AccountStatic,
+ *      DataType,
+ *      DataTypeStatic,
+ *      DataTypeWithExtensions,
+ *      DataTypeWithExtensionsStatic,
+ * } from "@compto/comptoken.js/lib/accounts.js";
+ */
+
+/**
+ * @implements {DataTypeWithExtensions<RawMint>}
+ */
+export class Mint {
     static LAYOUT = MintLayout;
     static SIZE = MINT_SIZE;
     static ACCOUNT_TYPE = 1;
+    /** @readonly */
+    static EXTENSIONS_START_INDEX = 165;
 
-    mintAuthorityOption_; // u32
-    mintAuthority_; // PublicKey;
-    supply_; // u64
-    decimals_; // u64
-    isInitialized_; // bool
-    freezeAuthorityOption_; // u32
-    freezeAuthority_; // PublicKey
+    /**
+     * @param {object} params 
+     * @param {0 | 1} params.mintAuthorityOption
+     * @param {PublicKey} params.mintAuthority
+     * @param {bigint} params.supply
+     * @param {number} params.decimals
+     * @param {boolean} params.isInitialized
+     * @param {0 | 1} params.freezeAuthorityOption
+     * @param {PublicKey} params.freezeAuthority
+     */
+    constructor({
+        mintAuthorityOption,
+        mintAuthority,
+        supply,
+        decimals,
+        isInitialized,
+        freezeAuthorityOption,
+        freezeAuthority
+    }) {
+        this.mintAuthorityOption = mintAuthorityOption;
+        this.mintAuthority = mintAuthority;
+        this.supply = supply;
+        this.decimals = decimals;
+        this.isInitialized = isInitialized;
+        this.freezeAuthorityOption = freezeAuthorityOption;
+        this.freezeAuthority = freezeAuthority;
+        /** @type {TLV[]} */ this.extensions = [];
+    }
+    get data() {
+        return this;
+    };
+
+    getSize() {
+        if (this.extensions.length === 0) {
+            return Mint.SIZE;
+        }
+        let size = this.extensions.reduce(
+            (sum, extension, i) => sum + extension.length + 4,
+            166
+        );
+        if (size == 355) {
+            // solana code says they pad with uninitialized ExtensionType if size is 355
+            // https://github.com/solana-labs/solana-program-library/blob/master/token/program-2022/src/extension/mod.rs#L1047-L1049
+            return size + 4;
+        }
+        return size;
+    };
+
+    toBytes() {
+        let buffer = new Uint8Array(this.getSize());
+        Mint.LAYOUT.encode(this.data, buffer);
+        if (this.extensions.length > 0) {
+            this.encodeExtensions(buffer);
+        }
+        return buffer;
+    };
+
+    /**
+     * @param {Uint8Array} buffer
+     */
+    static fromBytes(buffer) {
+        let extensions = Mint.decodeExtensions(buffer);
+        return new Mint(Mint.LAYOUT.decode(buffer))
+            .addExtensions(...extensions);
+    }
+
+    /**
+     * @param {Uint8Array} buffer
+     */
+    encodeExtensions(buffer) {
+        let index = Mint.EXTENSIONS_START_INDEX;
+        buffer[index++] = Mint.ACCOUNT_TYPE;
+        for (let extension of this.extensions) {
+            let bytes = extension.toBytes();
+            buffer.set(bytes, index);
+            index += bytes.length;
+        }
+    };
+
+    /**
+     * @param {Uint8Array} buffer
+     */
+    static decodeExtensions(buffer) {
+        let index = Mint.EXTENSIONS_START_INDEX;
+        if (buffer[index++] !== Mint.ACCOUNT_TYPE) {
+            throw Error("Incorrect Account Type: type is " + buffer[index - 1] + " but should be " + Mint.ACCOUNT_TYPE);
+        }
+        let extensions = [];
+        while (index + 4 < buffer.length) {
+            let extension = TLV.fromBytes(buffer.subarray(index));
+            extensions.push(extension);
+            index += extension.length + 4;
+        }
+        return extensions;
+    }
+
+    /**
+     * @param {...TLV} extensions
+     */
+    addExtensions(...extensions) {
+        for (let ext of extensions) {
+            this.extensions.push(ext);
+        }
+        return this;
+    };
 }
+/** @type {DataTypeWithExtensionsStatic<RawMint>} */ const _MintStatic = Mint;
 
-export class MintAccount extends Account {
+/**
+ * @implements {Account<RawMint>}
+ */
+export class MintAccount {
     static DATA_TYPE = Mint;
-}
 
-export class ExtraAccountMetaAccountData extends DataType {
+    get data() { return this._data.data; }
+
+    /**
+     * @param {PublicKey}         address
+     * @param {number}            lamports
+     * @param {PublicKey}         owner
+     * @param {DataType<RawMint>} data
+     */
+    constructor(address, lamports, owner, data) {
+        this.address = address;
+        this.lamports = lamports;
+        this.owner = owner;
+        this._data = data;
+    }
+
+    toAddedAccount() {
+        return {
+            address: this.address,
+            info: {
+                lamports: this.lamports,
+                data: this._data.toBytes(),
+                owner: this.owner,
+                executable: false,
+            },
+        };
+    }
+    toAccount = this.toAddedAccount;
+
+    /**
+     * @param {PublicKey} address 
+     * @param {AccountInfo<Uint8Array>} accountInfo 
+     * @returns 
+     */
+    static fromAccountInfoBytes(address, accountInfo) {
+        let data = MintAccount.DATA_TYPE.fromBytes(accountInfo.data);
+        return new MintAccount(
+            address,
+            accountInfo.lamports,
+            accountInfo.owner,
+            data
+        );
+    }
+}
+/** @type {AccountStatic<RawMint>} */ const _MintAccountStatic = MintAccount;
+
+/**
+ * @implements {DataType<EAMAD>}
+ */
+export class ExtraAccountMetaAccountData {
     static LAYOUT = ExtraAccountMetaAccountDataLayout;
+
+    /**
+     * @param {object} params
+     * @param {bigint} params.instructionDiscriminator
+     * @param {number} params.length
+     * @param {object} params.extraAccountsList
+     * @param {number} params.extraAccountsList.count
+     * @param {EAM[]}  params.extraAccountsList.extraAccounts
+     */
+    constructor({ instructionDiscriminator, length, extraAccountsList }) {
+        this.instructionDiscriminator = instructionDiscriminator;
+        this.length = length;
+        this.extraAccountsList = extraAccountsList;
+    }
+
+    get data() {
+        return this;
+    }
 
     getSize() {
         return 12 + this.length;
@@ -59,36 +246,107 @@ export class ExtraAccountMetaAccountData extends DataType {
     toBytes() {
         this.extraAccountsList.count = this.extraAccountsList.extraAccounts.length;
         this.length = 4 + this.extraAccountsList.count * ExtraAccountMetaLayout.span;
-        return super.toBytes();
+        let buffer = new Uint8Array(this.getSize());
+        ExtraAccountMetaAccountData.LAYOUT.encode(this.data, buffer);
+        return buffer;
     }
 
-    instructionDiscriminator_;
-    length_;
-    extraAccountsList_; // { count: number, extraAccounts: ExtraAccountMeta[] }
+    /**
+     * @param {Uint8Array} buffer
+     */
+    static fromBytes(buffer) {
+        let data = ExtraAccountMetaAccountData.LAYOUT.decode(buffer);
+        return new ExtraAccountMetaAccountData(data);
+    }
 }
+/** @type {DataTypeStatic<EAMAD>} */ const _ExtraAccountMetaAccountDataStatic = ExtraAccountMetaAccountData;
 
-export class ExtraAccountMetaAccount extends Account {
+/**
+ * @implements {Account<EAMAD>}
+ */
+export class ExtraAccountMetaAccount {
     static DATA_TYPE = ExtraAccountMetaAccountData;
+
+    get data() { return this._data.data; }
+
+    /**
+     * @param {PublicKey} address 
+     * @param {number} lamports 
+     * @param {PublicKey} owner 
+     * @param {DataType<EAMAD>} data 
+     */
+    constructor(address, lamports, owner, data) {
+        this.address = address;
+        this.lamports = lamports;
+        this.owner = owner;
+        this._data = data;
+    }
+
+    toAddedAccount() {
+        return {
+            address: this.address,
+            info: {
+                lamports: this.lamports,
+                data: this._data.toBytes(),
+                owner: this.owner,
+                executable: false,
+            },
+        };
+    }
+    toAccount = this.toAddedAccount;
+
+    /**
+     * @param {PublicKey} address 
+     * @param {AccountInfo<Uint8Array>} accountInfo 
+     */
+    static fromAccountInfoBytes(address, accountInfo) {
+        let data = ExtraAccountMetaAccount.DATA_TYPE.fromBytes(accountInfo.data);
+        return new ExtraAccountMetaAccount(
+            address,
+            accountInfo.lamports,
+            accountInfo.owner,
+            data
+        );
+    }
 }
+/** @type {AccountStatic<EAMAD>} */ const _ExtraAccountMetaAccountStatic = ExtraAccountMetaAccount;
 
 class Seed {
     discriminator; // u8
     data; // [u8]
 
-    static Types = {
+    /** 
+     * @enum {0 | 1 | 2 | 3 | 4}
+     */
+    static Types = /** @type {const} */ ({
         NULL: 0,
         LITERAL: 1, // corresponds to a data of [u8]
         INSTRUCTION_ARG: 2,
         ACCOUNT_KEY: 3, // corresponds to a data of u8 (is an index into the extraAccountMetas list)
         ACCOUNT_DATA: 4,
-    }
+    });
 
+    /**
+     * @param {Types}  discriminator
+     * @param {number} data
+     */
     constructor(discriminator, data) {
-        if (discriminator !== Seed.Types.ACCOUNT_KEY) {
-            throw Error("not implemented");
+        switch (discriminator) {
+            case Seed.Types.NULL:
+            case Seed.Types.LITERAL:
+            case Seed.Types.INSTRUCTION_ARG:
+            case Seed.Types.ACCOUNT_DATA:
+                throw Error("not implemented");
+            case Seed.Types.ACCOUNT_KEY:
+                this.data = [data];
+                break;
+            default: {
+                /** @type {never} */ const _exhaustiveCheck = discriminator;
+                throw Error("unreachable");
+            }
+
         }
         this.discriminator = discriminator;
-        this.data = [data];
     }
 
     toBytes() {
@@ -99,19 +357,57 @@ class Seed {
     }
 }
 
+/**
+ * @param {Seed[]} seeds
+ * @returns {Uint8Array}
+ */
 function seedsToAddressConfig(seeds) {
     let data = new Uint8Array(32);
     data.set(seeds.flatMap((seed, i) => Array.from(seed.toBytes())), 0);
     return data;
 }
 
-export class ExtraAccountMeta extends DataType {
+/**
+ * @implements {DataType<EAM>}
+ */
+export class ExtraAccountMeta {
     static LAYOUT = ExtraAccountMetaLayout;
 
-    discriminator_; // u8
-    addressConfig_; // [u8; 32]
-    isSigner_; // bool
-    isWritable_; // bool
+    /**
+     * @param {object} params
+     * @param {number} params.discriminator
+     * @param {Uint8Array} params.addressConfig
+     * @param {boolean} params.isSigner
+     * @param {boolean} params.isWritable
+     */
+    constructor({ discriminator, addressConfig, isSigner, isWritable }) {
+        this.discriminator = discriminator;
+        this.addressConfig = addressConfig;
+        this.isSigner = isSigner;
+        this.isWritable = isWritable;
+    }
+
+    get data() {
+        return this;
+    }
+
+    getSize() {
+        return ExtraAccountMeta.LAYOUT.span;
+    }
+
+    toBytes() {
+        let buffer = new Uint8Array(this.getSize());
+        ExtraAccountMeta.LAYOUT.encode(this.data, buffer);
+        return buffer;
+    }
+
+    /**
+     * @param {Uint8Array} buffer
+     */
+    static fromBytes(buffer) {
+        let data = ExtraAccountMeta.LAYOUT.decode(buffer);
+        return new ExtraAccountMeta(data);
+    }
 }
 
 const WorldIdRootLayout = struct([
@@ -232,7 +528,7 @@ export function get_default_global_data() {
                 staleVerifiedHumans: 0n,
                 totalStaleComptokens: 0n,
                 oldestHistoricValue: 0n,
-                historicDistributions: Array.from({ length: GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE }, (v, i) => [0, 0n]),
+                historicDistributions: Array.from({ length: GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE }, (v, i) => ({ interestRate: 0, ubiAmount: 0n })),
             },
         }));
 }
@@ -291,7 +587,7 @@ export function get_default_user_data_account(address) {
             staleUbi: 0n,
             length: 0n,
             recentBlockhash: new Uint8Array(32),
-            proofs: Array.from({ length: 8 }, (v, i) => new Uint8Array(32))
+            proofs: Array.from({ length: 8 }, (v, i) => new Uint8Array(32)),
         }));
 }
 

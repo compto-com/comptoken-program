@@ -16,8 +16,8 @@ async function test_getValidBlockhashes() {
 
     context = await run_test("getValidBlockhashes", context, instructions, [context.payer], false, async (context, result) => {
         const final_valid_blockhashes = {
-            current_block: result.meta.returnData.data.slice(0, 32),
-            announced_block: result.meta.returnData.data.slice(32, 64)
+            current_block: result.meta?.returnData?.data.slice(0, 32),
+            announced_block: result.meta?.returnData?.data.slice(32, 64)
         };
         const original_valid_blockhashes = original_global_data_account.data.validBlockhashes;
         Assert.assert(

@@ -29,51 +29,72 @@ import {
 import { debug, info, log, print } from "./parse_args.js";
 import { enumerate } from "./utils.js";
 
+/**
+ * @import { Account, AccountStatic, DailyDistributionData } from "@compto/comptoken.js";
+ */
+
 export class DaysParameters {
-    day;
-    should_fail = false;
+    /**
+     * @type {(context: ProgramTestContext, result: BanksTransactionResultWithMeta) => Promise<void>}
+     */
+    async assert_fn() { notImplemented(); }
 
     /**
-     * @param {ProgramTestContext} context 
-     * @param {BanksTransactionResultWithMeta} result 
+     * @param {BigInt} day
+     * @param {boolean} should_fail
+     * @param {((context: ProgramTestContext, result: BanksTransactionResultWithMeta) => Promise<void>)?} assert_fn
      */
-    assert_fn = async (context, result) => { notImplemented() };;
-
-    constructor(day, should_fail = false, assert_fn = undefined) {
+    constructor(day, should_fail = false, assert_fn = null) {
         this.day = BigInt(day);
         this.should_fail = should_fail;
-        if (assert_fn !== undefined) {
+        if (assert_fn !== null) {
             this.assert_fn = assert_fn;
         }
 
         if (this.constructor === DaysParameters) {
             throw new TypeError("Abstract class 'DaysParameters' cannot be instantiated directly.");
         }
-        if (this.assert_fn === notImplemented) {
+        if (this.assert_fn === DaysParameters.prototype.assert_fn) {
             throw new TypeError("Classes extending the DaysParameters abstract class must implement assert_fn, or pass it in the constructor");
         }
-        if (this.get_setup_instructions === notImplemented) {
+        if (this.get_setup_instructions === DaysParameters.prototype.get_setup_instructions) {
             throw new TypeError("Classes extending the DaysParameters abstract class must implement get_setup_instructions");
         }
-        if (this.get_setup_signers === notImplemented) {
+        if (this.get_setup_signers === DaysParameters.prototype.get_setup_signers) {
             throw new TypeError("Classes extending the DaysParameters abstract class must implement get_setup_signers");
         }
-        if (this.get_instructions === notImplemented) {
+        if (this.get_instructions === DaysParameters.prototype.get_instructions) {
             throw new TypeError("Classes extending the DaysParameters abstract class must implement get_instructions");
         }
-        if (this.get_signers === notImplemented) {
+        if (this.get_signers === DaysParameters.prototype.get_signers) {
             throw new TypeError("Classes extending the DaysParameters abstract class must implement get_signers");
         }
     }
 
-    async get_setup_instructions() { notImplemented() };
-    async get_setup_signers() { notImplemented() };
-    async get_instructions() { notImplemented() };
-    async get_signers() { notImplemented() };
+    /**
+     * @type {() => Promise<TransactionInstruction[]>}
+     */
+    get_setup_instructions() { notImplemented(); }
 
     /**
-     * @param {string} name 
-     * @param {ProgramTestContext} context 
+     * @type {() => Promise<Keypair[]>}
+     */
+    get_setup_signers() { notImplemented(); }
+
+    /**
+     * @type {() => Promise<TransactionInstruction[]>}
+     */
+    get_instructions() { notImplemented(); }
+
+    /**
+     * @type {() => Promise<Keypair[]>}
+     */
+    get_signers() { notImplemented(); }
+
+    /**
+     * @param {string}             name
+     * @param {ProgramTestContext} context
+     * @param {number}             test_number
      * @returns {Promise<ProgramTestContext>}
      */
     async setup_day(name, context, test_number) {
@@ -83,15 +104,16 @@ export class DaysParameters {
         let instructions = await this.get_setup_instructions();
         let signers = await this.get_setup_signers();
 
-        context = await run_test(name, context, instructions, signers, false, (context, result) => { });
+        context = await run_test(name, context, instructions, signers, false, async (context, result) => { });
 
         context = advance_to_day(context, day);
         return context;
     }
 
     /**
-     * @param {string} name 
-     * @param {ProgramTestContext} context 
+     * @param {string}             name
+     * @param {ProgramTestContext} context
+     * @param {number}             test_number
      * @returns {Promise<ProgramTestContext>}
      */
     async run_test(name, context, test_number) {
@@ -100,7 +122,7 @@ export class DaysParameters {
         let instructions = await this.get_instructions();
         let signers = await this.get_signers();
 
-        return await run_test(name, context, instructions, signers, this.should_fail, this.assert_fn);
+        return await run_test(name, context, instructions, signers, this.should_fail, this.assert_fn.bind(this));
     }
 }
 
@@ -109,6 +131,11 @@ export class Distribution {
     future_ubi;
     verified_human_ubi;
 
+    /**
+     * @param {DailyDistributionData} daily_distribution_data
+     * @param {BigInt} high_watermark_increase
+     * @param {BigInt} unpaid_future_ubi_amount
+     */
     constructor(daily_distribution_data, high_watermark_increase, unpaid_future_ubi_amount) {
 
         daily_distribution_data.historicDistributions.forEach(element => {
@@ -119,7 +146,7 @@ export class Distribution {
         if (index < 0n) {
             index += BigInt(GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE);
         }
-        const interest_rate = daily_distribution_data.historicDistributions[index].interestRate - 1;
+        const interest_rate = daily_distribution_data.historicDistributions[Number(index)].interestRate - 1;
         debug("interest_rate: %f", interest_rate);
 
         const original_distribution = high_watermark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER;
@@ -156,6 +183,11 @@ export class Distribution {
         return this.interest + this.future_ubi + this.verified_human_ubi;
     }
 
+    /**
+     * @param {ProgramTestContext} context
+     * @param {TokenAccount} yesterdays_unpaid_interest_bank
+     * @param {BigInt} interest_paid
+     */
     async assertInterestDistribution(context, yesterdays_unpaid_interest_bank, interest_paid) {
         const current_unpaid_interest_bank = await get_account(context, compto_public_keys.interest_bank_account_pubkey, TokenAccount);
         Assert.assertEqual(
@@ -165,6 +197,11 @@ export class Distribution {
         );
     }
 
+    /**
+     * @param {ProgramTestContext} context
+     * @param {TokenAccount} yesterdays_unpaid_verified_human_ubi_bank
+     * @param {BigInt} verified_human_ubi_paid
+     */
     async assertVerifiedHumanUBIDistribution(context, yesterdays_unpaid_verified_human_ubi_bank, verified_human_ubi_paid) {
         const current_unpaid_verified_human_ubi_bank = await get_account(context, compto_public_keys.verified_human_ubi_bank_account_pubkey, TokenAccount);
         Assert.assertEqual(
@@ -174,6 +211,10 @@ export class Distribution {
         );
     }
 
+    /**
+     * @param {ProgramTestContext} context
+     * @param {YesterdaysAccounts} yesterdays_accounts
+     */
     async assertFutureUBIDistribution(context, yesterdays_accounts) {
         const current_global_data_account = await get_account(context, compto_public_keys.global_data_account_pubkey, GlobalDataAccount);
         const current_unpaid_future_ubi_bank = await get_account(context, compto_public_keys.future_ubi_bank_account_pubkey, TokenAccount);
@@ -184,7 +225,7 @@ export class Distribution {
 
         const comptokens_per_new_verified_human = yesterdays_accounts.unpaid_future_ubi_bank.data.amount / (BigInt(FUTURE_UBI_VERIFIED_HUMANS) - yesterdays_verified_humans);
 
-        const future_ubi_paid = new_verified_humans * comptokens_per_new_verified_human;
+        const future_ubi_paid = BigInt(new_verified_humans) * comptokens_per_new_verified_human;
 
         Assert.assertEqual(
             yesterdays_accounts.unpaid_future_ubi_bank.data.amount + this.future_ubi - future_ubi_paid,
@@ -215,6 +256,10 @@ export class YesterdaysAccounts {
         this.unpaid_future_ubi_bank = unpaid_future_ubi_bank;
     }
 
+    /**
+     * @param {ProgramTestContext} context
+     * @returns {Promise<YesterdaysAccounts>}
+     */
     static async get_accounts(context) {
         return new YesterdaysAccounts(
             await get_account(context, compto_public_keys.comptoken_mint_pubkey, MintAccount),
@@ -232,8 +277,7 @@ export class YesterdaysAccounts {
  * @param {TransactionInstruction[]} instructions
  * @param {Keypair[]} signers
  * @param {boolean} should_fail
- * @param {boolean} args
- * @param {(ProgramTestContext, BanksTransactionResultWithMeta) => Promise<null>} assert_fn 
+ * @param {(ctx: ProgramTestContext, txRes: BanksTransactionResultWithMeta) => Promise<void>} assert_fn 
  * @returns {Promise<ProgramTestContext>}
  */
 export async function run_test(name, context, instructions, signers, should_fail, assert_fn) {
@@ -246,7 +290,9 @@ export async function run_test(name, context, instructions, signers, should_fail
     const payer = context.payer;
 
     const tx = new Transaction();
-    [tx.recentBlockhash,] = await client.getLatestBlockhash();
+    const latestBlockhashResult = await client.getLatestBlockhash();
+    Assert.assertNotNull(latestBlockhashResult, "getLatestBlockhash() returned null");
+    [tx.recentBlockhash,] = latestBlockhashResult;
     tx.add(...instructions);
     tx.feePayer = payer.publicKey;
     tx.sign(payer, ...signers);
@@ -296,7 +342,18 @@ export async function run_multiday_test(name, context, days_parameters_arr) {
     }
 }
 
-export async function generic_daily_distribution_assertions(context, result, yesterdays_accounts, day, comptokens_minted, interest_paid, verified_human_ubi_paid) {
+/**
+ * @param {ProgramTestContext} context
+ * @param {BanksTransactionResultWithMeta} result
+ * @param {YesterdaysAccounts} yesterdays_accounts
+ * @param {BigInt} day
+ * @param {BigInt} comptokens_minted
+ * @param {BigInt} interest_paid
+ * @param {BigInt} verified_human_ubi_paid
+ */
+export async function generic_daily_distribution_assertions(
+    context, result, yesterdays_accounts, day, comptokens_minted, interest_paid, verified_human_ubi_paid
+) {
     comptokens_minted = BigInt(comptokens_minted);
     day = BigInt(day);
     interest_paid = BigInt(interest_paid);
@@ -365,6 +422,10 @@ export async function generic_daily_distribution_assertions(context, result, yes
     await distribution.assertFutureUBIDistribution(context, yesterdays_accounts);
 }
 
+/**
+ * @param {number} number
+ * @returns {number}
+ */
 function round_ties_even(number) {
     const result = Math.round(number);
     const fract = Math.abs(number - result);
@@ -375,13 +436,18 @@ function round_ties_even(number) {
     }
 }
 
+/**
+ * @param {number} a 
+ * @param {number} b 
+ * @returns 
+ */
 function float_equals(a, b) {
     const epsilon = 2.220446049250313e-16; // from https://doc.rust-lang.org/std/primitive.f64.html#associatedconstant.EPSILON
     return Math.abs(a - b) < epsilon;
 }
 
 /**
- * @param {Account[]} existing_accounts 
+ * @param {Account<any>[]} existing_accounts 
  * @param {Clock} clock
  * @returns {Promise<ProgramTestContext>}
  */
@@ -400,14 +466,14 @@ export async function setup_test(existing_accounts, clock = new Clock(0n, 0n, 0n
 }
 
 /**
- * @param {ProgramTestContext} context 
- * @param {PublicKey} account_address 
- * @param {typeof Account} account_type
- * @returns 
+ * @template DataT
+ * @param {ProgramTestContext}   context 
+ * @param {PublicKey}            account_address 
+ * @param {AccountStatic<DataT>} account_type
  */
 export async function get_account(context, account_address, account_type) {
     let account = await context.banksClient.getAccount(account_address);
-    Assert.assertNotNull(account);
+    Assert.assertNotNull(account, `account ${account_address} not found`);
     return account_type.fromAccountInfoBytes(account_address, account);
 }
 
@@ -423,4 +489,8 @@ function advance_to_day(context, new_day) {
     return context;
 }
 
-function notImplemented() { throw new Error("Not Implemented"); }
+/**
+ * @param {...any} args
+ * @returns {never}
+ */
+function notImplemented(...args) { throw new Error("Not Implemented"); }

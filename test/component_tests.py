@@ -9,7 +9,13 @@ ANSI_GREEN = "\033[92m"
 ANSI_RED = "\033[91m"
 ANSI_RESET = "\033[0m"
 
-def runTest(args: Namespace, file: str) -> bool:
+class ComponentTestArgs(Namespace):
+    verbose: int
+    log_directory: Path | None
+    build: bool
+    generate: bool
+
+def runTest(args: ComponentTestArgs, file: str) -> bool:
     print(f"running {file}")
     env = os.environ
     env["SBF_OUT_DIR"] = str(PROJECT_PATH / "target/deploy/")
@@ -34,7 +40,7 @@ def runTest(args: Namespace, file: str) -> bool:
         print(e)
         return False
 
-def runTests(args: Namespace, tests: list[str]):
+def runTests(args: ComponentTestArgs, tests: list[str]):
     print("running tests...")
 
     passed = 0
@@ -54,12 +60,6 @@ def file_or_stdout(outfile: Path | None):
             yield file
     else:
         yield sys.stdout
-
-class ComponentTestArgs(Namespace):
-    verbose: int
-    log_directory: Path | None
-    build: bool
-    generate: bool
 
 def parseArgs() -> ComponentTestArgs:
     parser = argparse.ArgumentParser(prog="comptoken component tests")

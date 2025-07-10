@@ -1,4 +1,4 @@
-import { createDailyDistributionEventInstruction } from "@compto/comptoken.js";
+import { createDailyDistributionInstruction } from "@compto/comptoken.js";
 
 import {
     get_default_comptoken_mint,
@@ -22,7 +22,7 @@ async function test_earlyDailyDistributionEvent() {
 
     let context = await setup_test(existing_accounts);
 
-    let instructions = [await createDailyDistributionEventInstruction(compto_public_keys)];
+    let instructions = [await createDailyDistributionInstruction(compto_public_keys)];
 
     context = await run_test("earlyDailyDistributionEvent", context, instructions, [context.payer], true, async (context, result) => {
         Assert.assert(

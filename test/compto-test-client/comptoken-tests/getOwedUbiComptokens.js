@@ -1,5 +1,5 @@
 import {
-    createGetOwedComptokensInstruction,
+    createCollectInstruction,
     SEC_PER_DAY,
     TokenAccount,
     UserDataAccount,
@@ -66,7 +66,7 @@ async function test_getOwedUbiComptokens() {
 
     let context = await setup_test(existing_accounts);
 
-    let instructions = [await createGetOwedComptokensInstruction(user.publicKey, original_user_comptoken_wallet.address, compto_public_keys)];
+    let instructions = [await createCollectInstruction(user.publicKey, original_user_comptoken_wallet.address, compto_public_keys)];
 
     context = await run_test("getOwedComptokens", context, instructions, [context.payer, user], false, async (context, result) => {
         const final_user_comptoken_wallet = await get_account(context, original_user_comptoken_wallet.address, TokenAccount);

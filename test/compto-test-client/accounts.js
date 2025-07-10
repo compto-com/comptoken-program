@@ -43,7 +43,7 @@ import {
  *      DataTypeStatic,
  *      DataTypeWithExtensions,
  *      DataTypeWithExtensionsStatic,
- * } from "@compto/comptoken.js/lib/accounts.js";
+ * } from "@compto/comptoken.js";
  */
 
 /**
@@ -57,13 +57,13 @@ export class Mint {
     static EXTENSIONS_START_INDEX = 165;
 
     /**
-     * @param {object} params 
-     * @param {0 | 1} params.mintAuthorityOption
+     * @param {object}    params 
+     * @param {0 | 1}     params.mintAuthorityOption
      * @param {PublicKey} params.mintAuthority
-     * @param {bigint} params.supply
-     * @param {number} params.decimals
-     * @param {boolean} params.isInitialized
-     * @param {0 | 1} params.freezeAuthorityOption
+     * @param {bigint}    params.supply
+     * @param {number}    params.decimals
+     * @param {boolean}   params.isInitialized
+     * @param {0 | 1}     params.freezeAuthorityOption
      * @param {PublicKey} params.freezeAuthority
      */
     constructor({
@@ -82,7 +82,7 @@ export class Mint {
         this.isInitialized = isInitialized;
         this.freezeAuthorityOption = freezeAuthorityOption;
         this.freezeAuthority = freezeAuthority;
-        /** @type {TLV[]} */ this.extensions = [];
+        this.extensions = /** @type {TLV[]} */([]);
     }
     get data() {
         return this;
@@ -153,7 +153,7 @@ export class Mint {
     }
 
     /**
-     * @param {...TLV} extensions
+     * @param {TLV[]} extensions
      */
     addExtensions(...extensions) {
         for (let ext of extensions) {
@@ -421,13 +421,120 @@ const WorldIdRootLayout = struct([
     blob(1, "verification_type"),
 ]);
 
-export class WorldIdRoot extends DataType {
-    static LAYOUT = WorldIdRootLayout;
-}
 
-export class WorldIdRootAccount extends Account {
-    static DATA_TYPE = WorldIdRoot;
+/**
+ * @implements {DataType<WorldIdRoot>}
+ */
+export class WorldIdRoot {
+    static LAYOUT = WorldIdRootLayout;
+
+    /**
+     * @param {Object}     params
+     * @param {Uint8Array} params.discriminator
+     * @param {number}     params.bump
+     * @param {bigint}     params.read_block_number
+     * @param {Uint8Array} params.read_block_hash
+     * @param {bigint}     params.read_block_time
+     * @param {PublicKey}  params.refund_recipient
+     * @param {Uint8Array} params.root
+     * @param {Uint8Array} params.verification_type
+     */
+    constructor({
+        discriminator,
+        bump,
+        read_block_number,
+        read_block_hash,
+        read_block_time,
+        refund_recipient,
+        root,
+        verification_type,
+    }) {
+        if ([0x2e, 0x9f, 0x83, 0x25, 0xf5, 0x54, 0x05, 0x09].every((byte, i) => byte !== discriminator[i])) {
+            throw new Error("Invalid discriminator");
+        }
+        this.discriminator = discriminator;
+        this.bump = bump;
+        this.read_block_number = read_block_number;
+        this.read_block_hash = read_block_hash;
+        this.read_block_time = read_block_time;
+        this.refund_recipient = refund_recipient;
+        this.root = root;
+        this.verification_type = verification_type;
+    }
+
+    get data() {
+        return this;
+    }
+
+    getSize() {
+        return WorldIdRoot.LAYOUT.span;
+    }
+
+    toBytes() {
+        let buffer = new Uint8Array(this.getSize());
+        WorldIdRoot.LAYOUT.encode(this.data, buffer);
+        return buffer;
+    }
+
+    /**
+     * @param {Uint8Array} buffer
+     */
+    static fromBytes(buffer) {
+        let data = WorldIdRoot.LAYOUT.decode(buffer);
+        return new WorldIdRoot(data);
+    }
 }
+/** @type {DataTypeStatic<WorldIdRoot>} */ const _WorldIdRootStatic = WorldIdRoot;
+
+/**
+ * @implements {Account<WorldIdRoot>}
+ */
+export class WorldIdRootAccount {
+    static DATA_TYPE = WorldIdRoot;
+
+    get data() { return this._data.data; }
+
+    /**
+     * @param {PublicKey}             address
+     * @param {number}                lamports
+     * @param {PublicKey}             owner
+     * @param {DataType<WorldIdRoot>} data
+     */
+    constructor(address, lamports, owner, data) {
+        this.address = address;
+        this.lamports = lamports;
+        this.owner = owner;
+        this._data = data;
+    }
+
+    toAddedAccount() {
+        return {
+            address: this.address,
+            info: {
+                lamports: this.lamports,
+                data: this._data.toBytes(),
+                owner: this.owner,
+                executable: false,
+            },
+        };
+    }
+    toAccount = this.toAddedAccount;
+
+    /**
+     * @param {PublicKey} address 
+     * @param {AccountInfo<Uint8Array>} accountInfo 
+     */
+    static fromAccountInfoBytes(address, accountInfo) {
+        let data = WorldIdRootAccount.DATA_TYPE.fromBytes(accountInfo.data);
+        return new WorldIdRootAccount(
+            address,
+            accountInfo.lamports,
+            accountInfo.owner,
+            data
+        );
+    }
+}
+/** @type {AccountStatic<WorldIdRoot>} */ const _WorldIdRootAccountStatic = WorldIdRootAccount;
 
 const WorldIdLatestRootLayout = struct([
     blob(8, "discriminator"), // 8 bytes for discriminator [0c f5 e7 f6 bf 3f a9 5f]
@@ -439,13 +546,116 @@ const WorldIdLatestRootLayout = struct([
     blob(1, "verification_type"),
 ]);
 
-export class WorldIdLatestRoot extends DataType {
+/**
+ * @implements {DataType<WorldIdLatestRoot>}
+ */
+export class WorldIdLatestRoot {
     static LAYOUT = WorldIdLatestRootLayout;
-}
 
-export class WorldIdLatestRootAccount extends Account {
-    static DATA_TYPE = WorldIdLatestRoot;
+    /**
+     * @param {Object}     params
+     * @param {Uint8Array} params.discriminator
+     * @param {number}     params.bump
+     * @param {bigint}     params.read_block_number
+     * @param {Uint8Array} params.read_block_hash
+     * @param {bigint}     params.read_block_time
+     * @param {Uint8Array} params.root
+     * @param {Uint8Array} params.verification_type
+     */
+    constructor({
+        discriminator,
+        bump,
+        read_block_number,
+        read_block_hash,
+        read_block_time,
+        root,
+        verification_type,
+    }) {
+        if ([0x0c, 0xf5, 0xe7, 0xf6, 0xbf, 0x3f, 0xa9, 0x5f].every((byte, i) => byte !== discriminator[i])) {
+            throw new Error("Invalid discriminator");
+        }
+        this.discriminator = discriminator;
+        this.bump = bump;
+        this.read_block_number = read_block_number;
+        this.read_block_hash = read_block_hash;
+        this.read_block_time = read_block_time;
+        this.root = root;
+        this.verification_type = verification_type;
+    }
+
+    get data() {
+        return this;
+    }
+
+    getSize() {
+        return WorldIdLatestRoot.LAYOUT.span;
+    }
+
+    toBytes() {
+        let buffer = new Uint8Array(this.getSize());
+        WorldIdLatestRoot.LAYOUT.encode(this.data, buffer);
+        return buffer;
+    }
+
+    /**
+     * @param {Uint8Array} buffer
+     */
+    static fromBytes(buffer) {
+        let data = WorldIdLatestRoot.LAYOUT.decode(buffer);
+        return new WorldIdLatestRoot(data);
+    }
 }
+/** @type {DataTypeStatic<WorldIdLatestRoot>} */ const _WorldIdLatestRootStatic = WorldIdLatestRoot;
+
+/**
+ * @implements {Account<WorldIdLatestRoot>}
+ */
+export class WorldIdLatestRootAccount {
+    static DATA_TYPE = WorldIdLatestRoot;
+
+    get data() { return this._data.data; }
+
+    /**
+     * @param {PublicKey}             address
+     * @param {number}                lamports
+     * @param {PublicKey}             owner
+     * @param {DataType<WorldIdLatestRoot>} data
+     */
+    constructor(address, lamports, owner, data) {
+        this.address = address;
+        this.lamports = lamports;
+        this.owner = owner;
+        this._data = data;
+    }
+
+    toAddedAccount() {
+        return {
+            address: this.address,
+            info: {
+                lamports: this.lamports,
+                data: this._data.toBytes(),
+                owner: this.owner,
+                executable: false,
+            },
+        };
+    }
+    toAccount = this.toAddedAccount;
+
+    /**
+     * @param {PublicKey} address 
+     * @param {AccountInfo<Uint8Array>} accountInfo 
+     */
+    static fromAccountInfoBytes(address, accountInfo) {
+        let data = WorldIdLatestRootAccount.DATA_TYPE.fromBytes(accountInfo.data);
+        return new WorldIdLatestRootAccount(
+            address,
+            accountInfo.lamports,
+            accountInfo.owner,
+            data
+        );
+    }
+}
+/** @type {AccountStatic<WorldIdLatestRoot>} */ const _WorldIdLatestRootAccountStatic = WorldIdLatestRootAccount;
 
 const WorldIdGuardianSignatureLayout = struct([
     blob(8, "discriminator"), // 8 bytes for discriminator []
@@ -453,17 +663,105 @@ const WorldIdGuardianSignatureLayout = struct([
     seq(blob(66), greedy(66), "guardian_signatures"),
 ]);
 
-export class WorldIdGuardianSignature extends DataType {
+/**
+ * @implements {DataType<WorldIdGuardianSignature>}
+ */
+export class WorldIdGuardianSignature {
     static LAYOUT = WorldIdGuardianSignatureLayout;
+
+    /**
+     * @param {Object}     params
+     * @param {Uint8Array} params.discriminator
+     * @param {PublicKey}  params.refund_recipient
+     * @param {Uint8Array[]} params.guardian_signatures
+     */
+    constructor({
+        discriminator,
+        refund_recipient,
+        guardian_signatures,
+    }) {
+        // TODO: check discriminator
+        //if ([].every((byte, i) => byte !== discriminator[i])) {
+        //    throw new Error("Invalid discriminator");
+        //}
+        this.discriminator = discriminator;
+        this.refund_recipient = refund_recipient;
+        this.guardian_signatures = guardian_signatures;
+    }
+
+    get data() {
+        return this;
+    }
 
     getSize() {
         return this.guardian_signatures.length * 66 + 32 + 4;
     }
-}
 
-export class WorldIdGuardianSignatureAccount extends Account {
-    static DATA_TYPE = WorldIdGuardianSignature;
+    toBytes() {
+        let buffer = new Uint8Array(this.getSize());
+        WorldIdGuardianSignature.LAYOUT.encode(this.data, buffer);
+        return buffer;
+    }
+
+    /**
+     * @param {Uint8Array} buffer
+     */
+    static fromBytes(buffer) {
+        let data = WorldIdGuardianSignature.LAYOUT.decode(buffer);
+        return new WorldIdGuardianSignature(data);
+    }
 }
+/** @type {DataTypeStatic<WorldIdGuardianSignature>} */ const _WorldIdGuardianSignatureStatic = WorldIdGuardianSignature;
+
+/**
+ * @implements {Account<WorldIdGuardianSignature>}
+ */
+export class WorldIdGuardianSignatureAccount {
+    static DATA_TYPE = WorldIdGuardianSignature;
+
+    get data() { return this._data.data; }
+
+    /**
+     * @param {PublicKey}             address
+     * @param {number}                lamports
+     * @param {PublicKey}             owner
+     * @param {DataType<WorldIdGuardianSignature>} data
+     */
+    constructor(address, lamports, owner, data) {
+        this.address = address;
+        this.lamports = lamports;
+        this.owner = owner;
+        this._data = data;
+    }
+
+    toAddedAccount() {
+        return {
+            address: this.address,
+            info: {
+                lamports: this.lamports,
+                data: this._data.toBytes(),
+                owner: this.owner,
+                executable: false,
+            },
+        };
+    }
+    toAccount = this.toAddedAccount;
+
+    /**
+     * @param {PublicKey} address 
+     * @param {AccountInfo<Uint8Array>} accountInfo 
+     */
+    static fromAccountInfoBytes(address, accountInfo) {
+        let data = WorldIdGuardianSignatureAccount.DATA_TYPE.fromBytes(accountInfo.data);
+        return new WorldIdGuardianSignatureAccount(
+            address,
+            accountInfo.lamports,
+            accountInfo.owner,
+            data
+        );
+    }
+}
+/** @type {AccountStatic<WorldIdGuardianSignature>} */ const _WorldIdGuardianSignatureAccountStatic = WorldIdGuardianSignatureAccount;
 
 const WorldIdConfigLayout = struct([
     blob(8, "discriminator"), // 8 bytes for discriminator [9b 0c aa e0 1e fa cc 82]
@@ -475,12 +773,114 @@ const WorldIdConfigLayout = struct([
     u64("allowed_update_staleness"),
 ]);
 
-export class WorldIdConfig extends DataType {
+/**
+ * @implements {DataType<WorldIdConfig>}
+ */
+export class WorldIdConfig {
     static LAYOUT = WorldIdConfigLayout;
-}
 
-export class WorldIdConfigAccount extends Account {
+    /**
+     * @param {Object}     params
+     * @param {Uint8Array} params.discriminator
+     * @param {number}     params.bump
+     * @param {PublicKey}  params.owner
+     * @param {0 | 1}      params.pending_owner_option
+     * @param {PublicKey}  params.pending_owner
+     * @param {bigint}     params.root_expiry
+     * @param {bigint}     params.allowed_update_staleness
+     */
+    constructor({
+        discriminator,
+        bump,
+        owner,
+        pending_owner_option,
+        pending_owner,
+        root_expiry,
+        allowed_update_staleness,
+    }) {
+        if ([0x9b, 0x0c, 0xaa, 0xe0, 0x1e, 0xfa, 0xcc, 0x82].every((byte, i) => byte !== discriminator[i])) {
+            throw new Error("Invalid discriminator");
+        }
+        this.discriminator = discriminator;
+        this.bump = bump;
+        this.owner = owner;
+        this.pending_owner_option = pending_owner_option;
+        this.pending_owner = pending_owner;
+        this.root_expiry = root_expiry;
+        this.allowed_update_staleness = allowed_update_staleness;
+    }
+
+    get data() {
+        return this;
+    }
+
+    getSize() {
+        return WorldIdConfig.LAYOUT.span;
+    }
+
+    toBytes() {
+        let buffer = new Uint8Array(this.getSize());
+        WorldIdConfig.LAYOUT.encode(this.data, buffer);
+        return buffer;
+    }
+
+    /**
+     * @param {Uint8Array} buffer
+     */
+    static fromBytes(buffer) {
+        let data = WorldIdConfig.LAYOUT.decode(buffer);
+        return new WorldIdConfig(data);
+    }
+}
+/** @type {DataTypeStatic<WorldIdConfig>} */ const _WorldIdConfigStatic = WorldIdConfig;
+
+/**
+ * @implements {Account<WorldIdConfig>}
+ */
+export class WorldIdConfigAccount {
     static DATA_TYPE = WorldIdConfig;
+
+    get data() { return this._data.data; }
+
+    /**
+     * @param {PublicKey}             address
+     * @param {number}                lamports
+     * @param {PublicKey}             owner
+     * @param {DataType<WorldIdConfig>} data
+     */
+    constructor(address, lamports, owner, data) {
+        this.address = address;
+        this.lamports = lamports;
+        this.owner = owner;
+        this._data = data;
+    }
+
+    toAddedAccount() {
+        return {
+            address: this.address,
+            info: {
+                lamports: this.lamports,
+                data: this._data.toBytes(),
+                owner: this.owner,
+                executable: false,
+            },
+        };
+    }
+    toAccount = this.toAddedAccount;
+
+    /**
+     * @param {PublicKey} address 
+     * @param {AccountInfo<Uint8Array>} accountInfo 
+     */
+    static fromAccountInfoBytes(address, accountInfo) {
+        let data = WorldIdConfigAccount.DATA_TYPE.fromBytes(accountInfo.data);
+        return new WorldIdConfigAccount(
+            address,
+            accountInfo.lamports,
+            accountInfo.owner,
+            data
+        );
+    }
 }
 
 // ======================================== Default Constructors ========================================
@@ -505,9 +905,6 @@ export function get_default_comptoken_mint() {
     );
 }
 
-/**
- * @returns {GlobalDataAccount}
- */
 export function get_default_global_data() {
     return new GlobalDataAccount(
         compto_public_keys.global_data_account_pubkey,
@@ -525,8 +922,9 @@ export function get_default_global_data() {
                 highWaterMark: 0n,
                 lastDailyDistributionTime: DEFAULT_DISTRIBUTION_TIME,
                 verifiedHumans: 0n,
-                staleVerifiedHumans: 0n,
-                totalStaleComptokens: 0n,
+                inactiveVerifiedHumans: 0n,
+                totalInactiveComptokens: 0n,
+                burnedComptokens: 0n,
                 oldestHistoricValue: 0n,
                 historicDistributions: Array.from({ length: GlobalData.DAILY_DISTRIBUTION_HISTORY_SIZE }, (v, i) => ({ interestRate: 0, ubiAmount: 0n })),
             },
@@ -536,7 +934,6 @@ export function get_default_global_data() {
 /**
  * @param {PublicKey} address
  * @param {PublicKey} owner
- * @returns {TokenAccount}
  */
 export function get_default_comptoken_token_account(address, owner) {
     return new TokenAccount(address, BIG_NUMBER, TOKEN_2022_PROGRAM_ID,
@@ -555,24 +952,20 @@ export function get_default_comptoken_token_account(address, owner) {
         }).addExtensions(TLV.TransferHookAccount()));
 }
 
-/** @returns {TokenAccount} */
 export function get_default_unpaid_interest_bank() {
     return get_default_comptoken_token_account(compto_public_keys.interest_bank_account_pubkey, compto_public_keys.global_data_account_pubkey);
 }
 
-/** @returns {TokenAccount} */
 export function get_default_unpaid_verified_human_ubi_bank() {
     return get_default_comptoken_token_account(compto_public_keys.verified_human_ubi_bank_account_pubkey, compto_public_keys.global_data_account_pubkey);
 }
 
-/** @returns {TokenAccount} */
 export function get_default_unpaid_future_ubi_bank() {
     return get_default_comptoken_token_account(compto_public_keys.future_ubi_bank_account_pubkey, compto_public_keys.global_data_account_pubkey);
 }
 
 /**
- * @param {PublicKey} address 
- * @returns {UserDataAccount}
+ * @param {PublicKey} address
  */
 export function get_default_user_data_account(address) {
     return new UserDataAccount(
@@ -583,17 +976,15 @@ export function get_default_user_data_account(address) {
             lastInterestPayoutDate: DEFAULT_DISTRIBUTION_TIME,
             verificationDate: DEFAULT_DISTRIBUTION_TIME + BigInt(SEC_PER_DAY),
             nullifierHash: new Uint8Array(32),
-            staleInterest: 0n,
-            staleUbi: 0n,
+            inactiveInterest: 0n,
+            inactiveUbiInterest: 0n,
+            inactiveUbi: 0n,
             length: 0n,
             recentBlockhash: new Uint8Array(32),
             proofs: Array.from({ length: 8 }, (v, i) => new Uint8Array(32)),
         }));
 }
 
-/**
- * @returns {ExtraAccountMetaAccount}
- */
 export function get_default_extra_account_metas_account() {
     let extraAccountsMetaList = [
         new ExtraAccountMeta({

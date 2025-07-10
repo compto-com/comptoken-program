@@ -1,10 +1,10 @@
 import {
     ComptokenProof,
+    createCollectInstruction,
     createCreateUserDataAccountInstruction,
-    createDailyDistributionEventInstruction,
-    createGetOwedComptokensInstruction,
+    createDailyDistributionInstruction,
     createGetValidBlockhashesInstruction,
-    createProofSubmissionInstruction,
+    createSubmitProofInstruction,
     getValidBlockhashesFromTransactionResponse,
 } from "@compto/comptoken.js";
 import {
@@ -179,7 +179,7 @@ async function mintComptokens(connection, user_solana_wallet_keypair, user_compt
     });
     let mintComptokensTransaction = new Transaction();
     mintComptokensTransaction.add(
-        await createProofSubmissionInstruction(
+        await createSubmitProofInstruction(
             proof,
             user_solana_wallet_keypair.publicKey,
             user_comptoken_token_account_address,
@@ -193,7 +193,7 @@ async function mintComptokens(connection, user_solana_wallet_keypair, user_compt
 async function dailyDistributionEvent() {
     let dailyDistributionEventTransaction = new Transaction();
     dailyDistributionEventTransaction.add(
-        await createDailyDistributionEventInstruction(compto_public_keys),
+        await createDailyDistributionInstruction(compto_public_keys),
     );
     let dailyDistributionEventResult = await sendAndConfirmTransaction(connection, dailyDistributionEventTransaction, [compto_public_keys.test_account]);
     console.log("DailyDistributionEvent transaction confirmed", dailyDistributionEventResult);
@@ -202,7 +202,7 @@ async function dailyDistributionEvent() {
 async function getOwedComptokens() {
     let getValidBlockhashesTransaction = new Transaction();
     getValidBlockhashesTransaction.add(
-        await createGetOwedComptokensInstruction(compto_public_keys.test_account.publicKey, testuser_pubkey, compto_public_keys),
+        await createCollectInstruction(compto_public_keys.test_account.publicKey, testuser_pubkey, compto_public_keys),
     );
     let getValidBlockhashesResult = await sendAndConfirmTransaction(connection, getValidBlockhashesTransaction, [compto_public_keys.test_account]);
     console.log("getOwedComptokens transaction confirmed", getValidBlockhashesResult);

@@ -1,4 +1,4 @@
-import { createGrowUserDataAccountInstruction, UserData } from "@compto/comptoken.js";
+import { createResizeUserDataAccountInstruction, UserData } from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
 
 import {
@@ -39,7 +39,7 @@ async function test_growUserDataAccount() {
     }
 
     let instructions = [
-        await createGrowUserDataAccountInstruction(
+        await createResizeUserDataAccountInstruction(
             /* @ts-ignore */// connection has the important funtions
             connection,
             10,

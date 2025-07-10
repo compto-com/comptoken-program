@@ -1,4 +1,4 @@
-import { ComptokenProof, createProofSubmissionInstruction, TokenAccount, UserDataAccount } from "@compto/comptoken.js";
+import { ComptokenProof, createSubmitProofInstruction, TokenAccount, UserDataAccount } from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
 
 import {
@@ -37,7 +37,7 @@ async function test_proofSubmission() {
         timestamp: Date.now() / 1000, // pubkey and recentBlockHash already introduce entropy between tests, so we don't need to hardcode a time
     });
 
-    let instructions = [await createProofSubmissionInstruction(proof, user.publicKey, original_user_comptoken_wallet.address, compto_public_keys)];
+    let instructions = [await createSubmitProofInstruction(proof, user.publicKey, original_user_comptoken_wallet.address, compto_public_keys)];
     console.log(`instruction programId: ${instructions[0].programId}`)
 
     context = await run_test("proofSubmission", context, instructions, [context.payer, user], false, async (context, result) => {

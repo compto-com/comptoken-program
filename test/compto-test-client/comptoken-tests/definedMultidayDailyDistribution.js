@@ -1,4 +1,4 @@
-import { createDailyDistributionEventInstruction } from "@compto/comptoken.js";
+import { createDailyDistributionInstruction } from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
 
 import {
@@ -112,7 +112,7 @@ class DefinedMultidayDailyDistributionDaysParameters extends DaysParameters {
         return [this.payer, this.testuser]
     }
     async get_instructions() {
-        return [await createDailyDistributionEventInstruction(compto_public_keys)];
+        return [await createDailyDistributionInstruction(compto_public_keys)];
     }
     async get_signers() {
         return [this.payer];

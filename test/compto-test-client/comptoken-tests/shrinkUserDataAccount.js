@@ -1,4 +1,4 @@
-import { UserData, createGrowUserDataAccountInstruction } from "@compto/comptoken.js";
+import { createResizeUserDataAccountInstruction } from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
 
 import {
@@ -36,7 +36,7 @@ async function test_failShrinkUserDataAccount() {
     }
 
     let instructions = [
-        await createGrowUserDataAccountInstruction(
+        await createResizeUserDataAccountInstruction(
             /* @ts-ignore */ // connection has the important funtions
             connection,
             1,

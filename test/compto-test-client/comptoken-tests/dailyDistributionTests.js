@@ -1,5 +1,5 @@
 import {
-    createDailyDistributionEventInstruction,
+    createDailyDistributionInstruction,
     GlobalDataAccount,
     SEC_PER_DAY,
     TokenAccount,
@@ -59,7 +59,7 @@ export async function testDailyDistributionEvent(inputs) {
     // 216_000 is mostly arbitrary, but it should roughly correspond to a days worth of slots
     let context = await setup_test(existing_accounts, new Clock(216_000n, 0n, 0n, 0n, DEFAULT_START_TIME + BigInt(SEC_PER_DAY)));
 
-    let instructions = [await createDailyDistributionEventInstruction(compto_public_keys)];
+    let instructions = [await createDailyDistributionInstruction(compto_public_keys)];
 
     context = await run_test(testname, context, instructions, [context.payer], false, async (context, result) => {
         await generic_daily_distribution_assertions(context, result, yesterdays_accounts, 1n, comptokens_minted, 0n, 0n);

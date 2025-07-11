@@ -9,6 +9,7 @@ import {
 import { Assert } from "../assert.js";
 import { compto_public_keys, DEFAULT_DISTRIBUTION_TIME } from "../common.js";
 import { get_account, run_test, setup_test } from "../generic_test.js";
+import { isArrayEqual } from "../utils.js";
 
 /**
  * @import { Commitment } from "@solana/web3.js";
@@ -51,7 +52,8 @@ async function test_createUserDataAccountInstruction() {
         const user_data_pda = UserDataAccount.addressFromComptokenAccount(original_user_comptoken_wallet.address, compto_public_keys);
         const final_user_data_account = await get_account(context, user_data_pda, UserDataAccount);
         Assert.assertEqual(final_user_data_account.data.lastInterestPayoutDate, DEFAULT_DISTRIBUTION_TIME, "user data lastInterestPayoutDate");
-        Assert.assert(!final_user_data_account.data.isVerifiedHuman, "user data isVerifiedHuman");
+        Assert.assertEqual(final_user_data_account.data.verificationDate, 0n, "user data verificationDate");
+        Assert.assert(isArrayEqual(final_user_data_account.data.nullifierHash, new Uint8Array(32).fill(0)), "user data nullifierHash");
     });
 }
 

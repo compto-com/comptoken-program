@@ -35,7 +35,8 @@ async function test_collectInstruction_withUbi() {
     const user_data_pda = PublicKey.findProgramAddressSync([original_user_comptoken_wallet.address.toBytes()], compto_public_keys.compto_program_id_pubkey)[0];
     let original_user_data_account = get_default_user_data_account(user_data_pda);
     original_user_data_account.data.lastInterestPayoutDate = DEFAULT_DISTRIBUTION_TIME - BigInt(SEC_PER_DAY);
-    original_user_data_account.data.isVerifiedHuman = true;
+    original_user_data_account.data.verificationDate = DEFAULT_DISTRIBUTION_TIME - BigInt(SEC_PER_DAY);
+    original_user_data_account.data.nullifierHash = new Uint8Array(32).fill(1);
 
     let global_data = get_default_global_data();
     global_data.data.dailyDistributionData.verifiedHumans = 1n;

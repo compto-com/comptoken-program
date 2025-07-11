@@ -195,22 +195,25 @@ def run(
     cwd: Path | None = None,
     env: Mapping[str, str] | None = None,
     timeout: float | None = None,
+    verbosity: int = 0
 ) -> str:
     try:
         result = subprocess.run(
             command, shell=True, cwd=cwd, capture_output=True, text=True, env=env, timeout=timeout
         )
     except subprocess.TimeoutExpired as e:
-        output = ""
-        if hasattr(e, "output") and e.output:
-            output += f'{e.output}'
-        if hasattr(e, "stderr") and e.stderr:
-            try:
-                output += f"\n  stderr: {e.stderr.decode('utf-8', errors='replace')}"
-            except Exception as e:
-                output += f"\n  stderr: Error decoding stderr: {e}"
+        output = ''
+        if verbosity >= 1:
+            output = "\n\tOutput:\n"
+            if hasattr(e, "output") and e.output:
+                output += f'{e.output}'
+            if hasattr(e, "stderr") and e.stderr:
+                try:
+                    output += f"\n  stderr: {e.stderr.decode('utf-8', errors='replace')}"
+                except Exception as e:
+                    output += f"\n  stderr: Error decoding stderr: {e}"
         raise SubprocessFailedException(
-            f"Failed to run command! command: '{command}' timed out. Output:\n{output}"
+            f"Failed to run command! command: '{command}' timed out. {output}"
         )
     
     if result.returncode != 0:

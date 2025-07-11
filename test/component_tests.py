@@ -25,18 +25,19 @@ def runTest(args: ComponentTestArgs, file: str) -> bool:
     if args.verbose >= 2:
         print(f"command is '{command}'")
     try:
-        stdout = run(command, cwd=TEST_PATH, env=env, timeout=20)
+        stdout = run(command, cwd=TEST_PATH, env=env, timeout=20, verbosity=args.verbose)
         if args.verbose >= 1:
             logfilePath = args.log_directory / f"{file}.log" if args.log_directory else None
             with file_or_stdout(logfilePath) as logfile:
-                logfile.write(stdout)
+                logfile.write(f"{stdout}\n")
         print(f"✅ {ANSI_GREEN}{file}{ANSI_RESET} passed")
         return True
     except SubprocessFailedException as e:
         print(f"❌ {ANSI_RED}{file}{ANSI_RESET} failed")
         logfilePath = args.log_directory / f"{file}.log" if args.log_directory else None
-        with file_or_stdout(logfilePath) as logfile:
-            logfile.write(str(e))
+        if logfilePath is not None:
+            with open(logfilePath, "w") as logfile:
+                logfile.write(str(e))
         print(e)
         return False
 

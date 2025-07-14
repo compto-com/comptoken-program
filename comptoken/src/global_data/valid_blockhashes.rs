@@ -1,4 +1,4 @@
-use spl_token_2022::solana_program::{hash::Hash, slot_hashes::SlotHash};
+use solana_program::{hash::Hash, slot_hashes::SlotHash};
 
 use comptoken_utils::{get_current_time, normalize_time, SEC_PER_DAY};
 

@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use spl_token_2022::solana_program::{account_info::AccountInfo, pubkey::Pubkey, sysvar::SysvarId};
+use solana_program::{account_info::AccountInfo, pubkey::Pubkey, sysvar::SysvarId};
 
 #[derive(Debug, Clone)]
 pub struct VerifiedAccountInfo<'a>(pub AccountInfo<'a>);

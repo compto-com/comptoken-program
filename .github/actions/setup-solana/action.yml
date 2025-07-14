@@ -1,0 +1,71 @@
+# adjusted from https://github.com/metaDAOproject/setup-solana/blob/3769a7937e9897f27805e9665507b7b754cbc7fc/action.yml
+name: "Setup Solana"
+description: "Install the Solana Tool Suite."
+inputs:
+    solana-cli-version:
+        description: "Version of Solana CLI to use"
+        required: false
+        default: "stable"
+outputs:
+    installed-solana-cli-version:
+        description: "The version of Solana CLI that was installed"
+        value: ${{ steps.solana-release.outputs.install_version }}
+runs:
+    using: "composite"
+    steps:
+        - name: download scripts
+          run: |
+              mkdir -p scripts/semver_bash
+              curl -sSfL https://raw.githubusercontent.com/anza-xyz/agave/master/ci/channel-info.sh -o scripts/channel-info.sh
+              curl -sSfL https://raw.githubusercontent.com/anza-xyz/agave/master/ci/semver_bash/semver.sh -o scripts/semver_bash/semver.sh
+          shell: bash
+
+        - name: Determine Solana CLI version
+          id: solana-release
+          run: |
+              chmod +x scripts/channel-info.sh
+              output=$("scripts/channel-info.sh")
+              read -r BETA_CHANNEL_LATEST_TAG STABLE_CHANNEL_LATEST_TAG <<< "$output"
+
+              if [[ "${{ inputs.solana-cli-version }}" =~ ^[a-zA-Z] ]]; then
+                if [[ ${{ inputs.solana-cli-version }} =~ ^(edge|stable|beta)$ ]]; then
+                  if [[ ${{ inputs.solana-cli-version }} == "edge" ]]; then
+                    echo "Using Solana CLI edge channel"
+                    echo "install_version=edge" >> $GITHUB_OUTPUT
+                  elif [[ ${{ inputs.solana-cli-version }} == "stable" ]]; then
+                    echo "install_version=$STABLE_CHANNEL_LATEST_TAG" >> $GITHUB_OUTPUT
+                    echo "Using Solana CLI stable channel $install_version"
+                  elif [[ ${{ inputs.solana-cli-version }} == "beta" ]]; then
+                    echo "Using Solana CLI beta channel"
+                    echo "install_version=$BETA_CHANNEL_LATEST_TAG" >> $GITHUB_OUTPUT
+                  fi
+                else
+                  echo "Invalid Solana CLI channel: ${{ inputs.solana-cli-version }}"
+                  exit 1
+                fi
+              else
+                echo "Using Solana CLI ${{ inputs.solana-cli-version }}"
+                echo "install_version=v${{ inputs.solana-cli-version }}" >> $GITHUB_OUTPUT
+              fi
+          shell: bash
+
+        - name: Cache Solana CLI tools
+          uses: actions/cache@v3
+          if: steps.solana-release.outputs.install_version != 'edge'
+          with:
+              path: |
+                  ~/.cache/solana/
+                  ~/.local/share/solana/
+              key: solana-cli-${{ runner.os }}-build-${{ steps.solana-release.outputs.install_version }}
+
+        - name: Install Solana CLI tools
+          run: curl -sSfL https://release.anza.xyz/${{ steps.solana-release.outputs.install_version }}/install | bash
+          shell: bash
+
+        - name: Update PATH
+          run: echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          shell: bash
+
+        - name: Test install
+          run: solana --version
+          shell: bash

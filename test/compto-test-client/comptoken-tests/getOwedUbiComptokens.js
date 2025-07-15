@@ -4,7 +4,7 @@ import {
     TokenAccount,
     UserDataAccount,
 } from "@compto/comptoken.js";
-import { Keypair, PublicKey, } from "@solana/web3.js";
+import { ComputeBudgetProgram, Keypair, PublicKey, } from "@solana/web3.js";
 
 import {
     get_default_comptoken_mint,
@@ -66,7 +66,10 @@ async function test_getOwedUbiComptokens() {
 
     let context = await setup_test(existing_accounts);
 
-    let instructions = [await createCollectInstruction(user.publicKey, original_user_comptoken_wallet.address, compto_public_keys)];
+    let instructions = [
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
+        await createCollectInstruction(user.publicKey, original_user_comptoken_wallet.address, compto_public_keys),
+    ];
 
     context = await run_test("getOwedComptokens", context, instructions, [context.payer, user], false, async (context, result) => {
         const final_user_comptoken_wallet = await get_account(context, original_user_comptoken_wallet.address, TokenAccount);

@@ -35,7 +35,7 @@ struct CollectAccounts<'a> {
     unpaid_verified_human_ubi_bank:              VerifiedAccountInfo<'a>,
     unpaid_interest_bank_data_account:           VerifiedAccountInfo<'a>,
     unpaid_verified_human_ubi_bank_data_account: VerifiedAccountInfo<'a>,
-    _user_wallet:                                VerifiedAccountInfo<'a>,
+    user_wallet:                                 VerifiedAccountInfo<'a>,
     user_comptoken_token_account:                VerifiedAccountInfo<'a>,
     user_data_account:                           VerifiedAccountInfo<'a>,
     transfer_hook_program:                       VerifiedAccountInfo<'a>,
@@ -61,7 +61,7 @@ impl<'a> InstructionAccounts<'a> for CollectAccounts<'a> {
                 unpaid_verified_human_ubi_bank:              Some(AccountMetaType::Writable),
                 unpaid_interest_bank_data_account:           Some(AccountMetaType::None),
                 unpaid_verified_human_ubi_bank_data_account: Some(AccountMetaType::None),
-                user_wallet:                                 Some(AccountMetaType::Signer),
+                user_wallet:                                 Some(AccountMetaType::None), // Signer checked later, it's a little too complicated to do here
                 user_comptoken_token_account:                Some((true, AccountMetaType::Writable)),
                 user_data_account:                           Some((true, AccountMetaType::Writable)),
                 transfer_hook_program:                       Some(AccountMetaType::None),
@@ -71,7 +71,7 @@ impl<'a> InstructionAccounts<'a> for CollectAccounts<'a> {
             },
         )?;
 
-        Ok(CollectAccounts {
+        let collect_accounts = CollectAccounts {
             comptoken_program: verified_accounts.comptoken_program.unwrap(),
             comptoken_mint: verified_accounts.comptoken_mint.unwrap(),
             global_data_account: verified_accounts.global_data_account.unwrap(),
@@ -81,13 +81,28 @@ impl<'a> InstructionAccounts<'a> for CollectAccounts<'a> {
             unpaid_verified_human_ubi_bank_data_account: verified_accounts
                 .unpaid_verified_human_ubi_bank_data_account
                 .unwrap(),
-            _user_wallet: verified_accounts.user_wallet.unwrap(),
+            user_wallet: verified_accounts.user_wallet.unwrap(),
             user_comptoken_token_account: verified_accounts.user_comptoken_token_account.unwrap(),
             user_data_account: verified_accounts.user_data_account.unwrap(),
             transfer_hook_program: verified_accounts.transfer_hook_program.unwrap(),
             extra_account_metas: verified_accounts.extra_account_metas.unwrap(),
             _solana_token_2022_program: verified_accounts.solana_token_2022_program.unwrap(),
-        })
+        };
+
+        // a user can always collect for themselves
+        if collect_accounts.user_wallet.is_signer {
+            return Ok(collect_accounts);
+        }
+
+        let user_data: &UserData = (&collect_accounts.user_data_account).into();
+
+        match user_data.verification_state() {
+            UserDataVerificationState::Verified // if verified, and not stale, they will get a full collection, so anyone can call collect for them
+            | UserDataVerificationState::Unverified // if unverified, they must collect before verifying, so anyone can call collect for them
+            => Ok(collect_accounts),
+            UserDataVerificationState::Stale // if stale, they can reverify to get a full collection, so only they can call collect for themselves
+            => Err(solana_program::program_error::ProgramError::MissingRequiredSignature)
+        }
     }
 }
 

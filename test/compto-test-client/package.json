@@ -1,7 +1,7 @@
 {
     "type": "module",
     "dependencies": {
-        "@compto/comptoken.js": "github:compto-com/comptoken.js#worldcoin-verification",
+        "@compto/comptoken.js": "github:compto-com/comptoken.js#external-collection",
         "@solana-developers/helpers": "^2.5.6",
         "@solana/buffer-layout": "^4.0.1",
         "@solana/buffer-layout-utils": "^0.2.0",

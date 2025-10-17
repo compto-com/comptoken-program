@@ -24,7 +24,7 @@ import { get_account, run_test, setup_test } from "../generic_test.js";
 //      incorrect accounts (e.g. accounts not correctly signed/writable, missing accounts, etc.)
 
 async function test_flagInactiveAccountInstruction() {
-    const nullifier_hash = Buffer.from("06e05b30363654d2be77b7b16091735f139f31bc097bb2a1aa9450b96f7df677", "hex");
+    const nullifier_hash = Uint8Array.from(Buffer.from("06e05b30363654d2be77b7b16091735f139f31bc097bb2a1aa9450b96f7df677", "hex"));
 
     const user = Keypair.generate();
 
@@ -49,7 +49,6 @@ async function test_flagInactiveAccountInstruction() {
     original_user_data_account.data.lastInterestPayoutDate = DEFAULT_DISTRIBUTION_TIME - BigInt(60 * 60 * 24 * 365); // 365 days ago
     original_user_data_account.data.verificationDate = DEFAULT_DISTRIBUTION_TIME;
     original_user_data_account.data.nullifierHash = nullifier_hash;
-    original_user_data_account.data.isVerifiedHuman = true;
 
     const existing_accounts = [
         original_comptoken_mint, original_global_data, original_unpaid_future_ubi_bank, original_user_comptoken_wallet, original_user_data_account,

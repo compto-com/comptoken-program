@@ -114,11 +114,11 @@ export class Mint {
     };
 
     /**
-     * @param {Uint8Array} buffer
+     * @param {Uint8Array | Buffer} buffer
      */
     static fromBytes(buffer) {
         let extensions = Mint.decodeExtensions(buffer);
-        return new Mint(Mint.LAYOUT.decode(buffer))
+        return new Mint(Mint.LAYOUT.decode(Uint8Array.from(buffer)))
             .addExtensions(...extensions);
     }
 
@@ -136,7 +136,7 @@ export class Mint {
     };
 
     /**
-     * @param {Uint8Array} buffer
+     * @param {Uint8Array | Buffer} buffer
      */
     static decodeExtensions(buffer) {
         let index = Mint.EXTENSIONS_START_INDEX;
@@ -199,9 +199,8 @@ export class MintAccount {
     toAccount = this.toAddedAccount;
 
     /**
-     * @param {PublicKey} address 
-     * @param {AccountInfo<Uint8Array>} accountInfo 
-     * @returns 
+     * @param {PublicKey} address
+     * @param {AccountInfo<Uint8Array | Buffer>} accountInfo
      */
     static fromAccountInfoBytes(address, accountInfo) {
         let data = MintAccount.DATA_TYPE.fromBytes(accountInfo.data);
@@ -252,10 +251,10 @@ export class ExtraAccountMetaAccountData {
     }
 
     /**
-     * @param {Uint8Array} buffer
+     * @param {Uint8Array | Buffer} buffer
      */
     static fromBytes(buffer) {
-        let data = ExtraAccountMetaAccountData.LAYOUT.decode(buffer);
+        let data = ExtraAccountMetaAccountData.LAYOUT.decode(Uint8Array.from(buffer));
         return new ExtraAccountMetaAccountData(data);
     }
 }
@@ -297,7 +296,7 @@ export class ExtraAccountMetaAccount {
 
     /**
      * @param {PublicKey} address 
-     * @param {AccountInfo<Uint8Array>} accountInfo 
+     * @param {AccountInfo<Uint8Array | Buffer>} accountInfo 
      */
     static fromAccountInfoBytes(address, accountInfo) {
         let data = ExtraAccountMetaAccount.DATA_TYPE.fromBytes(accountInfo.data);
@@ -477,10 +476,10 @@ export class WorldIdRoot {
     }
 
     /**
-     * @param {Uint8Array} buffer
+     * @param {Uint8Array | Buffer} buffer
      */
     static fromBytes(buffer) {
-        let data = WorldIdRoot.LAYOUT.decode(buffer);
+        let data = WorldIdRoot.LAYOUT.decode(Uint8Array.from(buffer));
         return new WorldIdRoot(data);
     }
 }
@@ -521,8 +520,8 @@ export class WorldIdRootAccount {
     toAccount = this.toAddedAccount;
 
     /**
-     * @param {PublicKey} address 
-     * @param {AccountInfo<Uint8Array>} accountInfo 
+     * @param {PublicKey} address
+     * @param {AccountInfo<Uint8Array | Buffer>} accountInfo
      */
     static fromAccountInfoBytes(address, accountInfo) {
         let data = WorldIdRootAccount.DATA_TYPE.fromBytes(accountInfo.data);
@@ -598,10 +597,10 @@ export class WorldIdLatestRoot {
     }
 
     /**
-     * @param {Uint8Array} buffer
+     * @param {Uint8Array | Buffer} buffer
      */
     static fromBytes(buffer) {
-        let data = WorldIdLatestRoot.LAYOUT.decode(buffer);
+        let data = WorldIdLatestRoot.LAYOUT.decode(Uint8Array.from(buffer));
         return new WorldIdLatestRoot(data);
     }
 }
@@ -642,8 +641,8 @@ export class WorldIdLatestRootAccount {
     toAccount = this.toAddedAccount;
 
     /**
-     * @param {PublicKey} address 
-     * @param {AccountInfo<Uint8Array>} accountInfo 
+     * @param {PublicKey} address
+     * @param {AccountInfo<Uint8Array | Buffer>} accountInfo
      */
     static fromAccountInfoBytes(address, accountInfo) {
         let data = WorldIdLatestRootAccount.DATA_TYPE.fromBytes(accountInfo.data);
@@ -704,10 +703,10 @@ export class WorldIdGuardianSignature {
     }
 
     /**
-     * @param {Uint8Array} buffer
+     * @param {Uint8Array | Buffer} buffer
      */
     static fromBytes(buffer) {
-        let data = WorldIdGuardianSignature.LAYOUT.decode(buffer);
+        let data = WorldIdGuardianSignature.LAYOUT.decode(Uint8Array.from(buffer));
         return new WorldIdGuardianSignature(data);
     }
 }
@@ -748,8 +747,8 @@ export class WorldIdGuardianSignatureAccount {
     toAccount = this.toAddedAccount;
 
     /**
-     * @param {PublicKey} address 
-     * @param {AccountInfo<Uint8Array>} accountInfo 
+     * @param {PublicKey} address
+     * @param {AccountInfo<Uint8Array | Buffer>} accountInfo
      */
     static fromAccountInfoBytes(address, accountInfo) {
         let data = WorldIdGuardianSignatureAccount.DATA_TYPE.fromBytes(accountInfo.data);
@@ -825,10 +824,10 @@ export class WorldIdConfig {
     }
 
     /**
-     * @param {Uint8Array} buffer
+     * @param {Uint8Array | Buffer} buffer
      */
     static fromBytes(buffer) {
-        let data = WorldIdConfig.LAYOUT.decode(buffer);
+        let data = WorldIdConfig.LAYOUT.decode(Uint8Array.from(buffer));
         return new WorldIdConfig(data);
     }
 }
@@ -916,10 +915,10 @@ export class Nullifier {
     }
 
     /**
-     * @param {Uint8Array} buffer
+     * @param {Uint8Array | Buffer} buffer
      */
     static fromBytes(buffer) {
-        let data = Nullifier.LAYOUT.decode(buffer);
+        let data = Nullifier.LAYOUT.decode(Uint8Array.from(buffer));
         return new Nullifier(data);
     }
 }
@@ -961,7 +960,7 @@ export class NullifierAccount {
 
     /**
      * @param {PublicKey} address 
-     * @param {AccountInfo<Uint8Array>} accountInfo 
+     * @param {AccountInfo<Uint8Array | Buffer>} accountInfo 
      */
     static fromAccountInfoBytes(address, accountInfo) {
         let data = NullifierAccount.DATA_TYPE.fromBytes(accountInfo.data);

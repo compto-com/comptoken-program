@@ -8,7 +8,7 @@ use anchor_spl::{
     token_interface::{non_transferable_mint_initialize, Mint, NonTransferableMintInitialize},
 };
 
-use crate::{LOCKED_MINT_SEED, MINT_DECIMALS, UNLOCKED_MINT_SEED};
+use crate::{global_data::GlobalData, GLOBAL_DATA_SEED, LOCKED_MINT_SEED, MINT_DECIMALS, UNLOCKED_MINT_SEED};
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -36,6 +36,15 @@ pub struct Initialize<'info> {
         mint::token_program = token_program,
     )]
     pub mint_unlocked: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        init,
+        payer = payer,
+        space = std::mem::size_of::<GlobalData>() + 8,
+        seeds = [GLOBAL_DATA_SEED],
+        bump,
+    )]
+    pub global_data: Account<'info, GlobalData>,
 
     pub token_program: Program<'info, Token2022>,
     pub system_program: Program<'info, System>,

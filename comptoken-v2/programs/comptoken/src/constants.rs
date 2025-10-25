@@ -8,3 +8,6 @@ pub const LOCKED_MINT_SEED: &[u8] = b"locked_mint";
 
 #[constant]
 pub const UNLOCKED_MINT_SEED: &[u8] = b"unlocked_mint";
+
+#[constant]
+pub const GLOBAL_DATA_SEED: &[u8] = b"global_data";

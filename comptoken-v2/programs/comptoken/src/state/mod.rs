@@ -1,1 +1,1 @@
-
+pub mod global_data;

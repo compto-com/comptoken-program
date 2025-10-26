@@ -20,8 +20,8 @@ pub struct DailyDistribution {
     pub early_adopter_ubi_amount: u64,
 }
 
-#[account]
-pub struct GlobalData {
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct DailyDistributionData {
     pub total_mined_today: u64,
     pub high_water_mark: u64,
     pub last_update_timestamp: i64,
@@ -30,7 +30,7 @@ pub struct GlobalData {
     pub historic_distributions: RingBuffer<HistoricDistribution, HISTORY_SIZE>,
 }
 
-impl Default for GlobalData {
+impl Default for DailyDistributionData {
     fn default() -> Self {
         Self {
             total_mined_today: 0,

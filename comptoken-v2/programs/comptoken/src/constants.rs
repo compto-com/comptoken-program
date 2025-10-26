@@ -32,3 +32,9 @@ pub const ADJUST_FACTOR: f64 = 0.3;
 // the target end daily max increase. this value achieves ~25% max increase over the course of a year. this value was chosen by taking
 // the USD supply increase per year (~7%), and quadrupling it to allow for periods of larger growth, then rounding to a nicer number.
 pub const END_GOAL_PERCENT_INCREASE: f64 = 0.00061;
+
+#[constant]
+pub const SECONDS_IN_A_DAY: i64 = 86400;
+
+#[constant]
+pub const ANNOUNCEMENT_INTERVAL: i64 = 60 * 5; // 5 minutes

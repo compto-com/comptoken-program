@@ -46,6 +46,10 @@ pub struct Initialize<'info> {
     )]
     pub global_data: Account<'info, GlobalData>,
 
+    /// CHECK: SlotHashes sysvar account
+    #[account(constraint = slot_hashes.key() == anchor_lang::solana_program::sysvar::slot_hashes::ID)]
+    pub slot_hashes: UncheckedAccount<'info>, // Sysvar account, but Sysvar<'_, SlotHashes> deserializes it, which fails
+
     pub token_program: Program<'info, Token2022>,
     pub system_program: Program<'info, System>,
 }
@@ -72,7 +76,7 @@ pub fn handler(ctx: Context<Initialize>) -> Result<()> {
     )?;
 
     // Initialize global data
-    ctx.accounts.global_data.load_init()?.init(&ctx.accounts.slot_hashes);
+    ctx.accounts.global_data.init(&ctx.accounts.slot_hashes);
 
     Ok(())
 }

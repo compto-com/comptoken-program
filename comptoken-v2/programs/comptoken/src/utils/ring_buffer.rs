@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct RingBuffer<T: Clone, const N: usize> {
     buffer: [T; N],
-    position: usize,
+    position: u64,
 }
 
 impl<T: Clone + Default, const N: usize> Default for RingBuffer<T, N> {
@@ -20,7 +20,7 @@ pub struct RingBufferIterator<'a, T: Clone, const N: usize> {
 
 impl<'a, T: Clone, const N: usize> RingBufferIterator<'a, T, N> {
     fn new(ring_buffer: &'a RingBuffer<T, N>) -> Self {
-        Self { ring_buffer, index: ring_buffer.position, count: 0 }
+        Self { ring_buffer, index: ring_buffer.position as usize, count: 0 }
     }
 }
 
@@ -67,8 +67,8 @@ impl<T: Clone, const N: usize> RingBuffer<T, N> {
     }
 
     pub fn push(&mut self, value: T) {
-        self.buffer[self.position] = value;
-        self.position = (self.position + 1) % N;
+        self.buffer[self.position as usize] = value;
+        self.position = (self.position + 1) % N as u64;
     }
 
     pub fn get(&self, index: usize) -> Option<&T> {
@@ -80,7 +80,7 @@ impl<T: Clone, const N: usize> RingBuffer<T, N> {
     }
 
     pub fn current_position(&self) -> usize {
-        self.position
+        self.position as usize
     }
 
     pub fn len(&self) -> usize {

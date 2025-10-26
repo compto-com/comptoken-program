@@ -3,6 +3,8 @@ use anchor_lang::prelude::*;
 use crate::{
     helpers::{get_current_time, normalize_time},
     utils::ring_buffer::RingBuffer,
+    ADJUST_FACTOR, COMPTOKEN_DISTRIBUTION_MULTIPLIER, EARLY_ADOPTER_COUNT, END_GOAL_PERCENT_INCREASE,
+    MIN_SUPPLY_LIMIT_AMT,
 };
 
 const HISTORY_SIZE: usize = 365;

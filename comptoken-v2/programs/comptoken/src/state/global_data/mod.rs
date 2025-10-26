@@ -6,7 +6,10 @@ pub use valid_blockhashes::*;
 
 use anchor_lang::prelude::*;
 
-#[account]
+// account(zero_copy) impls bytemuck::Pod, which strictly speaking GlobalData
+// should not be considered Pod, because it contains DailyDistributionData which
+// contains a RingBuffer. however, we only use zero-copy deserialization, so it should be fine.
+#[account(zero_copy)]
 pub struct GlobalData {
     pub daily_distribution: DailyDistributionData,
     pub valid_blockhashes: ValidBlockhashes,

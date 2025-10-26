@@ -1,30 +1,40 @@
 use anchor_lang::prelude::*;
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct RingBuffer<T: Clone, const N: usize> {
-    buffer: [T; N],
+pub trait RingBufferItem: Clone + AnchorSerialize + AnchorDeserialize {}
+impl<T: Clone + AnchorSerialize + AnchorDeserialize> RingBufferItem for T {}
+
+#[repr(C)]
+#[derive(Copy, Clone, AnchorSerialize, AnchorDeserialize)]
+pub struct RingBuffer<T: RingBufferItem, const N: usize> {
     position: u64,
+    buffer: [T; N],
 }
 
-impl<T: Clone + Default, const N: usize> Default for RingBuffer<T, N> {
+// this is not strictly safe, position must always be less than N, so not all bit patterns are valid,
+// however we only use this to zero-copy deserialize types so the only patterns that will ever be seen are valid ones.
+// zero-copy is necessary because we have large ring buffers that cause problems with normal deserialization due to stack size limits.
+unsafe impl<T: RingBufferItem + bytemuck::Pod + Copy, const N: usize> bytemuck::Pod for RingBuffer<T, N> {}
+unsafe impl<T: RingBufferItem + bytemuck::Zeroable, const N: usize> bytemuck::Zeroable for RingBuffer<T, N> {}
+
+impl<T: RingBufferItem + Default, const N: usize> Default for RingBuffer<T, N> {
     fn default() -> Self {
         Self::new_from_fn(|_| Default::default())
     }
 }
 
-pub struct RingBufferIterator<'a, T: Clone, const N: usize> {
+pub struct RingBufferIterator<'a, T: RingBufferItem, const N: usize> {
     ring_buffer: &'a RingBuffer<T, N>,
     index: usize,
     count: usize,
 }
 
-impl<'a, T: Clone, const N: usize> RingBufferIterator<'a, T, N> {
+impl<'a, T: RingBufferItem, const N: usize> RingBufferIterator<'a, T, N> {
     fn new(ring_buffer: &'a RingBuffer<T, N>) -> Self {
         Self { ring_buffer, index: ring_buffer.position as usize, count: 0 }
     }
 }
 
-impl<'a, T: Clone, const N: usize> Iterator for RingBufferIterator<'a, T, N> {
+impl<'a, T: RingBufferItem, const N: usize> Iterator for RingBufferIterator<'a, T, N> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -48,7 +58,7 @@ impl<'a, T: Clone, const N: usize> Iterator for RingBufferIterator<'a, T, N> {
     }
 }
 
-impl<'a, T: Clone, const N: usize> IntoIterator for &'a RingBuffer<T, N> {
+impl<'a, T: RingBufferItem, const N: usize> IntoIterator for &'a RingBuffer<T, N> {
     type IntoIter = RingBufferIterator<'a, T, N>;
     type Item = T;
 
@@ -57,7 +67,7 @@ impl<'a, T: Clone, const N: usize> IntoIterator for &'a RingBuffer<T, N> {
     }
 }
 
-impl<T: Clone, const N: usize> RingBuffer<T, N> {
+impl<T: RingBufferItem, const N: usize> RingBuffer<T, N> {
     pub fn new_with_value(default_value: T) -> Self {
         Self::new_from_fn(|_| default_value.clone())
     }
@@ -244,7 +254,7 @@ mod tests {
 
     #[test]
     fn test_with_custom_struct() {
-        #[derive(Clone, PartialEq, Debug)]
+        #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Debug)]
         struct TestData {
             id: u32,
             value: String,

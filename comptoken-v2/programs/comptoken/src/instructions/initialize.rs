@@ -44,7 +44,7 @@ pub struct Initialize<'info> {
         seeds = [GLOBAL_DATA_SEED],
         bump,
     )]
-    pub global_data: Account<'info, GlobalData>,
+    pub global_data: AccountLoader<'info, GlobalData>,
 
     /// CHECK: SlotHashes sysvar account
     #[account(constraint = slot_hashes.key() == anchor_lang::solana_program::sysvar::slot_hashes::ID)]
@@ -76,7 +76,7 @@ pub fn handler(ctx: Context<Initialize>) -> Result<()> {
     )?;
 
     // Initialize global data
-    ctx.accounts.global_data.init(&ctx.accounts.slot_hashes);
+    ctx.accounts.global_data.load_init()?.init(&ctx.accounts.slot_hashes);
 
     Ok(())
 }

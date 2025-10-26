@@ -23,6 +23,7 @@ custom-panic = []
 [dependencies]
 anchor-lang = "0.32.1"
 anchor-spl = "0.32.1"
+bytemuck = { version = "1.24.0", features = ["min_const_generics"] }
 solana-hash = { version = "3.0.0", features = ["borsh"] }
 
 

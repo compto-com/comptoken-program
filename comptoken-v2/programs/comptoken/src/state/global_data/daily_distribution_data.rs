@@ -9,7 +9,8 @@ use crate::{
 
 const HISTORY_SIZE: usize = 365;
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Default)]
+#[repr(C)]
+#[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct HistoricDistribution {
     pub yield_rate: f64,
     pub ubi_yield: u64,
@@ -22,12 +23,17 @@ pub struct DailyDistribution {
     pub early_adopter_ubi_amount: u64,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+// technically, because of the RingBuffer, this struct is not strictly Pod. see comment there
+// however, we only use zero-copy deserialization, so it should be fine.
+// the _padding field ensures there is no "padding" in the struct so that bytemuck::Pod can be derived.
+#[repr(C)]
+#[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct DailyDistributionData {
     pub total_mined_today: u64,
     pub high_water_mark: u64,
     pub last_update_timestamp: i64,
     pub verified_accounts_count: u32,
+    pub _padding: [u8; 4],
     pub total_verified_balance: u64,
     pub historic_distributions: RingBuffer<HistoricDistribution, HISTORY_SIZE>,
 }
@@ -39,6 +45,7 @@ impl Default for DailyDistributionData {
             high_water_mark: 0,
             last_update_timestamp: normalize_time(get_current_time()),
             verified_accounts_count: 0,
+            _padding: [0; 4],
             total_verified_balance: 0,
             historic_distributions: RingBuffer::default(),
         }

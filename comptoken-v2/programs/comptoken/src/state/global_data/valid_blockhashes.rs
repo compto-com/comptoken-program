@@ -6,7 +6,8 @@ use crate::{
     ANNOUNCEMENT_INTERVAL, SECONDS_IN_A_DAY,
 };
 
-#[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone, Default)]
+#[repr(C)]
+#[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ValidBlockhashes {
     pub announced_blockhash: Hash,
     pub announced_blockhash_time: i64,
@@ -112,3 +113,6 @@ impl anchor_lang::IdlBuild for Hash {
         })
     }
 }
+
+unsafe impl bytemuck::Pod for Hash {}
+unsafe impl bytemuck::Zeroable for Hash {}

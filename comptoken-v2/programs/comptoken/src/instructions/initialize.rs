@@ -71,5 +71,8 @@ pub fn handler(ctx: Context<Initialize>) -> Result<()> {
         None,
     )?;
 
+    // Initialize global data
+    ctx.accounts.global_data.load_init()?.init(&ctx.accounts.slot_hashes);
+
     Ok(())
 }

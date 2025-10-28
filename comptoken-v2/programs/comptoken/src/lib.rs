@@ -17,6 +17,12 @@ declare_id!("F9SW7dcgDHV6QGYcFHyqKtykAdsHvL4BJYA2YP4YkEJX");
 pub mod comptoken {
     use super::*;
 
+    pub fn create_user_data_account(
+        ctx: Context<CreateUserDataAccount>, args: CreateUserDataAccountArgs,
+    ) -> Result<()> {
+        create_user_data_account::create_user_data_account(ctx, args)
+    }
+
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         initialize::initialize(ctx)
     }

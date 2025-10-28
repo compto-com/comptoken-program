@@ -53,14 +53,15 @@ fn get_most_recent_blockhash(slot_hash_account: &UncheckedAccount<'_>) -> Hash {
     // slot hashes is too large to deserialize, so we use a zero copy approach. based on the
     // implementation proposed on https://github.com/solana-labs/solana/issues/33015
     let data = slot_hash_account.try_borrow_data().expect("slot hash should be unborrowed");
-    let len: usize = usize::from_ne_bytes(data[0..8].try_into().expect("correct size"));
-    let slot_hashes_raw = &data[8..];
+    let len: u64 = *bytemuck::from_bytes(&data[0..8]);
+    let slot_hashes: &[SlotHash] = bytemuck::cast_slice(&data[8..8 + len as usize * 40]);
 
-    // Safety: The slot_hashes_raw is guaranteed to be properly aligned and sized for (u64, Hash)
-    assert!(slot_hashes_raw.len() == len * std::mem::size_of::<(u64, Hash)>());
-    assert!(slot_hashes_raw.as_ptr() as usize % std::mem::align_of::<(u64, Hash)>() == 0);
+    slot_hashes.first().expect("slot hashes should not be empty").hash
+}
 
-    let slot_hashes = unsafe { std::slice::from_raw_parts(slot_hashes_raw.as_ptr() as *const (u64, Hash), len) };
-
-    slot_hashes.first().expect("slot hashes should not be empty").1
+#[repr(C)]
+#[derive(Copy, Clone, Default, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct SlotHash {
+    slot: u64,
+    hash: Hash,
 }

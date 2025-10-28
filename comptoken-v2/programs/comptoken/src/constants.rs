@@ -13,6 +13,9 @@ pub const UNSTAKED_MINT_SEED: &[u8] = b"unstaked_mint";
 pub const GLOBAL_DATA_SEED: &[u8] = b"global_data";
 
 #[constant]
+pub const USER_DATA_SEED: &[u8] = b"user_data";
+
+#[constant]
 // TODO: this number deserves scrutiny and justification
 pub const COMPTOKEN_DISTRIBUTION_MULTIPLIER: u64 = 146_000;
 
@@ -37,3 +40,6 @@ pub const SECONDS_IN_A_DAY: i64 = 86400;
 
 #[constant]
 pub const ANNOUNCEMENT_INTERVAL: i64 = 60 * 5; // 5 minutes
+
+#[constant]
+pub const VERIFICATION_DURATION: i64 = SECONDS_IN_A_DAY * 31; // 1 month (31 days)

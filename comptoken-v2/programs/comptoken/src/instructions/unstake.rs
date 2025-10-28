@@ -57,6 +57,7 @@ pub struct Unstake<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct UnstakeArgs {
     amount: u64,
 }

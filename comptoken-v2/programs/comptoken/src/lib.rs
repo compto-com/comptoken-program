@@ -32,4 +32,12 @@ pub mod comptoken {
     ) -> Result<()> {
         resize_user_data_account::resize_user_data_account(ctx, args)
     }
+
+    pub fn stake(ctx: Context<Stake>, args: StakeArgs) -> Result<()> {
+        stake::stake(ctx, args)
+    }
+
+    pub fn unstake(ctx: Context<Unstake>, args: UnstakeArgs) -> Result<()> {
+        unstake::unstake(ctx, args)
+    }
 }

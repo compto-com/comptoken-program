@@ -26,4 +26,10 @@ pub mod comptoken {
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         initialize::initialize(ctx)
     }
+
+    pub fn resize_user_data_account(
+        ctx: Context<ResizeUserDataAccount>, args: ResizeUserDataAccountArgs,
+    ) -> Result<()> {
+        resize_user_data_account::resize_user_data_account(ctx, args)
+    }
 }

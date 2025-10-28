@@ -4,10 +4,10 @@ use anchor_lang::prelude::*;
 pub const MINT_DECIMALS: u8 = 2;
 
 #[constant]
-pub const LOCKED_MINT_SEED: &[u8] = b"locked_mint";
+pub const STAKED_MINT_SEED: &[u8] = b"staked_mint";
 
 #[constant]
-pub const UNLOCKED_MINT_SEED: &[u8] = b"unlocked_mint";
+pub const UNSTAKED_MINT_SEED: &[u8] = b"unstaked_mint";
 
 #[constant]
 pub const GLOBAL_DATA_SEED: &[u8] = b"global_data";
@@ -33,7 +33,6 @@ pub const ADJUST_FACTOR: f64 = 0.3;
 // the USD supply increase per year (~7%), and quadrupling it to allow for periods of larger growth, then rounding to a nicer number.
 pub const END_GOAL_PERCENT_INCREASE: f64 = 0.00061;
 
-#[constant]
 pub const SECONDS_IN_A_DAY: i64 = 86400;
 
 #[constant]

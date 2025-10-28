@@ -8,7 +8,10 @@ use anchor_spl::{
     token_interface::{non_transferable_mint_initialize, Mint, NonTransferableMintInitialize},
 };
 
-use crate::{global_data::GlobalData, GLOBAL_DATA_SEED, LOCKED_MINT_SEED, MINT_DECIMALS, UNLOCKED_MINT_SEED};
+use crate::{
+    constants::{GLOBAL_DATA_SEED, MINT_DECIMALS, STAKED_MINT_SEED, UNSTAKED_MINT_SEED},
+    state::global_data::GlobalData,
+};
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -19,23 +22,23 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = ExtensionType::try_calculate_account_len::<PodMint>(&[ExtensionType::NonTransferable]).expect("NonTransferable extension size to be constant"),
-        seeds = [LOCKED_MINT_SEED],
+        seeds = [STAKED_MINT_SEED],
         bump,
         owner = token_program.key(),
     )]
     /// CHECK: This account will be initialized as a Token2022 mint with NonTransferable extension
-    pub mint_locked: UncheckedAccount<'info>,
+    pub mint_staked: UncheckedAccount<'info>,
 
     #[account(
         init,
         payer = payer,
         mint::authority = crate::id(),
         mint::decimals = MINT_DECIMALS,
-        seeds = [UNLOCKED_MINT_SEED],
+        seeds = [UNSTAKED_MINT_SEED],
         bump,
         mint::token_program = token_program,
     )]
-    pub mint_unlocked: InterfaceAccount<'info, Mint>,
+    pub mint_unstaked: InterfaceAccount<'info, Mint>,
 
     #[account(
         init,
@@ -54,13 +57,13 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<Initialize>) -> Result<()> {
-    // Initialize the non-transferable extension for the locked mint
+pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+    // Initialize the non-transferable extension for the staked mint
     non_transferable_mint_initialize(CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         NonTransferableMintInitialize {
             token_program_id: ctx.accounts.token_program.to_account_info(),
-            mint: ctx.accounts.mint_locked.to_account_info(),
+            mint: ctx.accounts.mint_staked.to_account_info(),
         },
     ))?;
 
@@ -68,7 +71,7 @@ pub fn handler(ctx: Context<Initialize>) -> Result<()> {
     initialize_mint2(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
-            InitializeMint2 { mint: ctx.accounts.mint_locked.to_account_info() },
+            InitializeMint2 { mint: ctx.accounts.mint_staked.to_account_info() },
         ),
         MINT_DECIMALS,
         &crate::id(),

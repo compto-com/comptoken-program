@@ -16,8 +16,8 @@ pub struct GlobalData {
 }
 
 impl GlobalData {
-    pub fn daily_distribution(&mut self, locked_supply: u64, unlocked_supply: u64) -> DailyDistribution {
-        self.daily_distribution.daily_distribution(locked_supply, unlocked_supply)
+    pub fn daily_distribution(&mut self, staked_supply: u64, unstaked_supply: u64) -> DailyDistribution {
+        self.daily_distribution.daily_distribution(staked_supply, unstaked_supply)
     }
 
     pub fn init(&mut self, slot_hash_account: &UncheckedAccount<'_>) {

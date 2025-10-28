@@ -60,7 +60,7 @@ impl DailyDistributionData {
         *self = Self::default();
     }
 
-    pub fn daily_distribution(&mut self, locked_supply: u64, unlocked_supply: u64) -> DailyDistribution {
+    pub fn daily_distribution(&mut self, staked_supply: u64, unstaked_supply: u64) -> DailyDistribution {
         self.last_update_timestamp = normalize_time(get_current_time());
 
         if self.total_mined_today == 0 {
@@ -68,7 +68,7 @@ impl DailyDistributionData {
             return DailyDistribution { yield_amount: 0, ubi_amount: 0, early_adopter_ubi_amount: 0 };
         }
 
-        let high_water_mark_increase = self.calculate_high_water_mark_increase(locked_supply + unlocked_supply);
+        let high_water_mark_increase = self.calculate_high_water_mark_increase(staked_supply + unstaked_supply);
         msg!("High water mark increase: {}", high_water_mark_increase);
 
         self.high_water_mark += high_water_mark_increase;
@@ -92,7 +92,7 @@ impl DailyDistributionData {
             early_adopter_ubi_amount: ubi_for_early_adopters,
         };
 
-        let todays_yield_rate = distribution.yield_amount as f64 / (locked_supply as f64);
+        let todays_yield_rate = distribution.yield_amount as f64 / (staked_supply as f64);
         msg!("Today's yield rate: {}", todays_yield_rate);
 
         let todays_ubi_yield = distribution.ubi_amount.checked_div(self.verified_accounts_count as u64).unwrap_or(0);
@@ -129,7 +129,7 @@ impl DailyDistributionData {
     }
 
     pub fn get_yield_for_n_days(&self, n: usize, principal: u64) -> u64 {
-        // yield only applies to staked (locked) tokens, and they can't be staked until they are collected,
+        // yield only applies to staked tokens, and they can't be staked until they are collected,
         // so we don't consider compounding here. calculations are done on a per-day basis to avoid incentivizing
         // gaming the rounding
         self.n_days_of_history(n)

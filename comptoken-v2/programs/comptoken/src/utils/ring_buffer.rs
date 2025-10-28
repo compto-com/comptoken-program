@@ -30,7 +30,7 @@ pub struct RingBufferIterator<'a, T: RingBufferItem, const N: usize> {
 
 impl<'a, T: RingBufferItem, const N: usize> RingBufferIterator<'a, T, N> {
     fn new(ring_buffer: &'a RingBuffer<T, N>) -> Self {
-        Self { ring_buffer, index: ring_buffer.position as usize, count: 0 }
+        Self { ring_buffer, index: ring_buffer.position(), count: 0 }
     }
 }
 
@@ -77,7 +77,7 @@ impl<T: RingBufferItem, const N: usize> RingBuffer<T, N> {
     }
 
     pub fn push(&mut self, value: T) {
-        self.buffer[self.position as usize] = value;
+        self.buffer[self.position()] = value;
         self.position = (self.position + 1) % N as u64;
     }
 
@@ -89,7 +89,7 @@ impl<T: RingBufferItem, const N: usize> RingBuffer<T, N> {
         }
     }
 
-    pub fn current_position(&self) -> usize {
+    pub fn position(&self) -> usize {
         self.position as usize
     }
 
@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn test_new_ring_buffer() {
         let rb: RingBuffer<_, 5> = RingBuffer::default();
-        assert_eq!(rb.current_position(), 0);
+        assert_eq!(rb.position(), 0);
         assert_eq!(rb.len(), 5);
 
         // All elements should be initialized to default value
@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn test_new_with_value_ring_buffer() {
         let rb: RingBuffer<_, 5> = RingBuffer::new_with_value(1);
-        assert_eq!(rb.current_position(), 0);
+        assert_eq!(rb.position(), 0);
         assert_eq!(rb.len(), 5);
 
         // All elements should be initialized to default value
@@ -135,7 +135,7 @@ mod tests {
         let mut rb: RingBuffer<_, 3> = RingBuffer::default();
 
         rb.push(42);
-        assert_eq!(rb.current_position(), 1);
+        assert_eq!(rb.position(), 1);
         assert_eq!(rb.get(0), Some(&42));
         assert_eq!(rb.get(1), Some(&0));
         assert_eq!(rb.get(2), Some(&0));
@@ -149,7 +149,7 @@ mod tests {
         rb.push(2);
         rb.push(3);
 
-        assert_eq!(rb.current_position(), 0); // Wrapped around
+        assert_eq!(rb.position(), 0); // Wrapped around
         assert_eq!(rb.get(0), Some(&1));
         assert_eq!(rb.get(1), Some(&2));
         assert_eq!(rb.get(2), Some(&3));
@@ -167,7 +167,7 @@ mod tests {
         // Add one more element, should wrap around
         rb.push(4);
 
-        assert_eq!(rb.current_position(), 1);
+        assert_eq!(rb.position(), 1);
         assert_eq!(rb.get(0), Some(&4)); // Overwrote the first element
         assert_eq!(rb.get(1), Some(&2));
         assert_eq!(rb.get(2), Some(&3));
@@ -282,7 +282,7 @@ mod tests {
     fn test_zero_size_buffer() {
         let rb: RingBuffer<i32, 0> = RingBuffer::default();
         assert_eq!(rb.len(), 0);
-        assert_eq!(rb.current_position(), 0);
+        assert_eq!(rb.position(), 0);
 
         let values: Vec<_> = rb.into_iter().collect();
         assert_eq!(values, Vec::<i32>::new());
@@ -293,7 +293,7 @@ mod tests {
         let mut rb: RingBuffer<_, 1> = RingBuffer::default();
 
         rb.push(42);
-        assert_eq!(rb.current_position(), 0); // Wrapped immediately
+        assert_eq!(rb.position(), 0); // Wrapped immediately
         assert_eq!(rb.get(0), Some(&42));
 
         rb.push(99);
@@ -312,7 +312,7 @@ mod tests {
             rb.push(i);
         }
 
-        assert_eq!(rb.current_position(), 0); // Should wrap back to start
+        assert_eq!(rb.position(), 0); // Should wrap back to start
 
         // Verify all elements
         for i in 0..1000 {
@@ -335,7 +335,7 @@ mod tests {
         }
 
         // Should contain the last 3 elements
-        assert_eq!(rb.current_position(), 1); // 10 % 3 = 1
+        assert_eq!(rb.position(), 1); // 10 % 3 = 1
         assert_eq!(rb.get(0), Some(&9)); // Last element pushed
         assert_eq!(rb.get(1), Some(&7)); // 10 - 3 = 7
         assert_eq!(rb.get(2), Some(&8)); // 10 - 2 = 8

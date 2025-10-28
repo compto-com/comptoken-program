@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::slot_hashes::SlotHashes;
 
 use crate::{
+    hash::Hash,
     helpers::{get_current_time, normalize_time},
     ANNOUNCEMENT_INTERVAL, SECONDS_IN_A_DAY,
 };
@@ -63,56 +64,3 @@ fn get_most_recent_blockhash(slot_hash_account: &UncheckedAccount<'_>) -> Hash {
 
     slot_hashes.first().expect("slot hashes should not be empty").1
 }
-
-// wrapper around solana_hash::Hash to implement AnchorSerialize, AnchorDeserialize, IdlBuild, bytemuck::Pod, and bytemuck::Zeroable
-#[repr(transparent)]
-#[derive(Clone, Copy, Default)]
-pub struct Hash(solana_hash::Hash);
-
-impl std::ops::Deref for Hash {
-    type Target = solana_hash::Hash;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl AnchorDeserialize for Hash {
-    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
-        Ok(Hash(solana_hash::Hash::new_from_array(AnchorDeserialize::deserialize_reader(reader)?)))
-    }
-}
-
-impl AnchorSerialize for Hash {
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        AnchorSerialize::serialize(self.0.as_bytes(), writer)
-    }
-}
-
-#[cfg(feature = "idl-build")]
-use anchor_lang::idl::types::{
-    IdlArrayLen, IdlDefinedFields, IdlRepr, IdlSerialization, IdlType, IdlTypeDef, IdlTypeDefTy,
-};
-
-#[cfg(feature = "idl-build")]
-impl anchor_lang::IdlBuild for Hash {
-    fn create_type() -> Option<IdlTypeDef> {
-        use std::vec;
-
-        Some(IdlTypeDef {
-            name: "Hash".to_string(),
-            ty: IdlTypeDefTy::Struct {
-                fields: Some(IdlDefinedFields::Tuple(vec![IdlType::Array(
-                    Box::new(IdlType::U8),
-                    IdlArrayLen::Value(32),
-                )])),
-            },
-            generics: vec![],
-            docs: vec![],
-            serialization: IdlSerialization::Borsh,
-            repr: Some(IdlRepr::Transparent),
-        })
-    }
-}
-
-unsafe impl bytemuck::Pod for Hash {}
-unsafe impl bytemuck::Zeroable for Hash {}

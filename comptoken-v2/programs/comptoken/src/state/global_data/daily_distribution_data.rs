@@ -7,7 +7,7 @@ use crate::{
     MIN_SUPPLY_LIMIT_AMT,
 };
 
-const HISTORY_SIZE: usize = 365;
+const HISTORY_LENGTH: usize = 365;
 
 #[repr(C)]
 #[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone, Default, bytemuck::Pod, bytemuck::Zeroable)]
@@ -35,7 +35,7 @@ pub struct DailyDistributionData {
     pub verified_accounts_count: u32,
     pub _padding: [u8; 4],
     pub total_verified_balance: u64,
-    pub historic_distributions: RingBuffer<HistoricDistribution, HISTORY_SIZE>,
+    pub historic_distributions: RingBuffer<HistoricDistribution, HISTORY_LENGTH>,
 }
 
 impl Default for DailyDistributionData {
@@ -53,7 +53,7 @@ impl Default for DailyDistributionData {
 }
 
 impl DailyDistributionData {
-    pub const HISTORY_SIZE: usize = HISTORY_SIZE;
+    pub const HISTORY_LENGTH: usize = HISTORY_LENGTH;
 
     pub fn init(&mut self) {
         assert!(self.last_update_timestamp == 0); // ensure uninitialized
@@ -164,3 +164,6 @@ fn calculate_distribution_limiter(supply: u64) -> f64 {
     let x = supply - MIN_SUPPLY_LIMIT_AMT;
     f64::powf(x as f64, -ADJUST_FACTOR) + END_GOAL_PERCENT_INCREASE
 }
+
+#[constant]
+pub const DAILY_DISTRIBUTION_DATA_HISTORY_LENGTH: u64 = DailyDistributionData::HISTORY_LENGTH as u64;

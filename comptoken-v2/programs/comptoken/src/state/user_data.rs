@@ -35,14 +35,12 @@ impl UserData {
         };
     }
 
+    // discriminator + all fields including runtime proofs - runtime size of proofs + vec length (4)
+    const SIZE_WITHOUT_PROOFS: usize =
+        Self::DISCRIMINATOR.len() + std::mem::size_of::<Self>() - std::mem::size_of::<Vec<Hash>>() + 4;
+
     pub fn space(capacity: usize) -> usize {
-        8 + // discriminator
-        std::mem::size_of::<Self>() -
-        // remove runtime vec size
-        std::mem::size_of::<Vec<Hash>>() +
-        // add storage-time vec size
-        4 + // vec len
-        (std::mem::size_of::<Hash>() * capacity) // [Hash; capacity]
+        Self::SIZE_WITHOUT_PROOFS + (std::mem::size_of::<Hash>() * capacity)
     }
 
     pub fn verification_status(&self) -> UserDataVerificationStatus {
@@ -79,3 +77,6 @@ impl UserData {
         ((now - self.last_claimed_timestamp) / SECONDS_IN_A_DAY) as usize
     }
 }
+
+#[constant]
+pub const USER_DATA_SIZE_WITHOUT_PROOFS: u64 = UserData::SIZE_WITHOUT_PROOFS as u64;

@@ -35,9 +35,9 @@ describe("comptoken", () => {
         );
 
         // Execute the initialize instruction
-        const tx = await program.methods
+        const _tx = await program.methods
             .initialize()
-            .accountsPartial({
+            .accounts({
                 slotHashes: SYSVAR_SLOT_HASHES_PUBKEY,
             })
             .rpc();
@@ -94,7 +94,63 @@ describe("comptoken", () => {
         expect(globalData.validBlockhashes.validBlockhashTime.toNumber()).to.be.greaterThan(0);
         console.log("✓ GlobalData account initialized with expected defaults");
     });
+
+    it("Creates user data account", async () => {
+        // Derive the UserData PDA using the same seed as in the program
+        const userPubkey = provider.wallet.publicKey;
+        const [userDataPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from(program.constants.userDataSeed), userPubkey.toBuffer()],
+            program.programId
+        );
+
+        // Execute the create_user_data instruction
+        const _tx = await program.methods
+            .createUserDataAccount({ capacity: new anchor.BN(10) })
+            .accounts({
+                payer: userPubkey,
+                userWallet: userPubkey,
+            })
+            .rpc();
+
+        // Verify the UserData account was created and is owned by our program
+        const userDataInfo = await provider.connection.getAccountInfo(userDataPda);
+        expect(userDataInfo, "UserData account should exist").to.not.be.null;
+        expect(userDataInfo!.owner.toString(), "UserData should be owned by the comptoken program").to.equal(
+            program.programId.toString()
+        );
+
+        const userData = await program.account.userData.fetch(userDataPda);
+        expect(userData.lastClaimedTimestamp.toNumber(), "Last claimed timestamp should be initialized").to.equal(
+            normalizeTime(new Date()).getTime() / 1000
+        );
+        expect(userData.lastVerifiedTimestamp.toNumber(), "Last verified timestamp should be 0").to.equal(
+            new Date(0).getTime() / 1000
+        );
+        expect(userData.proofs.length, "Proofs array should be empty").to.equal(0);
+        console.log(JSON.stringify(userData.proofs));
+
+        expect(userDataInfo.data.length, "UserData account size should match allocated size").to.equal(
+            8 + // discriminator
+                8 + // last_claimed_timestamp
+                8 + // last_verified_timestamp
+                32 + // nullifier_hash
+                32 + // recent_blockhash
+                4 + // proofs vec length
+                10 * 32 // proofs capacity (10) * size of each proof (32 bytes)
+        );
+
+        console.log("✓ UserData account initialized with expected defaults");
+    });
 });
+
+function normalizeTime(time: Date): Date {
+    const normalized = new Date(time);
+    normalized.setUTCMilliseconds(0);
+    normalized.setUTCSeconds(0);
+    normalized.setUTCMinutes(0);
+    normalized.setUTCHours(0);
+    return normalized;
+}
 
 function getConstants<Idl extends anchor.Idl>(program: Program<Idl>): Constants<Program<Idl>["idl"]["constants"]> {
     const rawConstants = program.idl.constants;

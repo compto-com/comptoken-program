@@ -18,7 +18,7 @@ pub struct UserData {
     pub last_claimed_timestamp: i64,
 
     pub last_verified_timestamp: i64, // 0 if never verified
-    pub nulliffier_hash: Hash,
+    pub nullifier_hash: Hash,
 
     pub recent_blockhash: Hash,
     pub proofs: Vec<Hash>,
@@ -30,7 +30,7 @@ impl UserData {
         *self = Self {
             last_claimed_timestamp: normalize_time(get_current_time()),
             last_verified_timestamp: 0,
-            nulliffier_hash: Hash::default(),
+            nullifier_hash: Hash::default(),
             recent_blockhash: Hash::default(),
             proofs: Vec::with_capacity(capacity),
         };
@@ -82,6 +82,20 @@ impl UserData {
 
     pub fn update_last_claim_timestamp(&mut self) {
         self.last_claimed_timestamp = normalize_time(get_current_time());
+    }
+
+    pub fn update_last_verified_timestamp(&mut self) {
+        self.last_verified_timestamp = normalize_time(get_current_time());
+    }
+
+    pub fn set_nullifier_hash(&mut self, nullifier_hash: Hash) {
+        self.nullifier_hash = nullifier_hash;
+        self.update_last_verified_timestamp();
+    }
+
+    pub fn clear_nullifier_hash(&mut self) {
+        self.nullifier_hash = Hash::default();
+        self.last_verified_timestamp = 0;
     }
 }
 

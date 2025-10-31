@@ -19,6 +19,9 @@ pub const GLOBAL_DATA_SEED: &[u8] = b"global_data";
 pub const USER_DATA_SEED: &[u8] = b"user_data";
 
 #[constant]
+pub const NULLIFIER_SEED: &[u8] = b"nullifier";
+
+#[constant]
 // TODO: this number deserves scrutiny and justification
 pub const COMPTOKEN_DISTRIBUTION_MULTIPLIER: u64 = 146_000;
 
@@ -46,3 +49,16 @@ pub const ANNOUNCEMENT_INTERVAL: i64 = 60 * 5; // 5 minutes
 
 #[constant]
 pub const VERIFICATION_DURATION: i64 = SECONDS_IN_A_DAY * 31; // 1 month (31 days)
+
+#[constant]
+pub const WORLD_ID_PROOF_LENGTH: u64 = 256;
+
+pub const WORLD_ID_PROOF_SIZE: usize = 256;
+
+pub const WORLD_VERIFICATION_TYPE: u8 = 1; // Orb based verification (I think?)
+
+#[constant]
+pub const WORLD_APP_ID: &[u8] = b"self_hosted";
+
+#[constant]
+pub const WORLD_ACTION: &[u8] = b"COMPTO-verifyHuman";

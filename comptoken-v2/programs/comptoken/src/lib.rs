@@ -57,6 +57,22 @@ pub mod comptoken {
         submit_mining_proof::submit_mining_proof(ctx, args)
     }
 
+    pub fn verify(ctx: Context<Verify>, args: WorldIdVerificationData) -> Result<()> {
+        verification::verify(ctx, args)
+    }
+
+    pub fn reverify(ctx: Context<Reverify>, args: WorldIdVerificationData) -> Result<()> {
+        verification::reverify(ctx, args)
+    }
+
+    pub fn unverify(ctx: Context<Unverify>, args: WorldIdVerificationData) -> Result<()> {
+        verification::unverify(ctx, args)
+    }
+
+    pub fn unverify2(ctx: Context<Unverify2>, args: Unverify2Args) -> Result<()> {
+        verification::unverify2(ctx, args)
+    }
+
     #[cfg(feature = "testmode")]
     pub fn test_mint_staked_unchecked(
         ctx: Context<TestMintStakedUnchecked>, args: TestMintStakedUncheckedArgs,

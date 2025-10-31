@@ -7,7 +7,7 @@ use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UserDataVerificationStatus {
-    NeverVerified,
+    Unverified,
     Verified,
     VerificationExpired,
 }
@@ -46,7 +46,7 @@ impl UserData {
     pub fn verification_status(&self) -> UserDataVerificationStatus {
         let today = normalize_time(get_current_time());
         match self.last_verified_timestamp {
-            0 => UserDataVerificationStatus::NeverVerified,
+            0 => UserDataVerificationStatus::Unverified,
             ts if ts + VERIFICATION_DURATION > today => UserDataVerificationStatus::Verified,
             _ => UserDataVerificationStatus::VerificationExpired,
         }
@@ -75,6 +75,10 @@ impl UserData {
     pub fn days_since_last_claim(&self) -> usize {
         let now = normalize_time(get_current_time());
         ((now - self.last_claimed_timestamp) / SECONDS_IN_A_DAY) as usize
+    }
+
+    pub fn update_last_claim_timestamp(&mut self) {
+        self.last_claimed_timestamp = normalize_time(get_current_time());
     }
 }
 

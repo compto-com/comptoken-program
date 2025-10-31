@@ -11,6 +11,7 @@ use crate::{
 };
 
 #[derive(Accounts)]
+#[instruction(args: StakeArgs)]
 pub struct Stake<'info> {
     #[account(
         seeds = [GLOBAL_DATA_SEED],
@@ -82,7 +83,8 @@ pub fn stake(ctx: Context<Stake>, args: StakeArgs) -> Result<()> {
                 from: user_unstaked_token_account.to_account_info(),
                 authority: ctx.accounts.global_data.to_account_info(),
             },
-        ),
+        )
+        .with_signer(&[&[GLOBAL_DATA_SEED]]),
         args.amount,
     )?;
 
@@ -94,7 +96,8 @@ pub fn stake(ctx: Context<Stake>, args: StakeArgs) -> Result<()> {
                 to: user_staked_token_account.to_account_info(),
                 authority: ctx.accounts.global_data.to_account_info(),
             },
-        ),
+        )
+        .with_signer(&[&[GLOBAL_DATA_SEED]]),
         args.amount,
         MINT_DECIMALS,
     )?;

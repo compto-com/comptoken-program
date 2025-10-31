@@ -14,6 +14,7 @@ use crate::{
 };
 
 #[derive(Accounts)]
+#[instruction()]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -32,7 +33,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
-        mint::authority = crate::id(),
+        mint::authority = global_data.key(),
         mint::decimals = MINT_DECIMALS,
         seeds = [UNSTAKED_MINT_SEED],
         bump,
@@ -72,9 +73,10 @@ pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             InitializeMint2 { mint: ctx.accounts.mint_staked.to_account_info() },
-        ),
+        )
+        .with_signer(&[&[GLOBAL_DATA_SEED]]),
         MINT_DECIMALS,
-        &crate::id(),
+        &ctx.accounts.global_data.to_account_info().key(),
         None,
     )?;
 

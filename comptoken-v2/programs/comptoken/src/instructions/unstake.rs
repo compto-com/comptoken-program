@@ -11,6 +11,7 @@ use crate::{
 };
 
 #[derive(Accounts)]
+#[instruction(args: UnstakeArgs)]
 pub struct Unstake<'info> {
     #[account(
         seeds = [GLOBAL_DATA_SEED],
@@ -78,7 +79,8 @@ pub fn unstake(ctx: Context<Unstake>, args: UnstakeArgs) -> Result<()> {
                 from: user_staked_token_account.to_account_info(),
                 authority: ctx.accounts.global_data.to_account_info(),
             },
-        ),
+        )
+        .with_signer(&[&[GLOBAL_DATA_SEED]]),
         args.amount,
     )?;
 
@@ -90,7 +92,8 @@ pub fn unstake(ctx: Context<Unstake>, args: UnstakeArgs) -> Result<()> {
                 to: user_unstaked_token_account.to_account_info(),
                 authority: ctx.accounts.global_data.to_account_info(),
             },
-        ),
+        )
+        .with_signer(&[&[GLOBAL_DATA_SEED]]),
         args.amount,
         MINT_DECIMALS,
     )?;

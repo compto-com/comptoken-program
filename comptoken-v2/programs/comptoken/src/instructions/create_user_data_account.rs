@@ -35,6 +35,6 @@ impl CreateUserDataAccountArgs {
 
 pub fn create_user_data_account(ctx: Context<CreateUserDataAccount>, args: CreateUserDataAccountArgs) -> Result<()> {
     let user_data = &mut ctx.accounts.user_data;
-    user_data.init(args.capacity());
+    user_data.init(args.capacity())?;
     Ok(())
 }

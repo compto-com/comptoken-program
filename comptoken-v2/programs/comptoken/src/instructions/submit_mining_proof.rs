@@ -8,6 +8,7 @@ use anchor_spl::{
 use crate::{
     constants::{GLOBAL_DATA_SEED, MINING_REWARD_AMOUNT, MINT_DECIMALS, UNSTAKED_MINT_SEED, USER_DATA_SEED},
     state::{
+        error::ComptokenError,
         global_data::{GlobalData, ValidBlockhashes},
         hash::Hash,
         user_data::UserData,
@@ -83,6 +84,7 @@ impl SubmitMiningProofArgs {
             nonce_bytes,
         ];
 
+        // sanity check
         assert_eq!(header.iter().map(|slice| slice.len()).sum::<usize>(), 80);
 
         let mut final_hash = double_sha256(header);
@@ -148,8 +150,8 @@ pub fn submit_mining_proof(ctx: Context<SubmitMiningProof>, args: SubmitMiningPr
     let valid_blockhashes = ctx.accounts.global_data.load()?.valid_blockhashes;
     let mining_proof = args.parse_and_hash_proof(&valid_blockhashes);
 
-    assert!(mining_proof.is_valid(), "Mining proof does not meet target difficulty");
-    user_data.insert_proof(valid_blockhashes.valid_blockhash, mining_proof.hash);
+    require!(mining_proof.is_valid(), ComptokenError::InvalidMiningProof);
+    user_data.insert_proof(valid_blockhashes.valid_blockhash, mining_proof.hash)?;
 
     msg!("Mining proof stored successfully");
 

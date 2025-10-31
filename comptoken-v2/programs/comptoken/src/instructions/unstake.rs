@@ -7,7 +7,7 @@ use anchor_spl::{
 
 use crate::{
     constants::{GLOBAL_DATA_SEED, MINT_DECIMALS, STAKED_MINT_SEED, UNSTAKED_MINT_SEED, USER_DATA_SEED},
-    state::{global_data::GlobalData, user_data::UserData},
+    state::{error::ComptokenError, global_data::GlobalData, user_data::UserData},
 };
 
 #[derive(Accounts)]
@@ -67,8 +67,8 @@ pub fn unstake(ctx: Context<Unstake>, args: UnstakeArgs) -> Result<()> {
     let user_unstaked_token_account = &mut ctx.accounts.user_unstaked_token_account;
     let user_data = &mut ctx.accounts.user_data;
 
-    assert!(user_staked_token_account.amount >= args.amount, "Insufficient staked token balance");
-    assert!(user_data.is_current(), "User data is not current"); // prevent staking until user has collected outstanding rewards
+    require!(user_staked_token_account.amount >= args.amount, ComptokenError::InsufficientFunds);
+    require!(user_data.is_current(), ComptokenError::UserDataNotCurrent); // prevent staking until user has collected outstanding rewards
 
     burn(
         CpiContext::new(

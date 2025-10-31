@@ -1,9 +1,10 @@
+use anchor_lang::prelude::*;
+
 use crate::{
     constants::{SECONDS_IN_A_DAY, VERIFICATION_DURATION},
-    state::hash::Hash,
+    state::{error::ComptokenError, hash::Hash},
     utils::helpers::{get_current_time, normalize_time},
 };
-use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UserDataVerificationStatus {
@@ -24,8 +25,8 @@ pub struct UserData {
 }
 
 impl UserData {
-    pub fn init(&mut self, capacity: usize) {
-        assert!(self.last_claimed_timestamp == 0); // ensure uninitialized
+    pub fn init(&mut self, capacity: usize) -> Result<()> {
+        require_eq!(self.last_claimed_timestamp, 0, ComptokenError::AccountAlreadyInitialized); // ensure uninitialized
         *self = Self {
             last_claimed_timestamp: normalize_time(get_current_time()),
             last_verified_timestamp: 0,
@@ -33,6 +34,7 @@ impl UserData {
             recent_blockhash: Hash::default(),
             proofs: Vec::with_capacity(capacity),
         };
+        Ok(())
     }
 
     // discriminator + all fields including runtime proofs - runtime size of proofs + vec length (4)
@@ -59,13 +61,14 @@ impl UserData {
         }
     }
 
-    pub fn insert_proof(&mut self, recent_blockhash: Hash, proof: Hash) {
+    pub fn insert_proof(&mut self, recent_blockhash: Hash, proof: Hash) -> Result<()> {
         self.update_recent_blockhash(recent_blockhash);
 
-        assert!(self.proofs.len() < self.proofs.capacity(), "proofs vec is full, consider increasing capacity");
+        require_gt!(self.proofs.capacity(), self.proofs.len(), ComptokenError::UserDataProofsCapacityExceeded);
+        require!(!self.proofs.contains(&proof), ComptokenError::DuplicateMiningProof);
 
-        assert!(!self.proofs.contains(&proof), "proof should be new");
         self.proofs.push(proof);
+        Ok(())
     }
 
     pub fn is_current(&self) -> bool {

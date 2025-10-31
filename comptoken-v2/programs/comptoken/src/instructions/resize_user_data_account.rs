@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 use crate::{
     constants::{GLOBAL_DATA_SEED, USER_DATA_SEED},
-    state::{global_data::GlobalData, user_data::UserData},
+    state::{error::ComptokenError, global_data::GlobalData, user_data::UserData},
 };
 
 #[derive(Accounts)]
@@ -49,7 +49,7 @@ pub fn resize_user_data_account(ctx: Context<ResizeUserDataAccount>, args: Resiz
     user_data.update_recent_blockhash(recent_blockhash);
 
     let len = user_data.proofs.len();
-    assert!(args.new_capacity() >= len, "New capacity must be at least the current number of proofs"); // should we enforce stricter shrink rules?
+    require!(args.new_capacity() >= len, ComptokenError::InvalidCapacity); // should we enforce stricter shrink rules?
 
     // this may be effectively handled by the serializer/deserializer, but just to be safe
     // reserve_exact allocates exactly the requested *additional* capacity,

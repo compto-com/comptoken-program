@@ -20,8 +20,9 @@ impl GlobalData {
         self.daily_distribution.daily_distribution(staked_supply, unstaked_supply)
     }
 
-    pub fn init(&mut self, slot_hash_account: &UncheckedAccount<'_>) {
-        self.daily_distribution.init();
-        self.valid_blockhashes.init(slot_hash_account);
+    pub fn init(&mut self, slot_hash_account: &UncheckedAccount<'_>) -> Result<()> {
+        self.daily_distribution.init()?;
+        self.valid_blockhashes.init(slot_hash_account)?;
+        Ok(())
     }
 }

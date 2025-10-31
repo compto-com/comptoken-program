@@ -4,6 +4,7 @@ use anchor_lang::solana_program::sysvar::slot_hashes::SlotHashes;
 use crate::{
     hash::Hash,
     helpers::{get_current_time, normalize_time},
+    state::error::ComptokenError,
     ANNOUNCEMENT_INTERVAL, SECONDS_IN_A_DAY,
 };
 
@@ -17,10 +18,12 @@ pub struct ValidBlockhashes {
 }
 
 impl ValidBlockhashes {
-    pub fn init(&mut self, slot_hash_account: &UncheckedAccount<'_>) {
-        assert!(self.announced_blockhash_time == 0 && self.valid_blockhash_time == 0); // ensure uninitialized
+    pub fn init(&mut self, slot_hash_account: &UncheckedAccount<'_>) -> Result<()> {
+        require_eq!(self.announced_blockhash_time, 0, ComptokenError::AccountAlreadyInitialized);
+        require_eq!(self.valid_blockhash_time, 0, ComptokenError::AccountAlreadyInitialized);
         *self = Self::default();
         self.update(slot_hash_account);
+        Ok(())
     }
 
     pub fn update(&mut self, slot_hash_account: &UncheckedAccount<'_>) {
@@ -47,7 +50,7 @@ impl ValidBlockhashes {
 
 fn get_most_recent_blockhash(slot_hash_account: &UncheckedAccount<'_>) -> Hash {
     use anchor_lang::solana_program::sysvar::SysvarId;
-    assert_eq!(slot_hash_account.key(), SlotHashes::id());
+    assert_eq!(slot_hash_account.key(), SlotHashes::id()); // sanity check
 
     // Safety: The sysvar account is guaranteed to be of the correct type by the above check.
     // slot hashes is too large to deserialize, so we use a zero copy approach. based on the

@@ -79,7 +79,7 @@ pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
     )?;
 
     // Initialize global data
-    ctx.accounts.global_data.load_init()?.init(&ctx.accounts.slot_hashes);
+    ctx.accounts.global_data.load_init()?.init(&ctx.accounts.slot_hashes)?;
 
     Ok(())
 }

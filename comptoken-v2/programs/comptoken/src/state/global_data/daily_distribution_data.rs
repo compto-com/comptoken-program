@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 
 use crate::{
     helpers::{get_current_time, normalize_time},
+    state::error::ComptokenError,
     utils::ring_buffer::RingBuffer,
     ADJUST_FACTOR, COMPTOKEN_DISTRIBUTION_MULTIPLIER, EARLY_ADOPTER_COUNT, END_GOAL_PERCENT_INCREASE,
     MIN_SUPPLY_LIMIT_AMT,
@@ -55,9 +56,10 @@ impl Default for DailyDistributionData {
 impl DailyDistributionData {
     pub const HISTORY_LENGTH: usize = HISTORY_LENGTH;
 
-    pub fn init(&mut self) {
-        assert!(self.last_update_timestamp == 0); // ensure uninitialized
+    pub fn init(&mut self) -> Result<()> {
+        require_eq!(self.last_update_timestamp, 0, ComptokenError::AccountAlreadyInitialized); // ensure uninitialized
         *self = Self::default();
+        Ok(())
     }
 
     pub fn daily_distribution(&mut self, staked_supply: u64, unstaked_supply: u64) -> DailyDistribution {

@@ -27,6 +27,10 @@ pub mod comptoken {
         create_user_data_account::create_user_data_account(ctx, args)
     }
 
+    pub fn daily_distribution(ctx: Context<DailyDistribution>) -> Result<()> {
+        daily_distribution::daily_distribution(ctx)
+    }
+
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         initialize::initialize(ctx)
     }

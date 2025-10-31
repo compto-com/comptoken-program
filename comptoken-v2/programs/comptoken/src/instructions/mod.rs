@@ -1,5 +1,6 @@
 pub mod collect;
 pub mod create_user_data_account;
+pub mod daily_distribution;
 pub mod initialize;
 pub mod resize_user_data_account;
 pub mod stake;
@@ -8,6 +9,7 @@ pub mod unstake;
 
 pub use collect::*;
 pub use create_user_data_account::*;
+pub use daily_distribution::*;
 pub use initialize::*;
 pub use resize_user_data_account::*;
 pub use stake::*;

@@ -53,6 +53,10 @@ pub mod comptoken {
         unstake::unstake(ctx, args)
     }
 
+    pub fn submit_mining_proof(ctx: Context<SubmitMiningProof>, args: SubmitMiningProofArgs) -> Result<()> {
+        submit_mining_proof::submit_mining_proof(ctx, args)
+    }
+
     #[cfg(feature = "testmode")]
     pub fn test_mint_staked_unchecked(
         ctx: Context<TestMintStakedUnchecked>, args: TestMintStakedUncheckedArgs,

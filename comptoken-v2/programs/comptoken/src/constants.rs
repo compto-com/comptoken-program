@@ -4,6 +4,9 @@ use anchor_lang::prelude::*;
 pub const MINT_DECIMALS: u8 = 2;
 
 #[constant]
+pub const MINING_REWARD_AMOUNT: u64 = 100;
+
+#[constant]
 pub const STAKED_MINT_SEED: &[u8] = b"staked_mint";
 
 #[constant]

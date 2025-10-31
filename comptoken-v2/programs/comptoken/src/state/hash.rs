@@ -2,8 +2,14 @@ use anchor_lang::prelude::*;
 
 // wrapper around solana_hash::Hash to implement AnchorSerialize, AnchorDeserialize, IdlBuild, bytemuck::Pod, and bytemuck::Zeroable
 #[repr(transparent)]
-#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Hash(solana_hash::Hash);
+
+impl Hash {
+    pub const fn new_from_array(bytes: [u8; 32]) -> Self {
+        Hash(solana_hash::Hash::new_from_array(bytes))
+    }
+}
 
 impl std::ops::Deref for Hash {
     type Target = solana_hash::Hash;

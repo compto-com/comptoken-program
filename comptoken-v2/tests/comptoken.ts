@@ -1,6 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { IdlType } from "@coral-xyz/anchor/dist/cjs/idl";
+import { IdlType, IdlTypeDefined } from "@coral-xyz/anchor/dist/cjs/idl";
+import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/web3.js";
 import { expect } from "chai";
@@ -201,8 +202,23 @@ function constantToValue(constant: {
             return parseInt(constant.value);
 
         default:
-            throw new Error(`Unknown constant type: ${constant.type}`);
+            if (typeof constant.type === "object" && "defined" in constant.type) {
+                return constantDefinedToValue({ ...constant, type: constant.type });
+            }
+            throw new Error(`Unknown constant type: ${JSON.stringify(constant.type)}`);
     }
+}
+
+function constantDefinedToValue(constant: { name: string; type: IdlTypeDefined; value: string }): any {
+    switch (constant.type.defined.name) {
+        case "hash": {
+            // Hash(<hash in base64?>)
+            const buf = bs58.decode(constant.value.slice(5, -1));
+            console.log(buf, buf.length);
+            return Uint8Array.from(buf);
+        }
+    }
+    throw new Error(`Unknown defined constant type: ${constant.type.defined.name}`);
 }
 
 type Constants<ConstantsType extends anchor.Program<anchor.Idl>["idl"]["constants"]> = {

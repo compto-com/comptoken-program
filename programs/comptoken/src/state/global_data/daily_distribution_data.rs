@@ -35,7 +35,6 @@ pub struct DailyDistributionData {
     pub last_update_timestamp: i64,
     pub verified_accounts_count: u32,
     pub _padding: [u8; 4],
-    pub total_verified_balance: u64,
     pub historic_distributions: RingBuffer<HistoricDistribution, HISTORY_LENGTH>,
 }
 
@@ -47,7 +46,6 @@ impl Default for DailyDistributionData {
             last_update_timestamp: normalize_time(get_current_time()),
             verified_accounts_count: 0,
             _padding: [0; 4],
-            total_verified_balance: 0,
             historic_distributions: RingBuffer::default(),
         }
     }

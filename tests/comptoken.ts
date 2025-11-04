@@ -1,23 +1,32 @@
-import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
-import { IdlType, IdlTypeDefined } from "@coral-xyz/anchor/dist/cjs/idl";
-import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
+import fs from "fs";
+
+import { type IdlAccounts, Program, type Provider, default as anchor } from "@coral-xyz/anchor";
+import type { IdlType, IdlTypeDefined } from "@coral-xyz/anchor/dist/esm/idl.js";
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/web3.js";
+import { BankrunProvider, startAnchor } from "anchor-bankrun";
 import { expect } from "chai";
-import { Comptoken } from "../target/types/comptoken";
+import { type AddedAccount } from "solana-bankrun";
+const { BN } = anchor;
+const { bs58 } = anchor.utils.bytes;
 
-describe("comptoken", () => {
-    // Configure the client to use the local cluster.
-    anchor.setProvider(anchor.AnchorProvider.env());
+import type { Comptoken } from "../target/types/comptoken.ts";
 
-    const program = anchor.workspace.comptoken as Program<Comptoken> & {
-        constants: Constants<Program<Comptoken>["idl"]["constants"]>;
-    };
-    program.constants = getConstants(program);
-    const provider = anchor.getProvider();
+const Idl: Comptoken = JSON.parse(fs.readFileSync("./target/idl/comptoken.json", "utf8"));
 
-    it("Is initialized!", async () => {
+const baseProgram = getProgramWithConstants(Idl, undefined as any); // no provider, this should not be used to make calls (just for constants/account data)
+
+async function prepareTest(accounts: AddedAccount[] = []) {
+    const context = await startAnchor(import.meta.dirname + "/..", [], accounts);
+    const provider = new BankrunProvider(context);
+    const program = getProgramWithConstants(Idl, provider);
+
+    return { context, provider, program };
+}
+
+describe("comptoken", async () => {
+    it("initialize: creates staked/unstaked mints and global data", async () => {
+        const { provider, program } = await prepareTest();
         // Derive the mint addresses using the same seeds as in the program
         const [stakedMintPda] = PublicKey.findProgramAddressSync(
             [Buffer.from(program.constants.stakedMintSeed)],
@@ -83,7 +92,6 @@ describe("comptoken", () => {
         expect(globalData.dailyDistribution.totalMinedToday.toNumber()).to.equal(0);
         expect(globalData.dailyDistribution.highWaterMark.toNumber()).to.equal(0);
         expect(globalData.dailyDistribution.verifiedAccountsCount).to.equal(0);
-        expect(globalData.dailyDistribution.totalVerifiedBalance.toNumber()).to.equal(0);
         expect(globalData.dailyDistribution.lastUpdateTimestamp.toNumber()).to.be.greaterThan(0);
 
         // ValidBlockhashes should be populated with current network values
@@ -96,7 +104,8 @@ describe("comptoken", () => {
         console.log("✓ GlobalData account initialized with expected defaults");
     });
 
-    it("Creates user data account", async () => {
+    it("create_user_data_account: creates user data with capacity", async () => {
+        const { provider, program } = await prepareTest();
         // Derive the UserData PDA using the same seed as in the program
         const userPubkey = provider.wallet.publicKey;
         const [userDataPda] = PublicKey.findProgramAddressSync(
@@ -106,7 +115,7 @@ describe("comptoken", () => {
 
         // Execute the create_user_data instruction
         const _tx = await program.methods
-            .createUserDataAccount({ capacity: new anchor.BN(10) })
+            .createUserDataAccount({ capacity: new BN.BN(10) })
             .accounts({
                 payer: userPubkey,
                 userWallet: userPubkey,
@@ -169,7 +178,7 @@ function constantToValue(constant: {
     name: string;
     type: IdlType;
     value: string;
-}): number | string | bigint | Uint8Array | PublicKey {
+}): number | string | anchor.BN | Uint8Array | PublicKey {
     switch (constant.type) {
         // potentially too big for number
         case "u64":
@@ -178,7 +187,7 @@ function constantToValue(constant: {
         case "i128":
         case "u256":
         case "i256":
-            return BigInt(constant.value);
+            return new BN(constant.value);
 
         case "string":
             return constant.value;
@@ -221,7 +230,7 @@ function constantDefinedToValue(constant: { name: string; type: IdlTypeDefined; 
     throw new Error(`Unknown defined constant type: ${constant.type.defined.name}`);
 }
 
-type Constants<ConstantsType extends anchor.Program<anchor.Idl>["idl"]["constants"]> = {
+type Constants<ConstantsType extends Program<anchor.Idl>["idl"]["constants"]> = {
     [key in ConstantsType[number] as key["name"]]: key extends {
         type: "u64" | "i64";
     }
@@ -244,3 +253,13 @@ type Constants<ConstantsType extends anchor.Program<anchor.Idl>["idl"]["constant
         ? number
         : never;
 };
+
+type ProgramWithConstants<Idl extends anchor.Idl> = Program<Idl> & {
+    constants: Constants<Program<Idl>["idl"]["constants"]>;
+};
+
+function getProgramWithConstants<Idl extends anchor.Idl>(idl: Idl, provider: Provider): ProgramWithConstants<Idl> {
+    const programWithConstants = new Program<Idl>(idl, provider) as ProgramWithConstants<Idl>;
+    programWithConstants.constants = getConstants(programWithConstants);
+    return programWithConstants;
+}

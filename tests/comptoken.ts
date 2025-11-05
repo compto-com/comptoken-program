@@ -194,8 +194,8 @@ describe("comptoken", async () => {
             createGlobalDataAddedAccount(),
             createStakedMintAddedAccount(),
             createUnstakedMintAddedAccount(),
-            createStakedTokenAccountAddedAccount({ address: userStakedAta, owner: user.publicKey }),
-            createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey }),
+            createStakedTokenAccountAddedAccount({ address: userStakedAta, owner: user.publicKey, amount: 2 }),
+            createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey, amount: 5 }),
         ]);
 
         const { provider, program } = await prepareTest(accounts);

@@ -18,7 +18,6 @@ use crate::{
 #[derive(Accounts)]
 #[instruction(args: SubmitMiningProofArgs)]
 pub struct SubmitMiningProof<'info> {
-    #[account(mut)]
     pub user_wallet: Signer<'info>,
 
     #[account(
@@ -37,12 +36,14 @@ pub struct SubmitMiningProof<'info> {
     pub user_unstaked_token_account: InterfaceAccount<'info, TokenAccount>,
 
     #[account(
+        mut,
         seeds = [UNSTAKED_MINT_SEED],
         bump,
     )]
     pub unstaked_mint: InterfaceAccount<'info, Mint>,
 
     #[account(
+        mut,
         seeds = [GLOBAL_DATA_SEED],
         bump,
     )]

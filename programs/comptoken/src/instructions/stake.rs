@@ -20,6 +20,7 @@ pub struct Stake<'info> {
     pub global_data: AccountLoader<'info, GlobalData>,
 
     #[account(
+        mut,
         seeds = [STAKED_MINT_SEED],
         bump,
         mint::token_program = token_program,
@@ -27,6 +28,7 @@ pub struct Stake<'info> {
     pub mint_staked: InterfaceAccount<'info, Mint>,
 
     #[account(
+        mut,
         seeds = [UNSTAKED_MINT_SEED],
         bump,
         mint::token_program = token_program,
@@ -35,7 +37,6 @@ pub struct Stake<'info> {
     pub user_wallet: Signer<'info>,
 
     #[account(
-        mut,
         seeds = [USER_DATA_SEED, user_wallet.key().as_ref()],
         bump,
     )]
@@ -70,7 +71,7 @@ pub struct StakeArgs {
 pub fn stake(ctx: Context<Stake>, args: StakeArgs) -> Result<()> {
     let user_staked_token_account = &mut ctx.accounts.user_staked_token_account;
     let user_unstaked_token_account = &mut ctx.accounts.user_unstaked_token_account;
-    let user_data = &mut ctx.accounts.user_data;
+    let user_data = &ctx.accounts.user_data;
 
     require_gte!(user_unstaked_token_account.amount, args.amount, ComptokenError::InsufficientFunds);
     require!(user_data.is_current(), ComptokenError::UserDataNotCurrent); // prevent staking until user has collected outstanding rewards

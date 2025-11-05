@@ -20,6 +20,7 @@ pub struct Unstake<'info> {
     pub global_data: AccountLoader<'info, GlobalData>,
 
     #[account(
+        mut,
         seeds = [STAKED_MINT_SEED],
         bump,
         mint::token_program = token_program,
@@ -27,14 +28,20 @@ pub struct Unstake<'info> {
     pub mint_staked: InterfaceAccount<'info, Mint>,
 
     #[account(
+        mut,
         seeds = [UNSTAKED_MINT_SEED],
         bump,
         mint::token_program = token_program,
     )]
     pub mint_unstaked: InterfaceAccount<'info, Mint>,
+
     pub user_wallet: Signer<'info>,
 
-    #[account(mut, seeds = [USER_DATA_SEED, user_wallet.key().as_ref()], bump)]
+    #[account(
+        mut,
+        seeds = [USER_DATA_SEED, user_wallet.key().as_ref()],
+        bump,
+    )]
     pub user_data: Account<'info, UserData>,
 
     #[account(

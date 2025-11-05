@@ -164,7 +164,7 @@ describe("comptoken", async () => {
         console.log("✓ UserData account initialized with expected defaults");
     });
 
-    it("collect: claims accrued rewards into unstaked account", async () => {
+    it("collect: claims nothing when available reward is 0", async () => {
         const user = Keypair.generate();
 
         const [userDataPda] = PublicKey.findProgramAddressSync(
@@ -197,25 +197,26 @@ describe("comptoken", async () => {
             TOKEN_2022_PROGRAM_ID,
         );
 
-        const accounts = [
-            await createUserDataAddedAccount(user.publicKey),
-            await createGlobalDataAddedAccount(),
-            await createStakedMintAddedAccount(),
-            await createUnstakedMintAddedAccount(),
-            await createStakedTokenAccountAddedAccount(userStakedAta, user.publicKey),
-            await createUnstakedTokenAccountAddedAccount(userUnstakedAta, user.publicKey),
-        ];
+        const accounts = await Promise.all([
+            createUserDataAddedAccount({ userPubkey: user.publicKey }),
+            createGlobalDataAddedAccount(),
+            createStakedMintAddedAccount(),
+            createUnstakedMintAddedAccount(),
+            createStakedTokenAccountAddedAccount({ address: userStakedAta, owner: user.publicKey }),
+            createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey }),
+        ]);
 
         const { provider, program } = await prepareTest(accounts);
 
-        // Snapshot balances before collect (expect zeros in a fresh setup)
-        const beforeUnstaked = await getAccount(
-            provider.connection,
-            userUnstakedAta,
-            "confirmed",
-            TOKEN_2022_PROGRAM_ID,
-        );
-        const beforeStaked = await getAccount(provider.connection, userStakedAta, "confirmed", TOKEN_2022_PROGRAM_ID);
+        const [beforeUnstaked, beforeStaked, beforeUnstakedMint, beforeStakedMint, beforeUserData, beforeGlobalData] =
+            await Promise.all([
+                getAccount(provider.connection, userUnstakedAta),
+                getAccount(provider.connection, userStakedAta),
+                getMint(provider.connection, unstakedMintPda),
+                getMint(provider.connection, stakedMintPda),
+                program.account.userData.fetch(userDataPda),
+                program.account.globalData.fetch(globalDataPda),
+            ]);
 
         const _sig = await program.methods
             .collect()
@@ -228,21 +229,30 @@ describe("comptoken", async () => {
             .rpc();
 
         // Verify no error and state remains consistent
-        const afterUnstaked = await getAccount(
-            provider.connection,
-            userUnstakedAta,
-            "confirmed",
-            TOKEN_2022_PROGRAM_ID,
-        );
-        const afterStaked = await getAccount(provider.connection, userStakedAta, "confirmed", TOKEN_2022_PROGRAM_ID);
+        const [afterUnstaked, afterStaked, afterUnstakedMint, afterStakedMint, afterUserData, afterGlobalData] =
+            await Promise.all([
+                getAccount(provider.connection, userUnstakedAta),
+                getAccount(provider.connection, userStakedAta),
+                getMint(provider.connection, unstakedMintPda),
+                getMint(provider.connection, stakedMintPda),
+                program.account.userData.fetch(userDataPda),
+                program.account.globalData.fetch(globalDataPda),
+            ]);
 
         // With zero staked principal and no verification UBI, collect should mint 0
         expect(afterUnstaked.amount).to.equal(beforeUnstaked.amount);
         expect(afterStaked.amount).to.equal(beforeStaked.amount);
+        expect(afterUnstakedMint.supply).to.equal(beforeUnstakedMint.supply);
+        expect(afterStakedMint.supply).to.equal(beforeStakedMint.supply);
+        expect(afterGlobalData.dailyDistribution.totalMinedToday.toNumber()).to.equal(
+            beforeGlobalData.dailyDistribution.totalMinedToday.toNumber(),
+        );
 
-        const userData = await program.account.userData.fetch(userDataPda);
-        // Still "current" (last_claimed at normalized today)
-        expect(userData.lastClaimedTimestamp.toNumber()).to.equal(normalizeTime(new Date()).getTime() / 1000);
+        // last_claimed should be updated to normalized today
+        expect(beforeUserData.lastClaimedTimestamp.toNumber()).to.be.lessThan(
+            afterUserData.lastClaimedTimestamp.toNumber(),
+        );
+        expect(afterUserData.lastClaimedTimestamp.toNumber()).to.equal(normalizeTime(new Date()).getTime() / 1000);
     });
 });
 

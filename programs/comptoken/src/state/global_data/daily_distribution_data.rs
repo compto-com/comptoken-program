@@ -33,8 +33,9 @@ pub struct DailyDistributionData {
     pub total_mined_today: u64,
     pub high_water_mark: u64,
     pub last_update_timestamp: i64,
+    pub early_adopter_ubi_amount: u64,
     pub verified_accounts_count: u32,
-    pub _padding: [u8; 4],
+    pub remaining_early_adopter_count: u32,
     pub historic_distributions: RingBuffer<HistoricDistribution, HISTORY_LENGTH>,
 }
 
@@ -45,7 +46,8 @@ impl Default for DailyDistributionData {
             high_water_mark: 0,
             last_update_timestamp: normalize_time(get_current_time()),
             verified_accounts_count: 0,
-            _padding: [0; 4],
+            early_adopter_ubi_amount: 0,
+            remaining_early_adopter_count: EARLY_ADOPTER_COUNT,
             historic_distributions: RingBuffer::default(),
         }
     }
@@ -95,11 +97,15 @@ impl DailyDistributionData {
         let todays_yield_rate = distribution.yield_amount as f64 / (staked_supply as f64);
         msg!("Today's yield rate: {}", todays_yield_rate);
 
-        let todays_ubi_yield = distribution.ubi_amount.checked_div(self.verified_accounts_count as u64).unwrap_or(0);
+        let todays_ubi_yield = distribution.ubi_amount.checked_div(self.verified_accounts_count as u64).unwrap_or(0); // avoid div by 0, which means no verified accounts and all UBI goes to early adopters
 
         msg!("Today's UBI yield per verified account: {}", todays_ubi_yield);
         self.historic_distributions
             .push(HistoricDistribution { yield_rate: todays_yield_rate, ubi_yield: todays_ubi_yield });
+
+        if self.remaining_early_adopter_count != 0 {
+            self.early_adopter_ubi_amount += ubi_for_early_adopters / self.remaining_early_adopter_count as u64;
+        }
 
         distribution
     }

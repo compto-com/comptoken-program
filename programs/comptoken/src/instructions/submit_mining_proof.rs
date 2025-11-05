@@ -170,5 +170,8 @@ pub fn submit_mining_proof(ctx: Context<SubmitMiningProof>, args: SubmitMiningPr
         MINT_DECIMALS,
     )?;
 
+    let global_data = &mut ctx.accounts.global_data.load_mut()?;
+    global_data.daily_distribution.total_mined_today += MINING_REWARD_AMOUNT;
+
     Ok(())
 }

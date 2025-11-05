@@ -111,6 +111,7 @@ pub struct Verify<'info> {
     pub world_id_nullifier: AccountLoader<'info, Nullifier>,
 
     #[account(
+        mut,
         seeds = [GLOBAL_DATA_SEED],
         bump,
     )]
@@ -135,10 +136,10 @@ pub fn verify(ctx: Context<Verify>, args: WorldIdVerificationData) -> Result<()>
     }
 
     // 1. check if nullifier is used
-    let mut nullifier = if ctx.accounts.world_id_nullifier.to_account_info().data_is_empty() {
-        ctx.accounts.world_id_nullifier.load_init()?
+    let (mut nullifier, nullifier_exists) = if ctx.accounts.world_id_nullifier.to_account_info().data_is_empty() {
+        (ctx.accounts.world_id_nullifier.load_init()?, false)
     } else {
-        ctx.accounts.world_id_nullifier.load_mut()?
+        (ctx.accounts.world_id_nullifier.load_mut()?, true)
     };
 
     nullifier.user_wallet = ctx.accounts.user_wallet.key();
@@ -162,6 +163,29 @@ pub fn verify(ctx: Context<Verify>, args: WorldIdVerificationData) -> Result<()>
 
     // 3. update user data
     user_data.set_nullifier_hash(args.nullifier_hash);
+
+    let mut global_data = ctx.accounts.global_data.load_mut()?;
+
+    // 4. mint early adopter UBI if applicable (nullifier reuse means a re-verification)
+    if global_data.daily_distribution.remaining_early_adopter_count > 0 && !nullifier_exists {
+        msg!("Minting early adopter UBI reward");
+        anchor_spl::token_2022::mint_to(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                anchor_spl::token_2022::MintTo {
+                    mint: ctx.accounts.unstaked_mint.to_account_info(),
+                    to: ctx.accounts.user_unstaked_token_account.to_account_info(),
+                    authority: ctx.accounts.unstaked_mint.to_account_info(),
+                },
+            )
+            .with_signer(&[&[GLOBAL_DATA_SEED]]),
+            global_data.daily_distribution.early_adopter_ubi_amount,
+        )?;
+    }
+
+    // 5. update global data
+    global_data.daily_distribution.verified_accounts_count += 1;
+    global_data.daily_distribution.remaining_early_adopter_count -= 1;
 
     msg!("World ID proof verified");
     Ok(())
@@ -203,7 +227,6 @@ pub struct Reverify<'info> {
     pub world_id_config: Account<'info, world_id_program::WorldIdConfig>,
 
     #[account(
-        mut,
         seeds = [NULLIFIER_SEED, args.nullifier_hash.as_ref()],
         has_one = user_wallet @ ComptokenError::InvalidNullifierOwner,
         bump,
@@ -288,6 +311,13 @@ pub struct Unverify<'info> {
         bump,
     )]
     pub world_id_nullifier: AccountLoader<'info, Nullifier>,
+
+    #[account(
+        mut,
+        seeds = [GLOBAL_DATA_SEED],
+        bump,
+    )]
+    pub global_data: AccountLoader<'info, GlobalData>,
 }
 
 pub fn unverify(ctx: Context<Unverify>, args: WorldIdVerificationData) -> Result<()> {
@@ -316,6 +346,10 @@ pub fn unverify(ctx: Context<Unverify>, args: WorldIdVerificationData) -> Result
     user_data.clear_nullifier_hash(); // also updates last verified timestamp to 0
     let mut nullifier = ctx.accounts.world_id_nullifier.load_mut()?;
     nullifier.user_wallet = Pubkey::default();
+
+    let mut global_data = ctx.accounts.global_data.load_mut()?;
+    global_data.daily_distribution.verified_accounts_count -= 1;
+    // do not update early adopter count here - only decremented on verify, never incremented
 
     msg!("World ID proof verified and user unverified");
     Ok(())
@@ -364,6 +398,10 @@ pub fn unverify2(ctx: Context<Unverify2>, args: Unverify2Args) -> Result<()> {
     user_data.clear_nullifier_hash(); // also updates last verified timestamp to 0
     let mut nullifier = ctx.accounts.world_id_nullifier.load_mut()?;
     nullifier.user_wallet = Pubkey::default();
+
+    let mut global_data = ctx.accounts.global_data.load_mut()?;
+    global_data.daily_distribution.verified_accounts_count -= 1;
+    // do not update early adopter count here - only decremented on verify, never incremented
 
     Ok(())
 }

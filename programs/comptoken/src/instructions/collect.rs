@@ -15,6 +15,7 @@ pub struct Collect<'info> {
     pub user_wallet: Signer<'info>,
 
     #[account(
+        mut,
         seeds = [USER_DATA_SEED, user_wallet.key().as_ref()],
         bump,
     )]

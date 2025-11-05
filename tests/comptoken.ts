@@ -1,9 +1,20 @@
 import fs from "fs";
 
-import { type IdlAccounts, Program, type Provider, default as anchor } from "@coral-xyz/anchor";
+import { BorshCoder, type IdlAccounts, Program, type Provider, default as anchor } from "@coral-xyz/anchor";
 import type { IdlType, IdlTypeDefined } from "@coral-xyz/anchor/dist/esm/idl.js";
-import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
-import { PublicKey, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/web3.js";
+import {
+    ACCOUNT_SIZE,
+    AccountLayout,
+    AccountType,
+    ExtensionType,
+    MintLayout,
+    TOKEN_2022_PROGRAM_ID,
+    getAccount,
+    getAccountLen,
+    getAssociatedTokenAddressSync,
+    getMintLen,
+} from "@solana/spl-token";
+import { Keypair, PublicKey, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/web3.js";
 import { BankrunProvider, startAnchor } from "anchor-bankrun";
 import { expect } from "chai";
 import { type AddedAccount } from "solana-bankrun";
@@ -15,6 +26,8 @@ import type { Comptoken } from "../target/types/comptoken.ts";
 const Idl: Comptoken = JSON.parse(fs.readFileSync("./target/idl/comptoken.json", "utf8"));
 
 const baseProgram = getProgramWithConstants(Idl, undefined as any); // no provider, this should not be used to make calls (just for constants/account data)
+
+const coder = new BorshCoder(Idl);
 
 async function prepareTest(accounts: AddedAccount[] = []) {
     const context = await startAnchor(import.meta.dirname + "/..", [], accounts);
@@ -30,18 +43,18 @@ describe("comptoken", async () => {
         // Derive the mint addresses using the same seeds as in the program
         const [stakedMintPda] = PublicKey.findProgramAddressSync(
             [Buffer.from(program.constants.stakedMintSeed)],
-            program.programId
+            program.programId,
         );
 
         const [unstakedMintPda] = PublicKey.findProgramAddressSync(
             [Buffer.from(program.constants.unstakedMintSeed)],
-            program.programId
+            program.programId,
         );
 
         // Derive the GlobalData PDA using the same seed as in the program
         const [globalDataPda] = PublicKey.findProgramAddressSync(
             [Buffer.from(program.constants.globalDataSeed)],
-            program.programId
+            program.programId,
         );
 
         // Execute the initialize instruction
@@ -56,20 +69,20 @@ describe("comptoken", async () => {
         const stakedMintInfo = await provider.connection.getAccountInfo(stakedMintPda);
         expect(stakedMintInfo, "Staked mint account should exist").to.not.be.null;
         expect(stakedMintInfo!.owner.toString(), "Staked mint should be owned by Token2022 program").to.equal(
-            TOKEN_2022_PROGRAM_ID.toString()
+            TOKEN_2022_PROGRAM_ID.toString(),
         );
 
         // Verify the unstaked mint was created
         const unstakedMintInfo = await provider.connection.getAccountInfo(unstakedMintPda);
         expect(unstakedMintInfo, "Unstaked mint account should exist").to.not.be.null;
         expect(unstakedMintInfo!.owner.toString(), "Unstaked mint should be owned by Token2022 program").to.equal(
-            TOKEN_2022_PROGRAM_ID.toString()
+            TOKEN_2022_PROGRAM_ID.toString(),
         );
 
         // Verify account sizes are different (staked mint should be larger due to NonTransferable extension)
         expect(
             stakedMintInfo!.data.length,
-            "Staked mint account size should be a mint with NonTransferable extension"
+            "Staked mint account size should be a mint with NonTransferable extension",
         ).to.equal(170);
         expect(unstakedMintInfo!.data.length, "Unstaked mint account size should be a standard mint").to.equal(82);
 
@@ -82,7 +95,7 @@ describe("comptoken", async () => {
         const globalDataInfo = await provider.connection.getAccountInfo(globalDataPda);
         expect(globalDataInfo, "GlobalData account should exist").to.not.be.null;
         expect(globalDataInfo!.owner.toString(), "GlobalData should be owned by the comptoken program").to.equal(
-            program.programId.toString()
+            program.programId.toString(),
         );
 
         // Optionally decode and sanity-check initial GlobalData fields
@@ -110,7 +123,7 @@ describe("comptoken", async () => {
         const userPubkey = provider.wallet.publicKey;
         const [userDataPda] = PublicKey.findProgramAddressSync(
             [Buffer.from(program.constants.userDataSeed), userPubkey.toBuffer()],
-            program.programId
+            program.programId,
         );
 
         // Execute the create_user_data instruction
@@ -126,18 +139,17 @@ describe("comptoken", async () => {
         const userDataInfo = await provider.connection.getAccountInfo(userDataPda);
         expect(userDataInfo, "UserData account should exist").to.not.be.null;
         expect(userDataInfo!.owner.toString(), "UserData should be owned by the comptoken program").to.equal(
-            program.programId.toString()
+            program.programId.toString(),
         );
 
         const userData = await program.account.userData.fetch(userDataPda);
         expect(userData.lastClaimedTimestamp.toNumber(), "Last claimed timestamp should be initialized").to.equal(
-            normalizeTime(new Date()).getTime() / 1000
+            normalizeTime(new Date()).getTime() / 1000,
         );
         expect(userData.lastVerifiedTimestamp.toNumber(), "Last verified timestamp should be 0").to.equal(
-            new Date(0).getTime() / 1000
+            new Date(0).getTime() / 1000,
         );
         expect(userData.proofs.length, "Proofs array should be empty").to.equal(0);
-        console.log(JSON.stringify(userData.proofs));
 
         expect(userDataInfo.data.length, "UserData account size should match allocated size").to.equal(
             8 + // discriminator
@@ -146,10 +158,91 @@ describe("comptoken", async () => {
                 32 + // nullifier_hash
                 32 + // recent_blockhash
                 4 + // proofs vec length
-                10 * 32 // proofs capacity (10) * size of each proof (32 bytes)
+                10 * 32, // proofs capacity (10) * size of each proof (32 bytes)
         );
 
         console.log("✓ UserData account initialized with expected defaults");
+    });
+
+    it("collect: claims accrued rewards into unstaked account", async () => {
+        const user = Keypair.generate();
+
+        const [userDataPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from(baseProgram.constants.userDataSeed), user.publicKey.toBuffer()],
+            baseProgram.programId,
+        );
+        const [stakedMintPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from(baseProgram.constants.stakedMintSeed)],
+            baseProgram.programId,
+        );
+        const [unstakedMintPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from(baseProgram.constants.unstakedMintSeed)],
+            baseProgram.programId,
+        );
+        const [globalDataPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from(baseProgram.constants.globalDataSeed)],
+            baseProgram.programId,
+        );
+
+        const userStakedAta = getAssociatedTokenAddressSync(
+            stakedMintPda,
+            user.publicKey,
+            false,
+            TOKEN_2022_PROGRAM_ID,
+        );
+        const userUnstakedAta = getAssociatedTokenAddressSync(
+            unstakedMintPda,
+            user.publicKey,
+            false,
+            TOKEN_2022_PROGRAM_ID,
+        );
+
+        const accounts = [
+            await createUserDataAddedAccount(user.publicKey),
+            await createGlobalDataAddedAccount(),
+            await createStakedMintAddedAccount(),
+            await createUnstakedMintAddedAccount(),
+            await createStakedTokenAccountAddedAccount(userStakedAta, user.publicKey),
+            await createUnstakedTokenAccountAddedAccount(userUnstakedAta, user.publicKey),
+        ];
+
+        const { provider, program } = await prepareTest(accounts);
+
+        // Snapshot balances before collect (expect zeros in a fresh setup)
+        const beforeUnstaked = await getAccount(
+            provider.connection,
+            userUnstakedAta,
+            "confirmed",
+            TOKEN_2022_PROGRAM_ID,
+        );
+        const beforeStaked = await getAccount(provider.connection, userStakedAta, "confirmed", TOKEN_2022_PROGRAM_ID);
+
+        const _sig = await program.methods
+            .collect()
+            .accounts({
+                userWallet: user.publicKey,
+                userStakedTokenAccount: userStakedAta,
+                userUnstakedTokenAccount: userUnstakedAta,
+            })
+            .signers([user])
+            .rpc();
+
+        // Verify no error and state remains consistent
+        const afterUnstaked = await getAccount(
+            provider.connection,
+            userUnstakedAta,
+            "confirmed",
+            TOKEN_2022_PROGRAM_ID,
+        );
+        const afterStaked = await getAccount(provider.connection, userStakedAta, "confirmed", TOKEN_2022_PROGRAM_ID);
+
+        // With zero staked principal and no verification UBI, collect should mint 0
+        expect(afterUnstaked.amount).to.equal(beforeUnstaked.amount);
+        expect(afterStaked.amount).to.equal(beforeStaked.amount);
+
+        const userData = await program.account.userData.fetch(userDataPda);
+        // Still "current" (last_claimed at normalized today)
+        expect(userData.lastClaimedTimestamp.toNumber()).to.equal(normalizeTime(new Date()).getTime() / 1000);
     });
 });
 
@@ -161,6 +254,317 @@ function normalizeTime(time: Date): Date {
     normalized.setUTCHours(0);
     return normalized;
 }
+
+type userDataAccountData = IdlAccounts<Comptoken>["userData"];
+
+async function createUserDataAddedAccount(
+    userPubkey: PublicKey,
+    capacity = 10,
+    lastClaimed: Date = new Date("2024-01-01T00:00:00Z"),
+    lastVerified: Date = new Date("2024-01-01T00:00:00Z"),
+    nullifierHash: Uint8Array = new Uint8Array(32).fill(0),
+    recentBlockhash: Uint8Array = new Uint8Array(32).fill(0),
+    proofs: Uint8Array[] = new Array<Uint8Array>(capacity).fill(new Uint8Array(32).fill(0)),
+): Promise<AddedAccount> {
+    expect(proofs.length <= capacity, "Proofs length exceeds capacity");
+
+    const [userDataPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from(baseProgram.constants.userDataSeed), userPubkey.toBuffer()],
+        baseProgram.programId,
+    );
+
+    const userData: userDataAccountData = {
+        lastClaimedTimestamp: new BN.BN(normalizeTime(lastClaimed).getTime() / 1000),
+        lastVerifiedTimestamp: new BN.BN(normalizeTime(lastVerified).getTime() / 1000),
+        nullifierHash: { [0]: Array.from(nullifierHash) },
+        recentBlockhash: { [0]: Array.from(recentBlockhash) },
+        proofs: proofs.map((proof) => ({ [0]: Array.from(proof) })),
+    };
+
+    const data = new Uint8Array(8 + 84 + capacity * 32); // discriminator (8) + fixed fields (84) + proofs capacity (capacity * 32)
+    data.set(coder.accounts.accountDiscriminator("UserData"));
+    data.set(coder.types.encode("UserData", userData), 8);
+    data.set(
+        proofs.flatMap((proof) => [...proof]),
+        8 + 84,
+    );
+
+    return {
+        address: userDataPda,
+        info: {
+            owner: baseProgram.programId,
+            data,
+            executable: false,
+            lamports: 1_000_000_000, // arbitrary lamport amount
+        },
+    };
+}
+
+type HistoricDistribution = { yieldRate: number; ubiYield: anchor.BN };
+type globalDataAccountData = Omit<IdlAccounts<Comptoken>["globalData"], "dailyDistribution"> & {
+    dailyDistribution: Omit<IdlAccounts<Comptoken>["globalData"]["dailyDistribution"], "historicDistributions"> & {
+        historicDistributions: Omit<
+            IdlAccounts<Comptoken>["globalData"]["dailyDistribution"]["historicDistributions"],
+            "buffer"
+        > & {
+            buffer: HistoricDistribution[];
+        };
+    };
+};
+
+async function createGlobalDataAddedAccount(
+    totalMinedToday: number = 0,
+    highWaterMark: number = 0,
+    earlyAdopterUbiAmount: number = 0,
+    verifiedAccountsCount: number = 0,
+    remainingEarlyAdopterCount: number = baseProgram.constants.earlyAdopterCount,
+    lastUpdate: Date = new Date("2024-01-01T00:00:00Z"),
+    historicDistributions: {
+        position: number;
+        buffer: { yieldRate: number; ubiYield: number }[];
+    } = {
+        position: 0,
+        buffer: new Array<{ yieldRate: number; ubiYield: number }>(
+            Number(baseProgram.constants.dailyDistributionDataHistoryLength),
+        ).fill({
+            yieldRate: 0,
+            ubiYield: 0,
+        }),
+    },
+    announcedBlockhash: Uint8Array = new Uint8Array(32).fill(0),
+    validBlockhash?: Uint8Array,
+): Promise<AddedAccount> {
+    expect(historicDistributions.buffer.length === Number(baseProgram.constants.dailyDistributionDataHistoryLength));
+
+    const [globalDataPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from(baseProgram.constants.globalDataSeed)],
+        baseProgram.programId,
+    );
+
+    // Dummy initial data for GlobalData account
+    const globalData: globalDataAccountData = {
+        dailyDistribution: {
+            totalMinedToday: new BN.BN(totalMinedToday),
+            highWaterMark: new BN.BN(highWaterMark),
+            verifiedAccountsCount: verifiedAccountsCount,
+            earlyAdopterUbiAmount: new BN.BN(earlyAdopterUbiAmount),
+            lastUpdateTimestamp: new BN.BN(normalizeTime(lastUpdate).getTime() / 1000),
+            remainingEarlyAdopterCount: remainingEarlyAdopterCount,
+            historicDistributions: {
+                position: new BN.BN(historicDistributions.position),
+                buffer: historicDistributions.buffer.map((entry) => ({
+                    yieldRate: entry.yieldRate,
+                    ubiYield: new BN.BN(entry.ubiYield),
+                })),
+            },
+        },
+        validBlockhashes: {
+            announcedBlockhash: { [0]: Array.from(announcedBlockhash) },
+            announcedBlockhashTime: new BN.BN(normalizeTime(lastUpdate).getTime() / 1000),
+            validBlockhash: { [0]: Array.from(validBlockhash ?? announcedBlockhash) },
+            validBlockhashTime: new BN.BN(normalizeTime(lastUpdate).getTime() / 1000 + 300),
+        },
+    };
+
+    const data = new Uint8Array(coder.accounts.size("GlobalData"));
+    data.set(coder.accounts.accountDiscriminator("GlobalData"));
+    data.set(coder.types.encode("DailyDistributionData", globalData.dailyDistribution), 8); // only allocates 1000 bytes, so cuts out some data
+    data.set(
+        globalData.dailyDistribution.historicDistributions.buffer.flatMap((val) => [
+            ...coder.types.encode("HistoricDistribution", val),
+        ]),
+        8 + 32 + 8, // discriminator (8) + daily dist data w/out history (32) + position (8)
+    );
+    data.set(
+        coder.types.encode(
+            "comptoken::state::global_data::valid_blockhashes::ValidBlockhashes",
+            globalData.validBlockhashes,
+        ),
+        8 + 32 + 8 + historicDistributions.buffer.length * 16, // discriminator (8) + daily dist data w/out history (32) + position (8) + history (length * 16)
+    );
+
+    return {
+        address: globalDataPda,
+        info: {
+            owner: baseProgram.programId,
+            data,
+            executable: false,
+            lamports: 1_000_000_000, // arbitrary lamport amount
+        },
+    };
+}
+
+async function createUnstakedMintAddedAccount(supply: number | bigint = 0): Promise<AddedAccount> {
+    const [unstakedMintPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from(baseProgram.constants.unstakedMintSeed)],
+        baseProgram.programId,
+    );
+    const [globalDataPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from(baseProgram.constants.globalDataSeed)],
+        baseProgram.programId,
+    );
+
+    const data = Buffer.alloc(MintLayout.span);
+    MintLayout.encode(
+        {
+            mintAuthorityOption: 1,
+            mintAuthority: globalDataPda,
+            supply: BigInt(supply),
+            decimals: baseProgram.constants.mintDecimals,
+            isInitialized: true,
+            freezeAuthorityOption: 0,
+            freezeAuthority: PublicKey.default,
+        },
+        data,
+    );
+
+    return {
+        address: unstakedMintPda,
+        info: {
+            owner: TOKEN_2022_PROGRAM_ID,
+            data,
+            executable: false,
+            lamports: 1_000_000_000, // arbitrary lamport amount
+        },
+    };
+}
+
+async function createStakedMintAddedAccount(supply: number | bigint = 0): Promise<AddedAccount> {
+    const [stakedMintPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from(baseProgram.constants.stakedMintSeed)],
+        baseProgram.programId,
+    );
+    const [globalDataPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from(baseProgram.constants.globalDataSeed)],
+        baseProgram.programId,
+    );
+
+    const data = Buffer.alloc(getMintLen([ExtensionType.NonTransferable]));
+    MintLayout.encode(
+        {
+            mintAuthorityOption: 1,
+            mintAuthority: globalDataPda,
+            supply: BigInt(supply),
+            decimals: baseProgram.constants.mintDecimals,
+            isInitialized: true,
+            freezeAuthorityOption: 0,
+            freezeAuthority: PublicKey.default,
+        },
+        data,
+    );
+    let offset = ACCOUNT_SIZE; // start after standard account data (this is intentionally not using MintLayout.span, which is smaller)
+    // write account type
+    data[offset] = AccountType.Mint;
+    offset += 1;
+    // write extensions
+    offset = writeTlvEntry(ExtensionType.NonTransferable, 0, Buffer.alloc(0), data, offset);
+
+    return {
+        address: stakedMintPda,
+        info: {
+            owner: TOKEN_2022_PROGRAM_ID,
+            data,
+            executable: false,
+            lamports: 1_000_000_000, // arbitrary lamport amount
+        },
+    };
+}
+
+function writeTlvEntry(type: number, length: number, value: Buffer, buffer: Buffer, offset: number): number {
+    buffer.writeUInt8(type, offset);
+    buffer.writeUInt16LE(length, offset + 1);
+    value.copy(buffer, offset + 3);
+    return offset + 3 + length;
+}
+
+async function createUnstakedTokenAccountAddedAccount(
+    address: PublicKey,
+    owner: PublicKey,
+    amount: bigint | number = 0,
+): Promise<AddedAccount> {
+    const [unstakedMintPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from(baseProgram.constants.unstakedMintSeed)],
+        baseProgram.programId,
+    );
+
+    const data = Buffer.alloc(getAccountLen([]));
+
+    AccountLayout.encode(
+        {
+            mint: unstakedMintPda,
+            owner: owner,
+            amount: BigInt(amount),
+            delegateOption: 0,
+            delegate: PublicKey.default,
+            state: 1, // initialized
+            isNativeOption: 0,
+            isNative: BigInt(0),
+            delegatedAmount: BigInt(0),
+            closeAuthorityOption: 0,
+            closeAuthority: PublicKey.default,
+        },
+        data,
+    );
+
+    return {
+        address: address,
+        info: {
+            owner: TOKEN_2022_PROGRAM_ID,
+            data,
+            executable: false,
+            lamports: 1_000_000_000, // arbitrary lamport amount
+        },
+    };
+}
+
+async function createStakedTokenAccountAddedAccount(
+    address: PublicKey,
+    owner: PublicKey,
+    amount: bigint | number = 0,
+): Promise<AddedAccount> {
+    const [stakedMintPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from(baseProgram.constants.stakedMintSeed)],
+        baseProgram.programId,
+    );
+
+    const data = Buffer.alloc(getAccountLen([ExtensionType.NonTransferableAccount]));
+
+    AccountLayout.encode(
+        {
+            mint: stakedMintPda,
+            owner: owner,
+            amount: BigInt(amount),
+            delegateOption: 0,
+            delegate: PublicKey.default,
+            state: 1, // initialized
+            isNativeOption: 0,
+            isNative: BigInt(0),
+            delegatedAmount: BigInt(0),
+            closeAuthorityOption: 0,
+            closeAuthority: PublicKey.default,
+        },
+        data,
+    );
+
+    let offset = ACCOUNT_SIZE; // start after standard account data
+    // write account type
+    data[offset] = AccountType.Account;
+    offset += 1;
+    // write extensions
+    offset = writeTlvEntry(ExtensionType.NonTransferableAccount, 0, Buffer.alloc(0), data, offset);
+
+    return {
+        address: address,
+        info: {
+            owner: TOKEN_2022_PROGRAM_ID,
+            data,
+            executable: false,
+            lamports: 1_000_000_000, // arbitrary lamport amount
+        },
+    };
+}
+
+// =========================================== type helpers ===========================================
 
 function getConstants<Idl extends anchor.Idl>(program: Program<Idl>): Constants<Program<Idl>["idl"]["constants"]> {
     const rawConstants = program.idl.constants;
@@ -223,7 +627,6 @@ function constantDefinedToValue(constant: { name: string; type: IdlTypeDefined; 
         case "hash": {
             // Hash(<hash in base64?>)
             const buf = bs58.decode(constant.value.slice(5, -1));
-            console.log(buf, buf.length);
             return Uint8Array.from(buf);
         }
     }

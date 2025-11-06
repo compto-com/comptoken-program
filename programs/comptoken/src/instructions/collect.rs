@@ -72,18 +72,24 @@ pub fn collect(ctx: Context<Collect>) -> Result<()> {
     let global_data = ctx.accounts.global_data.load()?;
 
     let yields = global_data.daily_distribution.get_yield_for_n_days(n, principal);
+    msg!("Calculated yield for {} days on principal {}: {}", n, principal, yields);
 
     let total_yield = match verification_status {
         UserDataVerificationStatus::Verified => {
             let ubi = global_data.daily_distribution.get_ubi_for_n_days(n);
+            msg!("User verified, granting UBI of {}", ubi);
             yields + ubi
         }
         UserDataVerificationStatus::VerificationExpired => {
             msg!("User verification expired no UBI will be granted");
             yields
         }
-        UserDataVerificationStatus::Unverified => yields,
+        UserDataVerificationStatus::Unverified => {
+            msg!("User unverified, no UBI will be granted");
+            yields
+        }
     };
+    msg!("Total yield to be minted: {}", total_yield);
 
     user_data.update_last_claim_timestamp();
     if total_yield != 0 {

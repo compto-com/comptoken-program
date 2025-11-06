@@ -1,5 +1,4 @@
-import * as anchor from "@coral-xyz/anchor";
-import { Program, type Provider } from "@coral-xyz/anchor";
+import { default as anchor, Program, type Provider } from "@coral-xyz/anchor";
 import type { IdlType, IdlTypeDefined } from "@coral-xyz/anchor/dist/esm/idl.js";
 import { PublicKey } from "@solana/web3.js";
 const { BN } = anchor;

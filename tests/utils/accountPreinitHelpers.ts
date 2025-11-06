@@ -1,9 +1,9 @@
 import fs from "fs";
 
-import { BorshCoder, type IdlAccounts, default as anchor } from "@coral-xyz/anchor";
+import { BorshCoder, type IdlAccounts, type IdlTypes, default as anchor } from "@coral-xyz/anchor";
 import {
     ACCOUNT_SIZE,
-    Account,
+    type Account,
     AccountLayout,
     AccountType,
     ExtensionType,
@@ -20,8 +20,8 @@ import { type AddedAccount } from "solana-bankrun";
 const { BN } = anchor;
 
 import type { Comptoken } from "../../target/types/comptoken.ts";
-import { getProgramWithConstants } from "./typeHelpers.js";
-import { normalizeTime } from "./utils.js";
+import { getProgramWithConstants } from "./typeHelpers.ts";
+import { normalizeTime } from "./utils.ts";
 
 export const Idl: Comptoken = JSON.parse(fs.readFileSync("./target/idl/comptoken.json", "utf8"));
 export const baseProgram = getProgramWithConstants(Idl, undefined as any); // no provider, this should not be used to make calls (just for constants/account data)
@@ -61,12 +61,14 @@ export async function createUserDataAddedAccount({
         proofs: proofs.map((proof) => ({ [0]: Array.from(proof) })),
     };
 
-    const data = new Uint8Array(8 + 84 + capacity * 32); // discriminator (8) + fixed fields (84) + proofs capacity (capacity * 32)
+    const baseSize = coder.accounts.size("UserData") - 1 + 4; // size adds 1 for variable length fields, plus 4 bytes for the vector length
+    const size = baseSize + capacity * 32;
+    const data = new Uint8Array(size);
     data.set(coder.accounts.accountDiscriminator("UserData"));
     data.set(coder.types.encode("UserData", userData), 8);
     data.set(
         proofs.flatMap((proof) => [...proof]),
-        8 + 84,
+        baseSize,
     );
 
     return {
@@ -80,7 +82,7 @@ export async function createUserDataAddedAccount({
     };
 }
 
-type HistoricDistribution = { yieldRate: number; ubiYield: anchor.BN };
+type HistoricDistribution = IdlTypes<Comptoken>["historicDistribution"];
 type globalDataAccountData = Omit<IdlAccounts<Comptoken>["globalData"], "dailyDistribution"> & {
     dailyDistribution: Omit<IdlAccounts<Comptoken>["globalData"]["dailyDistribution"], "historicDistributions"> & {
         historicDistributions: Omit<
@@ -104,7 +106,7 @@ export async function createGlobalDataAddedAccount({
         buffer: new Array<{ yieldRate: number; ubiYield: number }>(
             Number(baseProgram.constants.dailyDistributionDataHistoryLength),
         ).fill({
-            yieldRate: 0,
+            yieldRate: 1,
             ubiYield: 0,
         }),
     },
@@ -128,7 +130,7 @@ export async function createGlobalDataAddedAccount({
         historicDistributions.buffer = historicDistributions.buffer.concat(
             new Array<{ yieldRate: number; ubiYield: number }>(
                 Number(baseProgram.constants.dailyDistributionDataHistoryLength) - historicDistributions.buffer.length,
-            ).fill({ yieldRate: 0, ubiYield: 0 }),
+            ).fill({ yieldRate: 1, ubiYield: 0 }),
         );
     }
     expect(historicDistributions.buffer.length === Number(baseProgram.constants.dailyDistributionDataHistoryLength));
@@ -141,44 +143,50 @@ export async function createGlobalDataAddedAccount({
     // Dummy initial data for GlobalData account
     const globalData: globalDataAccountData = {
         dailyDistribution: {
-            totalMinedToday: new BN.BN(totalMinedToday),
-            highWaterMark: new BN.BN(highWaterMark),
+            totalMinedToday: new BN(totalMinedToday),
+            highWaterMark: new BN(highWaterMark),
             verifiedAccountsCount: verifiedAccountsCount,
-            earlyAdopterUbiAmount: new BN.BN(earlyAdopterUbiAmount),
-            lastUpdateTimestamp: new BN.BN(normalizeTime(lastUpdate).getTime() / 1000),
+            earlyAdopterUbiAmount: new BN(earlyAdopterUbiAmount),
+            lastUpdateTimestamp: new BN(normalizeTime(lastUpdate).getTime() / 1000),
             remainingEarlyAdopterCount: remainingEarlyAdopterCount,
             historicDistributions: {
-                position: new BN.BN(historicDistributions.position),
+                position: new BN(historicDistributions.position),
                 buffer: historicDistributions.buffer.map((entry) => ({
                     yieldRate: entry.yieldRate,
-                    ubiYield: new BN.BN(entry.ubiYield),
+                    ubiYield: new BN(entry.ubiYield),
                 })),
             },
         },
         validBlockhashes: {
             announcedBlockhash: { [0]: Array.from(announcedBlockhash) },
-            announcedBlockhashTime: new BN.BN(normalizeTime(lastUpdate).getTime() / 1000),
+            announcedBlockhashTime: new BN(normalizeTime(lastUpdate).getTime() / 1000),
             validBlockhash: { [0]: Array.from(validBlockhash ?? announcedBlockhash) },
-            validBlockhashTime: new BN.BN(normalizeTime(lastUpdate).getTime() / 1000 + 300),
+            validBlockhashTime: new BN(normalizeTime(lastUpdate).getTime() / 1000 + 300),
         },
     };
 
     const data = new Uint8Array(coder.accounts.size("GlobalData"));
-    data.set(coder.accounts.accountDiscriminator("GlobalData"));
-    data.set(coder.types.encode("DailyDistributionData", globalData.dailyDistribution), 8); // only allocates 1000 bytes, so cuts out some data
+    let offset = 0;
+    data.set(coder.accounts.accountDiscriminator("GlobalData"), offset);
+    offset += 8; // discriminator size
+    data.set(coder.types.encode("DailyDistributionData", globalData.dailyDistribution), offset); // only allocates 1000 bytes, so cuts out some data
+    offset += 40 + 8; // daily distribution data size w/out history + history position size
     data.set(
         globalData.dailyDistribution.historicDistributions.buffer.flatMap((val) => [
             ...coder.types.encode("HistoricDistribution", val),
         ]),
-        8 + 32 + 8, // discriminator (8) + daily dist data w/out history (32) + position (8)
+        offset,
     );
+    offset += Number(baseProgram.constants.dailyDistributionDataHistoryLength) * 16;
     data.set(
         coder.types.encode(
             "comptoken::state::global_data::valid_blockhashes::ValidBlockhashes",
             globalData.validBlockhashes,
         ),
-        8 + 32 + 8 + historicDistributions.buffer.length * 16, // discriminator (8) + daily dist data w/out history (32) + position (8) + history (length * 16)
+        offset,
     );
+    offset += 72; // valid blockhashes size
+    expect(offset === data.length, "Data length mismatch");
 
     return {
         address: globalDataPda,

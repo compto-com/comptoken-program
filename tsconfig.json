@@ -5,6 +5,8 @@
         "lib": ["es2015"],
         "module": "esnext",
         "moduleResolution": "node",
+        "noEmit": true,
+        "allowImportingTsExtensions": true,
         "target": "esnext",
         "esModuleInterop": true
     }

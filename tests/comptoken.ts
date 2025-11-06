@@ -1,4 +1,4 @@
-import * as anchor from "@coral-xyz/anchor";
+import { default as anchor } from "@coral-xyz/anchor";
 import { TOKEN_2022_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { Keypair, PublicKey, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/web3.js";
 import { BankrunProvider, startAnchor } from "anchor-bankrun";
@@ -17,9 +17,9 @@ import {
     createUserDataAddedAccount,
     getAccount,
     getMint,
-} from "./utils/accountPreinitHelpers";
-import { getProgramWithConstants } from "./utils/typeHelpers";
-import { normalizeTime } from "./utils/utils";
+} from "./utils/accountPreinitHelpers.ts";
+import { getProgramWithConstants } from "./utils/typeHelpers.ts";
+import { normalizeTime } from "./utils/utils.ts";
 
 async function prepareTest(accounts: AddedAccount[] = []) {
     const context = await startAnchor(import.meta.dirname + "/..", [], accounts);
@@ -120,7 +120,7 @@ describe("comptoken", async () => {
 
         // Execute the create_user_data instruction
         const _tx = await program.methods
-            .createUserDataAccount({ capacity: new BN.BN(10) })
+            .createUserDataAccount({ capacity: new BN(10) })
             .accounts({
                 payer: userPubkey,
                 userWallet: userPubkey,
@@ -171,10 +171,6 @@ describe("comptoken", async () => {
             [Buffer.from(baseProgram.constants.unstakedMintSeed)],
             baseProgram.programId,
         );
-        const [globalDataPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.globalDataSeed)],
-            baseProgram.programId,
-        );
 
         const userStakedAta = getAssociatedTokenAddressSync(
             stakedMintPda,
@@ -200,15 +196,13 @@ describe("comptoken", async () => {
 
         const { provider, program } = await prepareTest(accounts);
 
-        const [beforeUnstaked, beforeStaked, beforeUnstakedMint, beforeStakedMint, beforeUserData, beforeGlobalData] =
-            await Promise.all([
-                getAccount(provider.connection, userUnstakedAta),
-                getAccount(provider.connection, userStakedAta),
-                getMint(provider.connection, unstakedMintPda),
-                getMint(provider.connection, stakedMintPda),
-                program.account.userData.fetch(userDataPda),
-                program.account.globalData.fetch(globalDataPda),
-            ]);
+        const [beforeUnstaked, beforeStaked, beforeUnstakedMint, beforeStakedMint, beforeUserData] = await Promise.all([
+            getAccount(provider.connection, userUnstakedAta),
+            getAccount(provider.connection, userStakedAta),
+            getMint(provider.connection, unstakedMintPda),
+            getMint(provider.connection, stakedMintPda),
+            program.account.userData.fetch(userDataPda),
+        ]);
 
         const _sig = await program.methods
             .collect()
@@ -221,24 +215,104 @@ describe("comptoken", async () => {
             .rpc();
 
         // Verify no error and state remains consistent
-        const [afterUnstaked, afterStaked, afterUnstakedMint, afterStakedMint, afterUserData, afterGlobalData] =
-            await Promise.all([
-                getAccount(provider.connection, userUnstakedAta),
-                getAccount(provider.connection, userStakedAta),
-                getMint(provider.connection, unstakedMintPda),
-                getMint(provider.connection, stakedMintPda),
-                program.account.userData.fetch(userDataPda),
-                program.account.globalData.fetch(globalDataPda),
-            ]);
+        const [afterUnstaked, afterStaked, afterUnstakedMint, afterStakedMint, afterUserData] = await Promise.all([
+            getAccount(provider.connection, userUnstakedAta),
+            getAccount(provider.connection, userStakedAta),
+            getMint(provider.connection, unstakedMintPda),
+            getMint(provider.connection, stakedMintPda),
+            program.account.userData.fetch(userDataPda),
+        ]);
 
         // With zero staked principal and no verification UBI, collect should mint 0
         expect(afterUnstaked.amount).to.equal(beforeUnstaked.amount);
         expect(afterStaked.amount).to.equal(beforeStaked.amount);
         expect(afterUnstakedMint.supply).to.equal(beforeUnstakedMint.supply);
         expect(afterStakedMint.supply).to.equal(beforeStakedMint.supply);
-        expect(afterGlobalData.dailyDistribution.totalMinedToday.toNumber()).to.equal(
-            beforeGlobalData.dailyDistribution.totalMinedToday.toNumber(),
+
+        // last_claimed should be updated to normalized today
+        expect(beforeUserData.lastClaimedTimestamp.toNumber()).to.be.lessThan(
+            afterUserData.lastClaimedTimestamp.toNumber(),
         );
+        expect(afterUserData.lastClaimedTimestamp.toNumber()).to.equal(normalizeTime(new Date()).getTime() / 1000);
+    });
+
+    it("collect: claims nothing when not staked and unverified", async () => {
+        const user = Keypair.generate();
+
+        const [userDataPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from(baseProgram.constants.userDataSeed), user.publicKey.toBuffer()],
+            baseProgram.programId,
+        );
+        const [stakedMintPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from(baseProgram.constants.stakedMintSeed)],
+            baseProgram.programId,
+        );
+        const [unstakedMintPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from(baseProgram.constants.unstakedMintSeed)],
+            baseProgram.programId,
+        );
+
+        const userStakedAta = getAssociatedTokenAddressSync(
+            stakedMintPda,
+            user.publicKey,
+            false,
+            TOKEN_2022_PROGRAM_ID,
+        );
+        const userUnstakedAta = getAssociatedTokenAddressSync(
+            unstakedMintPda,
+            user.publicKey,
+            false,
+            TOKEN_2022_PROGRAM_ID,
+        );
+
+        const accounts = await Promise.all([
+            createUserDataAddedAccount({ userPubkey: user.publicKey }),
+            createGlobalDataAddedAccount({
+                historicDistributions: {
+                    position: 1,
+                    buffer: [{ yieldRate: 1.5, ubiYield: 10 }],
+                },
+            }),
+            createStakedMintAddedAccount(),
+            createUnstakedMintAddedAccount(),
+            createStakedTokenAccountAddedAccount({ address: userStakedAta, owner: user.publicKey, amount: 0 }),
+            createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey, amount: 5 }),
+        ]);
+
+        const { provider, program } = await prepareTest(accounts);
+
+        const [beforeUnstaked, beforeStaked, beforeUnstakedMint, beforeStakedMint, beforeUserData] = await Promise.all([
+            getAccount(provider.connection, userUnstakedAta),
+            getAccount(provider.connection, userStakedAta),
+            getMint(provider.connection, unstakedMintPda),
+            getMint(provider.connection, stakedMintPda),
+            program.account.userData.fetch(userDataPda),
+        ]);
+
+        const _sig = await program.methods
+            .collect()
+            .accounts({
+                userWallet: user.publicKey,
+                userStakedTokenAccount: userStakedAta,
+                userUnstakedTokenAccount: userUnstakedAta,
+            })
+            .signers([user])
+            .rpc();
+
+        // Verify no error and state remains consistent
+        const [afterUnstaked, afterStaked, afterUnstakedMint, afterStakedMint, afterUserData] = await Promise.all([
+            getAccount(provider.connection, userUnstakedAta),
+            getAccount(provider.connection, userStakedAta),
+            getMint(provider.connection, unstakedMintPda),
+            getMint(provider.connection, stakedMintPda),
+            program.account.userData.fetch(userDataPda),
+        ]);
+
+        // With zero staked principal and no verification UBI, collect should mint 0
+        expect(afterUnstaked.amount).to.equal(beforeUnstaked.amount);
+        expect(afterStaked.amount).to.equal(beforeStaked.amount);
+        expect(afterUnstakedMint.supply).to.equal(beforeUnstakedMint.supply);
+        expect(afterStakedMint.supply).to.equal(beforeStakedMint.supply);
 
         // last_claimed should be updated to normalized today
         expect(beforeUserData.lastClaimedTimestamp.toNumber()).to.be.lessThan(

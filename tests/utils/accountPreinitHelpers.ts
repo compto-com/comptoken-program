@@ -32,8 +32,8 @@ type userDataAccountData = IdlAccounts<Comptoken>["userData"];
 export async function createUserDataAddedAccount({
     userPubkey,
     capacity = 10,
-    lastClaimed = new Date("2024-01-01T00:00:00Z"),
-    lastVerified = new Date("2024-01-01T00:00:00Z"),
+    lastClaimed = normalizeTime(new Date()),
+    lastVerified = normalizeTime(new Date(0)),
     nullifierHash = new Uint8Array(32).fill(0),
     recentBlockhash = new Uint8Array(32).fill(0),
     proofs = new Array<Uint8Array>(capacity).fill(new Uint8Array(32).fill(0)),
@@ -100,13 +100,13 @@ export async function createGlobalDataAddedAccount({
     earlyAdopterUbiAmount = 0,
     verifiedAccountsCount = 0,
     remainingEarlyAdopterCount = baseProgram.constants.earlyAdopterCount,
-    lastUpdate = new Date("2024-01-01T00:00:00Z"),
+    lastUpdate = normalizeTime(new Date()),
     historicDistributions = {
         position: 0,
         buffer: new Array<{ yieldRate: number; ubiYield: number }>(
             Number(baseProgram.constants.dailyDistributionDataHistoryLength),
         ).fill({
-            yieldRate: 1,
+            yieldRate: 0,
             ubiYield: 0,
         }),
     },
@@ -130,7 +130,7 @@ export async function createGlobalDataAddedAccount({
         historicDistributions.buffer = historicDistributions.buffer.concat(
             new Array<{ yieldRate: number; ubiYield: number }>(
                 Number(baseProgram.constants.dailyDistributionDataHistoryLength) - historicDistributions.buffer.length,
-            ).fill({ yieldRate: 1, ubiYield: 0 }),
+            ).fill({ yieldRate: 0, ubiYield: 0 }),
         );
     }
     expect(historicDistributions.buffer.length === Number(baseProgram.constants.dailyDistributionDataHistoryLength));

@@ -6,3 +6,9 @@ export function normalizeTime(time: Date): Date {
     normalized.setUTCHours(0);
     return normalized;
 }
+
+export function subtractDays(date: Date, days: number): Date {
+    const result = new Date(date);
+    result.setDate(result.getDate() - days);
+    return result;
+}

@@ -19,7 +19,7 @@ import {
     getMint,
 } from "./utils/accountPreinitHelpers.ts";
 import { getProgramWithConstants } from "./utils/typeHelpers.ts";
-import { normalizeTime } from "./utils/utils.ts";
+import { normalizeTime, subtractDays } from "./utils/utils.ts";
 
 async function prepareTest(accounts: AddedAccount[] = []) {
     const context = await startAnchor(import.meta.dirname + "/..", [], accounts);
@@ -30,6 +30,9 @@ async function prepareTest(accounts: AddedAccount[] = []) {
 }
 
 describe("comptoken", async () => {
+    const today = normalizeTime(new Date());
+    const weekAgo = subtractDays(today, 7);
+
     it("initialize: creates staked/unstaked mints and global data", async () => {
         const { provider, program } = await prepareTest();
         // Derive the mint addresses using the same seeds as in the program
@@ -50,12 +53,10 @@ describe("comptoken", async () => {
         );
 
         // Execute the initialize instruction
-        const _tx = await program.methods
-            .initialize()
-            .accounts({
-                slotHashes: SYSVAR_SLOT_HASHES_PUBKEY,
-            })
-            .rpc();
+        const ixBuilder = program.methods.initialize().accounts({
+            slotHashes: SYSVAR_SLOT_HASHES_PUBKEY,
+        });
+        const _sig = await ixBuilder.rpc();
 
         // Verify the staked mint was created
         const stakedMintInfo = await provider.connection.getAccountInfo(stakedMintPda);
@@ -119,13 +120,11 @@ describe("comptoken", async () => {
         );
 
         // Execute the create_user_data instruction
-        const _tx = await program.methods
-            .createUserDataAccount({ capacity: new BN(10) })
-            .accounts({
-                payer: userPubkey,
-                userWallet: userPubkey,
-            })
-            .rpc();
+        const ixBuilder = program.methods.createUserDataAccount({ capacity: new BN(10) }).accounts({
+            payer: userPubkey,
+            userWallet: userPubkey,
+        });
+        const _sig = await ixBuilder.rpc();
 
         // Verify the UserData account was created and is owned by our program
         const userDataInfo = await provider.connection.getAccountInfo(userDataPda);
@@ -186,7 +185,7 @@ describe("comptoken", async () => {
         );
 
         const accounts = await Promise.all([
-            createUserDataAddedAccount({ userPubkey: user.publicKey }),
+            createUserDataAddedAccount({ userPubkey: user.publicKey, lastClaimed: weekAgo }),
             createGlobalDataAddedAccount(),
             createStakedMintAddedAccount(),
             createUnstakedMintAddedAccount(),
@@ -204,15 +203,15 @@ describe("comptoken", async () => {
             program.account.userData.fetch(userDataPda),
         ]);
 
-        const _sig = await program.methods
+        const ixBuilder = program.methods
             .collect()
             .accounts({
                 userWallet: user.publicKey,
                 userStakedTokenAccount: userStakedAta,
                 userUnstakedTokenAccount: userUnstakedAta,
             })
-            .signers([user])
-            .rpc();
+            .signers([user]);
+        const _sig = await ixBuilder.rpc();
 
         // Verify no error and state remains consistent
         const [afterUnstaked, afterStaked, afterUnstakedMint, afterStakedMint, afterUserData] = await Promise.all([
@@ -266,7 +265,7 @@ describe("comptoken", async () => {
         );
 
         const accounts = await Promise.all([
-            createUserDataAddedAccount({ userPubkey: user.publicKey }),
+            createUserDataAddedAccount({ userPubkey: user.publicKey, lastClaimed: weekAgo }),
             createGlobalDataAddedAccount({
                 historicDistributions: {
                     position: 1,
@@ -289,15 +288,15 @@ describe("comptoken", async () => {
             program.account.userData.fetch(userDataPda),
         ]);
 
-        const _sig = await program.methods
+        const ixBuilder = program.methods
             .collect()
             .accounts({
                 userWallet: user.publicKey,
                 userStakedTokenAccount: userStakedAta,
                 userUnstakedTokenAccount: userUnstakedAta,
             })
-            .signers([user])
-            .rpc();
+            .signers([user]);
+        const _sig = await ixBuilder.rpc();
 
         // Verify no error and state remains consistent
         const [afterUnstaked, afterStaked, afterUnstakedMint, afterStakedMint, afterUserData] = await Promise.all([
@@ -319,5 +318,104 @@ describe("comptoken", async () => {
             afterUserData.lastClaimedTimestamp.toNumber(),
         );
         expect(afterUserData.lastClaimedTimestamp.toNumber()).to.equal(normalizeTime(new Date()).getTime() / 1000);
+    });
+
+    it("collect: claims rewards when staked, but unverified", async function () {
+        console.log("starting ", this.currentTest?.title);
+        const user = Keypair.generate();
+
+        const [userDataPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from(baseProgram.constants.userDataSeed), user.publicKey.toBuffer()],
+            baseProgram.programId,
+        );
+        const [stakedMintPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from(baseProgram.constants.stakedMintSeed)],
+            baseProgram.programId,
+        );
+        const [unstakedMintPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from(baseProgram.constants.unstakedMintSeed)],
+            baseProgram.programId,
+        );
+
+        const userStakedAta = getAssociatedTokenAddressSync(
+            stakedMintPda,
+            user.publicKey,
+            false,
+            TOKEN_2022_PROGRAM_ID,
+        );
+        const userUnstakedAta = getAssociatedTokenAddressSync(
+            unstakedMintPda,
+            user.publicKey,
+            false,
+            TOKEN_2022_PROGRAM_ID,
+        );
+
+        console.log("Preparing accounts for test...");
+
+        const accounts = await Promise.all([
+            createUserDataAddedAccount({ userPubkey: user.publicKey, lastClaimed: weekAgo }),
+            createGlobalDataAddedAccount({
+                historicDistributions: {
+                    position: 1,
+                    buffer: [{ yieldRate: 0.5, ubiYield: 10 }],
+                },
+            }),
+            createStakedMintAddedAccount(),
+            createUnstakedMintAddedAccount(),
+            createStakedTokenAccountAddedAccount({ address: userStakedAta, owner: user.publicKey, amount: 2 }),
+            createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey, amount: 5 }),
+        ]);
+
+        const { provider, program } = await prepareTest(accounts);
+
+        console.log("getting before state...");
+
+        const [beforeUnstaked, beforeStaked, beforeUnstakedMint, beforeStakedMint, beforeUserData] = await Promise.all([
+            getAccount(provider.connection, userUnstakedAta),
+            getAccount(provider.connection, userStakedAta),
+            getMint(provider.connection, unstakedMintPda),
+            getMint(provider.connection, stakedMintPda),
+            program.account.userData.fetch(userDataPda),
+        ]);
+
+        console.log("invoking collect...");
+
+        const ixBuilder = program.methods
+            .collect()
+            .accounts({
+                userWallet: user.publicKey,
+                userStakedTokenAccount: userStakedAta,
+                userUnstakedTokenAccount: userUnstakedAta,
+            })
+            .signers([user]);
+        const _sig = await ixBuilder.rpc();
+
+        console.log("getting after state...");
+
+        // Verify no error and state remains consistent
+        const [afterUnstaked, afterStaked, afterUnstakedMint, afterStakedMint, afterUserData] = await Promise.all([
+            getAccount(provider.connection, userUnstakedAta),
+            getAccount(provider.connection, userStakedAta),
+            getMint(provider.connection, unstakedMintPda),
+            getMint(provider.connection, stakedMintPda),
+            program.account.userData.fetch(userDataPda),
+        ]);
+
+        console.log("verifying results...");
+
+        // With zero staked principal and no verification UBI, collect should mint 0
+        expect(afterUnstaked.amount).to.equal(
+            beforeUnstaked.amount + BigInt(Math.floor(Number(beforeStaked.amount) * 0.5)),
+        );
+        expect(afterStaked.amount).to.equal(beforeStaked.amount);
+        expect(afterUnstakedMint.supply).to.equal(beforeUnstakedMint.supply + 1n);
+        expect(afterStakedMint.supply).to.equal(beforeStakedMint.supply);
+
+        // last_claimed should be updated to normalized today
+        expect(beforeUserData.lastClaimedTimestamp.toNumber()).to.be.lessThan(
+            afterUserData.lastClaimedTimestamp.toNumber(),
+        );
+        expect(afterUserData.lastClaimedTimestamp.toNumber()).to.equal(normalizeTime(new Date()).getTime() / 1000);
+        console.log("✓ collect with staked but unverified user works as expected");
     });
 });

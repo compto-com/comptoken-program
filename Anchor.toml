@@ -21,4 +21,4 @@ wallet = "~/.config/solana/id.json"
 test = "npm run test"
 
 [test]
-startup_wait = 5000
+startup_wait = 10000

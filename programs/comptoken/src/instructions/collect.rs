@@ -22,7 +22,6 @@ pub struct Collect<'info> {
     pub user_data: Account<'info, crate::state::user_data::UserData>,
 
     #[account(
-        mut,
         token::authority = user_wallet,
         token::mint = staked_mint,
         token::token_program = token_program,
@@ -38,7 +37,6 @@ pub struct Collect<'info> {
     pub user_unstaked_token_account: InterfaceAccount<'info, TokenAccount>,
 
     #[account(
-        mut,
         seeds = [STAKED_MINT_SEED],
         bump,
         mint::token_program = token_program,
@@ -46,6 +44,7 @@ pub struct Collect<'info> {
     pub staked_mint: InterfaceAccount<'info, Mint>,
 
     #[account(
+        mut,
         seeds = [UNSTAKED_MINT_SEED],
         bump,
         mint::token_program = token_program,
@@ -93,6 +92,9 @@ pub fn collect(ctx: Context<Collect>) -> Result<()> {
 
     user_data.update_last_claim_timestamp();
     if total_yield != 0 {
+        let global_data_bump = ctx.bumps.global_data;
+        let signer_seeds: &[&[u8]] = &[GLOBAL_DATA_SEED, &[global_data_bump]];
+
         anchor_spl::token_2022::mint_to_checked(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -102,7 +104,7 @@ pub fn collect(ctx: Context<Collect>) -> Result<()> {
                     authority: ctx.accounts.global_data.to_account_info(),
                 },
             )
-            .with_signer(&[&[GLOBAL_DATA_SEED]]),
+            .with_signer(&[signer_seeds]),
             total_yield,
             MINT_DECIMALS,
         )?;

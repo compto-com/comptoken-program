@@ -66,7 +66,7 @@ impl DailyDistributionData {
         self.last_update_timestamp = normalize_time(get_current_time());
 
         if self.total_mined_today == 0 {
-            self.historic_distributions.push(HistoricDistribution { yield_rate: 1., ubi_yield: 0 });
+            self.historic_distributions.push(HistoricDistribution { yield_rate: 0., ubi_yield: 0 });
             return DailyDistribution { yield_amount: 0, ubi_amount: 0, early_adopter_ubi_amount: 0 };
         }
 

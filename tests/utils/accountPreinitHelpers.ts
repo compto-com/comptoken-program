@@ -63,13 +63,28 @@ export async function createUserDataAddedAccount({
 
     const baseSize = coder.accounts.size("UserData") - 1 + 4; // size adds 1 for variable length fields, plus 4 bytes for the vector length
     const size = baseSize + capacity * 32;
-    const data = new Uint8Array(size);
+    const data = Buffer.alloc(size);
+    let offset = 0;
     data.set(coder.accounts.accountDiscriminator("UserData"));
-    data.set(coder.types.encode("UserData", userData), 8);
+    offset += 8;
+    data.writeBigInt64LE(BigInt(userData.lastClaimedTimestamp.toString()), offset);
+    offset += 8;
+    data.writeBigInt64LE(BigInt(userData.lastVerifiedTimestamp.toString()), offset);
+    offset += 8;
+    data.set(userData.nullifierHash[0], offset);
+    offset += 32;
+    data.set(userData.recentBlockhash[0], offset);
+    offset += 32;
+    data.writeUInt32LE(proofs.length, offset);
+    offset += 4;
     data.set(
         proofs.flatMap((proof) => [...proof]),
-        baseSize,
+        offset,
     );
+
+    expect(offset === size, "Data length mismatch");
+    const decoded = coder.accounts.decode("UserData", data);
+    expect(snakeToCamelRecursive(BNtoBigIntRecursive(decoded))).to.deep.equal(BNtoBigIntRecursive(userData));
 
     return {
         address: userDataPda,
@@ -165,28 +180,46 @@ export async function createGlobalDataAddedAccount({
         },
     };
 
-    const data = new Uint8Array(coder.accounts.size("GlobalData"));
+    // coder.accounts.encode("GlobalData", globalData) does not work because it is larger than the max buffer size
+    // also coder.types.encode(<type>) does not work and I don't know why
+    // so we have to encode manually
+    const data = Buffer.alloc(coder.accounts.size("GlobalData"));
     let offset = 0;
     data.set(coder.accounts.accountDiscriminator("GlobalData"), offset);
     offset += 8; // discriminator size
-    data.set(coder.types.encode("DailyDistributionData", globalData.dailyDistribution), offset); // only allocates 1000 bytes, so cuts out some data
-    offset += 40 + 8; // daily distribution data size w/out history + history position size
-    data.set(
-        globalData.dailyDistribution.historicDistributions.buffer.flatMap((val) => [
-            ...coder.types.encode("HistoricDistribution", val),
-        ]),
-        offset,
-    );
-    offset += Number(baseProgram.constants.dailyDistributionDataHistoryLength) * 16;
-    data.set(
-        coder.types.encode(
-            "comptoken::state::global_data::valid_blockhashes::ValidBlockhashes",
-            globalData.validBlockhashes,
-        ),
-        offset,
-    );
-    offset += 72; // valid blockhashes size
+    data.writeBigUInt64LE(BigInt(globalData.dailyDistribution.totalMinedToday.toString()), offset);
+    offset += 8;
+    data.writeBigUInt64LE(BigInt(globalData.dailyDistribution.highWaterMark.toString()), offset);
+    offset += 8;
+    data.writeBigInt64LE(BigInt(globalData.dailyDistribution.lastUpdateTimestamp.toString()), offset);
+    offset += 8;
+    data.writeBigUInt64LE(BigInt(globalData.dailyDistribution.earlyAdopterUbiAmount.toString()), offset);
+    offset += 8;
+    data.writeUInt32LE(globalData.dailyDistribution.verifiedAccountsCount, offset);
+    offset += 4;
+    data.writeUInt32LE(globalData.dailyDistribution.remainingEarlyAdopterCount, offset);
+    offset += 4;
+    data.writeBigUInt64LE(BigInt(globalData.dailyDistribution.historicDistributions.position.toString()), offset);
+    offset += 8;
+    for (const entry of globalData.dailyDistribution.historicDistributions.buffer) {
+        const buffer = Buffer.alloc(16);
+        buffer.writeDoubleLE(entry.yieldRate, 0);
+        buffer.writeBigUInt64LE(BigInt(entry.ubiYield.toString()), 8);
+        data.set(buffer, offset);
+        offset += 16;
+    }
+    data.set(globalData.validBlockhashes.announcedBlockhash[0], offset);
+    offset += 32;
+    data.writeBigInt64LE(BigInt(globalData.validBlockhashes.announcedBlockhashTime.toString()), offset);
+    offset += 8;
+    data.set(globalData.validBlockhashes.validBlockhash[0], offset);
+    offset += 32;
+    data.writeBigInt64LE(BigInt(globalData.validBlockhashes.validBlockhashTime.toString()), offset);
+    offset += 8;
     expect(offset === data.length, "Data length mismatch");
+
+    const decoded = coder.accounts.decode("GlobalData", data);
+    expect(snakeToCamelRecursive(BNtoBigIntRecursive(decoded))).to.deep.equal(BNtoBigIntRecursive(globalData));
 
     return {
         address: globalDataPda,
@@ -394,4 +427,35 @@ export function getMint(
     address: anchor.web3.PublicKey,
 ): Promise<import("@solana/spl-token").Mint> {
     return splGetMint(connection, address, "confirmed", TOKEN_2022_PROGRAM_ID);
+}
+
+function BNtoBigIntRecursive(obj: any): any {
+    if (obj instanceof BN) {
+        return obj.toNumber();
+    } else if (Array.isArray(obj)) {
+        return obj.map((item) => BNtoBigIntRecursive(item));
+    } else if (obj !== null && typeof obj === "object") {
+        const newObj: any = {};
+        for (const key of Object.keys(obj)) {
+            newObj[key] = BNtoBigIntRecursive(obj[key]);
+        }
+        return newObj;
+    } else {
+        return obj;
+    }
+}
+
+function snakeToCamelRecursive(obj: any): any {
+    if (Array.isArray(obj)) {
+        return obj.map((item) => snakeToCamelRecursive(item));
+    } else if (obj !== null && typeof obj === "object") {
+        const newObj: any = {};
+        for (const key of Object.keys(obj)) {
+            const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+            newObj[camelKey] = snakeToCamelRecursive(obj[key]);
+        }
+        return newObj;
+    } else {
+        return obj;
+    }
 }

@@ -179,7 +179,7 @@ pub fn verify(ctx: Context<Verify>, args: WorldIdVerificationData) -> Result<()>
                 },
             )
             .with_signer(&[&[GLOBAL_DATA_SEED]]),
-            global_data.daily_distribution.early_adopter_ubi_amount,
+            global_data.daily_distribution.per_capita_early_adopter_ubi_amount,
         )?;
     }
 

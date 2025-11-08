@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::{
+    constants::SECONDS_IN_A_DAY,
     helpers::{get_current_time, normalize_time},
     state::error::ComptokenError,
     utils::ring_buffer::RingBuffer,
@@ -33,7 +34,7 @@ pub struct DailyDistributionData {
     pub total_mined_today: u64,
     pub high_water_mark: u64,
     pub last_update_timestamp: i64,
-    pub early_adopter_ubi_amount: u64,
+    pub per_capita_early_adopter_ubi_amount: u64,
     pub verified_accounts_count: u32,
     pub remaining_early_adopter_count: u32,
     pub historic_distributions: RingBuffer<HistoricDistribution, HISTORY_LENGTH>,
@@ -46,7 +47,7 @@ impl Default for DailyDistributionData {
             high_water_mark: 0,
             last_update_timestamp: normalize_time(get_current_time()),
             verified_accounts_count: 0,
-            early_adopter_ubi_amount: 0,
+            per_capita_early_adopter_ubi_amount: 0,
             remaining_early_adopter_count: EARLY_ADOPTER_COUNT,
             historic_distributions: RingBuffer::default(),
         }
@@ -62,11 +63,12 @@ impl DailyDistributionData {
         Ok(())
     }
 
+    /// Calculates the daily distribution based on the current state and provided supplies,
+    /// updates state accordingly, and returns the calculated distribution.
+    /// assumes that this is only called once per day; behavior is undefined otherwise.
     pub fn daily_distribution(&mut self, staked_supply: u64, unstaked_supply: u64) -> DailyDistribution {
-        self.last_update_timestamp = normalize_time(get_current_time());
-
         if self.total_mined_today == 0 {
-            self.historic_distributions.push(HistoricDistribution { yield_rate: 0., ubi_yield: 0 });
+            self.finalize_day(HistoricDistribution { yield_rate: 0., ubi_yield: 0 });
             return DailyDistribution { yield_amount: 0, ubi_amount: 0, early_adopter_ubi_amount: 0 };
         }
 
@@ -79,12 +81,11 @@ impl DailyDistributionData {
         msg!("Total daily distribution: {}", total_daily_distribution);
 
         let total_ubi_distribution = total_daily_distribution / 2;
-        let early_adopter_ubi_ratio = 1.
-            - f64::min(
-                1.,
-                self.verified_accounts_count as f64 * 2.
-                    / (EARLY_ADOPTER_COUNT as f64 + self.verified_accounts_count as f64),
-            );
+        // when verified_accounts_count >= EARLY_ADOPTER_COUNT, early_adopter_ubi_ratio will be 0
+        // otherwise, it scales so that a verified account gets ~twice as much UBI as is stored for (later) early adopters
+        let early_adopter_ubi_ratio = EARLY_ADOPTER_COUNT.saturating_sub(self.verified_accounts_count) as f64
+            / (EARLY_ADOPTER_COUNT + self.verified_accounts_count) as f64;
+
         msg!("Early adopter UBI ratio: {}", early_adopter_ubi_ratio);
 
         let ubi_for_early_adopters = (total_ubi_distribution as f64 * early_adopter_ubi_ratio).round_ties_even() as u64;
@@ -94,20 +95,42 @@ impl DailyDistributionData {
             early_adopter_ubi_amount: ubi_for_early_adopters,
         };
 
-        let todays_yield_rate = distribution.yield_amount as f64 / (staked_supply as f64);
+        let todays_yield_rate =
+            if staked_supply != 0 { distribution.yield_amount as f64 / staked_supply as f64 } else { 0. };
         msg!("Today's yield rate: {}", todays_yield_rate);
 
         let todays_ubi_yield = distribution.ubi_amount.checked_div(self.verified_accounts_count as u64).unwrap_or(0); // avoid div by 0, which means no verified accounts and all UBI goes to early adopters
 
-        msg!("Today's UBI yield per verified account: {}", todays_ubi_yield);
-        self.historic_distributions
-            .push(HistoricDistribution { yield_rate: todays_yield_rate, ubi_yield: todays_ubi_yield });
-
         if self.remaining_early_adopter_count != 0 {
-            self.early_adopter_ubi_amount += ubi_for_early_adopters / self.remaining_early_adopter_count as u64;
+            // per capita early adopter UBI amount is cumulative and is used during claim to determine how much each
+            // verified account is owed. this is ~%50 of what a verified-from-day-1 account would have gotten in UBI
+            // not strictly necessary to only increment when there are remaining early adopters, but it avoids
+            // unnecessary math
+            self.per_capita_early_adopter_ubi_amount +=
+                ubi_for_early_adopters / self.remaining_early_adopter_count as u64;
         }
 
+        msg!("Today's UBI yield per verified account: {}", todays_ubi_yield);
+        self.finalize_day(HistoricDistribution { yield_rate: todays_yield_rate, ubi_yield: todays_ubi_yield });
+
         distribution
+    }
+
+    // Finalizes the day by pushing the provided HistoricDistribution to history,
+    // resetting total_mined_today, and updating last_update_timestamp. If days
+    // have been missed, pushes zeroed HistoricDistributions for each missed day.
+    fn finalize_day(&mut self, hd: HistoricDistribution) {
+        self.historic_distributions.push(hd);
+        self.total_mined_today = 0;
+        let today = normalize_time(get_current_time());
+        let days_missed = (today - self.last_update_timestamp) / SECONDS_IN_A_DAY - 1;
+        if days_missed > 0 {
+            msg!("Days missed since last update: {}", days_missed);
+        }
+        for _ in 0..days_missed {
+            self.historic_distributions.push(HistoricDistribution { yield_rate: 0., ubi_yield: 0 });
+        }
+        self.last_update_timestamp = today;
     }
 
     fn calculate_high_water_mark_increase(&self, total_supply: u64) -> u64 {

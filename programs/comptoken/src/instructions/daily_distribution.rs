@@ -4,6 +4,7 @@ use anchor_spl::token_interface::Mint;
 use crate::{
     constants::{GLOBAL_DATA_SEED, STAKED_MINT_SEED, UNSTAKED_MINT_SEED},
     state::global_data::GlobalData,
+    utils::helpers::{get_current_time, normalize_time},
 };
 
 #[derive(Accounts)]
@@ -33,6 +34,11 @@ pub fn daily_distribution(ctx: Context<DailyDistribution>) -> Result<()> {
     let mut global_data = ctx.accounts.global_data.load_mut()?;
     let staked_mint = &ctx.accounts.staked_mint;
     let unstaked_mint = &ctx.accounts.unstaked_mint;
+
+    if global_data.daily_distribution.last_update_timestamp == normalize_time(get_current_time()) {
+        msg!("Daily distribution has already been calculated for today");
+        return Ok(());
+    }
 
     let distribution = global_data
         .daily_distribution

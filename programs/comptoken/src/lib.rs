@@ -13,6 +13,8 @@ use utils::*;
 
 declare_id!("F9SW7dcgDHV6QGYcFHyqKtykAdsHvL4BJYA2YP4YkEJX");
 
+// TODO: go through files and remove/combine msg! calls where appropriate
+
 #[program]
 pub mod comptoken {
     use super::*;

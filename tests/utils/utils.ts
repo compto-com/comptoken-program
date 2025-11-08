@@ -23,15 +23,11 @@ export function subtractDays(date: Date, days: number): Date {
 }
 
 export async function prepareTest(accounts: AddedAccount[] = []) {
-    console.log("Preparing test environment...");
     // Resolve Anchor workspace root more robustly in ESM/WSL
     const workspaceRoot = process.cwd();
-    console.log("Workspace root:", workspaceRoot);
     const context = await startAnchor(workspaceRoot, [], accounts);
-    console.log("Anchor context initialized.");
     const provider = new BankrunProvider(context);
     const program = getProgramWithConstants(Idl, provider);
 
-    console.log("Test environment ready.");
     return { context, provider, program };
 }

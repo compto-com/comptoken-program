@@ -5,8 +5,8 @@ const { BN } = anchor;
 
 import { normalizeTime, prepareTest } from "./utils/utils.ts";
 
-describe("comptoken", async () => {
-    it("create_user_data_account: creates user data with capacity", async () => {
+describe("create_user_data_account", async () => {
+    it("creates user data with capacity", async () => {
         const { provider, program } = await prepareTest();
         // Derive the UserData PDA using the same seed as in the program
         const userPubkey = provider.wallet.publicKey;
@@ -50,4 +50,21 @@ describe("comptoken", async () => {
 
         console.log("✓ UserData account initialized with expected defaults");
     });
+
+    // Stubs for untested aspects of create_user_data_account
+    it.skip("fails when called a second time for the same user (PDA already exists)", async () => {});
+
+    it.skip("fails when userWallet is not a signer", async () => {});
+
+    it.skip("fails when payer is not a signer", async () => {});
+
+    it.skip("creates user data with zero capacity (no proofs allowed)", async () => {});
+
+    it.skip("fails when capacity is extremely large and exceeds account size limits", async () => {});
+
+    it.skip("fails when an incorrect userData account address is provided", async () => {});
+
+    it.skip("initializes nullifier_hash and recent_blockhash to zero", async () => {});
+
+    it.skip("payer balance decreases by at least the rent-exempt minimum", async () => {});
 });

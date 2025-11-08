@@ -95,7 +95,7 @@ type Constants<ConstantsType extends Program<anchor.Idl>["idl"]["constants"]> = 
         : never;
 };
 
-type ProgramWithConstants<Idl extends anchor.Idl> = Program<Idl> & {
+export type ProgramWithConstants<Idl extends anchor.Idl> = Program<Idl> & {
     constants: Constants<Program<Idl>["idl"]["constants"]>;
 };
 

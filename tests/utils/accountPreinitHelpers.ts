@@ -97,7 +97,7 @@ export async function createUserDataAddedAccount({
     };
 }
 
-type HistoricDistribution = IdlTypes<Comptoken>["historicDistribution"];
+export type HistoricDistribution = IdlTypes<Comptoken>["historicDistribution"];
 type globalDataAccountData = Omit<IdlAccounts<Comptoken>["globalData"], "dailyDistribution"> & {
     dailyDistribution: Omit<IdlAccounts<Comptoken>["globalData"]["dailyDistribution"], "historicDistributions"> & {
         historicDistributions: Omit<
@@ -112,7 +112,7 @@ type globalDataAccountData = Omit<IdlAccounts<Comptoken>["globalData"], "dailyDi
 export async function createGlobalDataAddedAccount({
     totalMinedToday = 0,
     highWaterMark = 0,
-    earlyAdopterUbiAmount = 0,
+    perCapitaEarlyAdopterUbiAmount = 0,
     verifiedAccountsCount = 0,
     remainingEarlyAdopterCount = baseProgram.constants.earlyAdopterCount,
     lastUpdate = normalizeTime(new Date()),
@@ -130,7 +130,7 @@ export async function createGlobalDataAddedAccount({
 }: {
     totalMinedToday?: number;
     highWaterMark?: number;
-    earlyAdopterUbiAmount?: number;
+    perCapitaEarlyAdopterUbiAmount?: number;
     verifiedAccountsCount?: number;
     remainingEarlyAdopterCount?: number;
     lastUpdate?: Date;
@@ -161,7 +161,7 @@ export async function createGlobalDataAddedAccount({
             totalMinedToday: new BN(totalMinedToday),
             highWaterMark: new BN(highWaterMark),
             verifiedAccountsCount: verifiedAccountsCount,
-            earlyAdopterUbiAmount: new BN(earlyAdopterUbiAmount),
+            perCapitaEarlyAdopterUbiAmount: new BN(perCapitaEarlyAdopterUbiAmount),
             lastUpdateTimestamp: new BN(normalizeTime(lastUpdate).getTime() / 1000),
             remainingEarlyAdopterCount: remainingEarlyAdopterCount,
             historicDistributions: {
@@ -193,7 +193,7 @@ export async function createGlobalDataAddedAccount({
     offset += 8;
     data.writeBigInt64LE(BigInt(globalData.dailyDistribution.lastUpdateTimestamp.toString()), offset);
     offset += 8;
-    data.writeBigUInt64LE(BigInt(globalData.dailyDistribution.earlyAdopterUbiAmount.toString()), offset);
+    data.writeBigUInt64LE(BigInt(globalData.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toString()), offset);
     offset += 8;
     data.writeUInt32LE(globalData.dailyDistribution.verifiedAccountsCount, offset);
     offset += 4;

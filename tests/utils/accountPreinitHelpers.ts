@@ -98,7 +98,7 @@ export async function createUserDataAddedAccount({
 }
 
 export type HistoricDistribution = IdlTypes<Comptoken>["historicDistribution"];
-type globalDataAccountData = Omit<IdlAccounts<Comptoken>["globalData"], "dailyDistribution"> & {
+export type GlobalDataAccountData = Omit<IdlAccounts<Comptoken>["globalData"], "dailyDistribution"> & {
     dailyDistribution: Omit<IdlAccounts<Comptoken>["globalData"]["dailyDistribution"], "historicDistributions"> & {
         historicDistributions: Omit<
             IdlAccounts<Comptoken>["globalData"]["dailyDistribution"]["historicDistributions"],
@@ -156,7 +156,7 @@ export async function createGlobalDataAddedAccount({
     );
 
     // Dummy initial data for GlobalData account
-    const globalData: globalDataAccountData = {
+    const globalData: GlobalDataAccountData = {
         dailyDistribution: {
             totalMinedToday: new BN(totalMinedToday),
             highWaterMark: new BN(highWaterMark),

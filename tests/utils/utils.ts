@@ -22,6 +22,10 @@ export function subtractDays(date: Date, days: number): Date {
     return result;
 }
 
+export function toUnixTime(date: Date): number {
+    return Math.floor(date.getTime() / 1000);
+}
+
 export async function prepareTest(accounts: AddedAccount[] = []) {
     // Resolve Anchor workspace root more robustly in ESM/WSL
     const workspaceRoot = process.cwd();

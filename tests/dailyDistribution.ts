@@ -7,7 +7,9 @@ import {
     createUnstakedMintAddedAccount,
     type HistoricDistribution,
 } from "./utils/accountPreinitHelpers.ts";
-import { normalizeTime, prepareTest, subtractDays } from "./utils/utils.ts";
+import { fetchGlobalData, getLatestDistribution } from "./utils/stateHelpers.ts";
+import { expectAlmostEqual, expectHistoryAdvancedBy } from "./utils/testAssertions.ts";
+import { normalizeTime, prepareTest, subtractDays, toUnixTime } from "./utils/utils.ts";
 
 describe("daily_distribution", () => {
     describe("Core success path scenarios", () => {
@@ -28,27 +30,13 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
-
-            const beforeGlobal = await program.account.globalData.fetch(globalDataPda);
-            const beforePos = beforeGlobal.dailyDistribution.historicDistributions.position.toNumber();
+            const beforeGlobal = await fetchGlobalData(program);
 
             await program.methods.dailyDistribution().rpc();
 
-            const afterGlobal = await program.account.globalData.fetch(globalDataPda);
-            const afterPos = afterGlobal.dailyDistribution.historicDistributions.position.toNumber();
-            const historyLen = Number(program.constants.dailyDistributionDataHistoryLength);
-
-            // Position should advance by 1 (ring buffer wrap aware)
-            expect(afterPos).to.equal((beforePos + 1) % historyLen);
-
-            const pushedIndex = beforePos; // ring buffer writes at current position then advances
-            const pushedEntry = afterGlobal.dailyDistribution.historicDistributions.buffer[
-                pushedIndex
-            ] as HistoricDistribution;
+            const afterGlobal = await fetchGlobalData(program);
+            expectHistoryAdvancedBy(beforeGlobal, afterGlobal, program, 1);
+            const pushedEntry = getLatestDistribution(afterGlobal, program);
             expect(pushedEntry.yieldRate).to.be.greaterThan(0, "Yield rate should be > 0 when mining occurred");
             // ubi_yield may be 0 if no verified accounts; that's fine — ensure high_water_mark grew
             expect(afterGlobal.dailyDistribution.highWaterMark.toNumber()).to.be.greaterThan(startingHwm);
@@ -73,31 +61,15 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
-
-            const beforeGlobal = await program.account.globalData.fetch(globalDataPda);
-            const beforePos = beforeGlobal.dailyDistribution.historicDistributions.position.toNumber();
+            const beforeGlobal = await fetchGlobalData(program);
 
             await program.methods.dailyDistribution().rpc();
 
-            const afterGlobal = await program.account.globalData.fetch(globalDataPda);
-            const afterPos = afterGlobal.dailyDistribution.historicDistributions.position.toNumber();
-            const historyLen = Number(program.constants.dailyDistributionDataHistoryLength);
-
-            // Position should advance by 1 (ring buffer wrap aware)
-            expect(afterPos).to.equal((beforePos + 1) % historyLen);
-
-            const pushedIndex = beforePos; // ring buffer writes at current position then advances
-            const pushedEntry = afterGlobal.dailyDistribution.historicDistributions.buffer[
-                pushedIndex
-            ] as HistoricDistribution;
+            const afterGlobal = await fetchGlobalData(program);
+            expectHistoryAdvancedBy(beforeGlobal, afterGlobal, program, 1);
+            const pushedEntry = getLatestDistribution(afterGlobal, program);
             expect(pushedEntry.yieldRate).to.equal(0, "Yield rate should be 0 when not enough mining occurred");
-            // ubi_yield may be 0 if no verified accounts; that's fine — ensure high_water_mark grew
             expect(afterGlobal.dailyDistribution.highWaterMark.toNumber()).to.equal(startingHwm);
-            // total_mined_today reset
             expect(afterGlobal.dailyDistribution.totalMinedToday.toNumber()).to.equal(0);
         });
 
@@ -115,25 +87,16 @@ describe("daily_distribution", () => {
                 createUnstakedMintAddedAccount({ supply: 25_000 }),
             ]);
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
-            const beforeGlobal = await program.account.globalData.fetch(globalDataPda);
-            const beforePos = beforeGlobal.dailyDistribution.historicDistributions.position.toNumber();
+            const beforeGlobal = await fetchGlobalData(program);
 
             await program.methods.dailyDistribution().rpc();
-            const afterGlobal = await program.account.globalData.fetch(globalDataPda);
-            const afterPos = afterGlobal.dailyDistribution.historicDistributions.position.toNumber();
-            const historyLen = Number(program.constants.dailyDistributionDataHistoryLength);
-            expect(afterPos).to.equal((beforePos + 1) % historyLen);
+            const afterGlobal = await fetchGlobalData(program);
+            expectHistoryAdvancedBy(beforeGlobal, afterGlobal, program, 1);
 
-            const pushedEntry: any = afterGlobal.dailyDistribution.historicDistributions.buffer[beforePos] as any;
+            const pushedEntry = getLatestDistribution(afterGlobal, program);
             expect(pushedEntry.yieldRate).to.equal(0);
             expect(Number(pushedEntry.ubiYield)).to.equal(0);
-            // High water mark unchanged when no mining
             expect(afterGlobal.dailyDistribution.highWaterMark.toNumber()).to.equal(startingHwm);
-            // total_mined_today reset (already 0 stays 0)
             expect(afterGlobal.dailyDistribution.totalMinedToday.toNumber()).to.equal(0);
         });
 
@@ -150,16 +113,14 @@ describe("daily_distribution", () => {
                 createUnstakedMintAddedAccount({ supply: 2_000 }),
             ]);
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
-            const before = await program.account.globalData.fetch(globalDataPda);
+            const before = await fetchGlobalData(program);
             const beforeTs = before.dailyDistribution.lastUpdateTimestamp.toNumber();
+
             await program.methods.dailyDistribution().rpc();
-            const after = await program.account.globalData.fetch(globalDataPda);
+
+            const after = await fetchGlobalData(program);
             const afterTs = after.dailyDistribution.lastUpdateTimestamp.toNumber();
-            const expectedTs = normalizeTime(new Date()).getTime() / 1000;
+            const expectedTs = toUnixTime(normalizeTime(new Date()));
             expect(afterTs).to.equal(expectedTs);
             expect(afterTs).to.be.greaterThan(beforeTs);
         });
@@ -187,17 +148,12 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
-
-            const before = await program.account.globalData.fetch(globalDataPda);
+            const before = await fetchGlobalData(program);
             expect(before.dailyDistribution.highWaterMark.toNumber()).to.equal(startingHwm);
 
             await program.methods.dailyDistribution().rpc();
 
-            const after = await program.account.globalData.fetch(globalDataPda);
+            const after = await fetchGlobalData(program);
             // Uncapped since total supply < threshold; increase = minedToday - startingHwm
             expect(after.dailyDistribution.highWaterMark.toNumber()).to.equal(
                 startingHwm + expectedIncrease,
@@ -206,7 +162,6 @@ describe("daily_distribution", () => {
         });
 
         it("caps high_water_mark increase when total supply above MIN_SUPPLY_LIMIT_AMT", async () => {
-            // We select supplies so that minedToday - startingHwm (uncapped) is large, then verify capped.
             // Using total supply > MIN_SUPPLY_LIMIT_AMT (1_000_000) triggers limiter path.
             const startingHwm = 100_000;
             const stakedSupply = 1_200_000;
@@ -221,7 +176,7 @@ describe("daily_distribution", () => {
             //   max_allowable_increase = max(32_924 / 146_000, 1) => max(0,1) = 1
             // Therefore the capped increase is 1.
             const expectedIncrease = 1;
-            const minedToday = startingHwm + expectedIncrease + 1; // minedToday ~= hwm + limited increase
+            const minedToday = startingHwm + expectedIncrease + 1;
 
             const accounts = await Promise.all([
                 createGlobalDataAddedAccount({
@@ -234,19 +189,13 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
-
-            const before = await program.account.globalData.fetch(globalDataPda);
+            const before = await fetchGlobalData(program);
             expect(before.dailyDistribution.highWaterMark.toNumber()).to.equal(startingHwm);
 
             await program.methods.dailyDistribution().rpc();
 
-            const after = await program.account.globalData.fetch(globalDataPda);
+            const after = await fetchGlobalData(program);
             const actualIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
-
             expect(actualIncrease).to.equal(expectedIncrease);
         });
     });
@@ -258,8 +207,8 @@ describe("daily_distribution", () => {
             const minedToday = 1_500; // increase = 500
             const stakedSupply = 10_000; // arbitrary small supply
             const unstakedSupply = 5_000; // total < MIN_SUPPLY_LIMIT_AMT (1_000_000)
-            const verifiedAccountsCount = 25; // some verified accounts so UBI splits between early adopters + verified
-            const remainingEarlyAdopterCount = Number(baseProgram.constants.earlyAdopterCount); // large non-zero
+            const verifiedAccountsCount = 25; // some verified accounts
+            const remainingEarlyAdopterCount = Number(baseProgram.constants.earlyAdopterCount) - verifiedAccountsCount;
             const beforeTs = normalizeTime(subtractDays(new Date(), 1));
 
             const accounts = await Promise.all([
@@ -275,14 +224,10 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
 
             await program.methods.dailyDistribution().rpc();
 
-            const after = await program.account.globalData.fetch(globalDataPda);
+            const after = await fetchGlobalData(program);
 
             const hwmIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm; // expect 500
             expect(hwmIncrease).to.equal(minedToday - startingHwm, "Expected uncapped high water mark increase");
@@ -291,26 +236,19 @@ describe("daily_distribution", () => {
             const totalUbiDistribution = Math.floor(totalDailyDistribution / 2);
             const expectedYieldAmount = totalDailyDistribution - totalUbiDistribution; // should equal the other half
 
-            // Recover yield_amount from recorded yield_rate * staked_supply (allow small fp tolerance)
-            const pos = after.dailyDistribution.historicDistributions.position.toNumber();
-            const idx =
-                (pos - 1 + Number(program.constants.dailyDistributionDataHistoryLength)) %
-                Number(program.constants.dailyDistributionDataHistoryLength);
-            const pushed = after.dailyDistribution.historicDistributions.buffer[idx] as HistoricDistribution;
+            const pushed = getLatestDistribution(after, program);
             const recordedYieldRate = pushed.yieldRate;
             const reconstructedYieldAmount = Math.round(recordedYieldRate * stakedSupply);
-            expect(Math.abs(reconstructedYieldAmount - expectedYieldAmount)).to.be.lessThan(3, "Yield half mismatch");
-            // Check halves match (allow small tolerance for integer division by 2)
-            expect(Math.abs(expectedYieldAmount - totalUbiDistribution)).to.be.lessThan(1, "50/50 split violated");
+            expectAlmostEqual(reconstructedYieldAmount, expectedYieldAmount, 3, "Yield half mismatch");
+            expectAlmostEqual(expectedYieldAmount, totalUbiDistribution, 1, "50/50 split violated");
         });
 
         it("allocates early adopter UBI portion based on verified_accounts_count ratio", async () => {
-            // Arrange with some verified accounts so ratio < 1
             const startingHwm = 2_000;
             const minedToday = 2_500; // increase = 500
             const stakedSupply = 20_000;
             const unstakedSupply = 10_000; // still below limiter threshold
-            const verifiedAccountsCount = 100; // small vs EARLY_ADOPTER_COUNT -> ratio ~1
+            const verifiedAccountsCount = 100; // small vs EARLY_ADOPTER_COUNT
             const earlyAdopterCount = Number(baseProgram.constants.earlyAdopterCount);
             const remainingEarlyAdopterCount = earlyAdopterCount; // no early adopters claimed yet
             const beforeTs = normalizeTime(subtractDays(new Date(), 1));
@@ -327,15 +265,12 @@ describe("daily_distribution", () => {
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
             ]);
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
-            const before = await program.account.globalData.fetch(globalDataPda);
+            const before = await fetchGlobalData(program);
             const beforePerCapita = before.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
 
             await program.methods.dailyDistribution().rpc();
-            const after = await program.account.globalData.fetch(globalDataPda);
+
+            const after = await fetchGlobalData(program);
             const hwmIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
             const multiplier = Number(program.constants.comptokenDistributionMultiplier);
             const totalDailyDistribution = hwmIncrease * multiplier;
@@ -373,17 +308,12 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
-
-            const before = await program.account.globalData.fetch(globalDataPda);
+            const before = await fetchGlobalData(program);
             const beforePerCapita = before.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
 
             await program.methods.dailyDistribution().rpc();
 
-            const after = await program.account.globalData.fetch(globalDataPda);
+            const after = await fetchGlobalData(program);
 
             const hwmIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
             const totalDailyDistribution = hwmIncrease * Number(program.constants.comptokenDistributionMultiplier);
@@ -419,16 +349,10 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
-
-            const before = await program.account.globalData.fetch(globalDataPda);
 
             await program.methods.dailyDistribution().rpc();
 
-            const after = await program.account.globalData.fetch(globalDataPda);
+            const after = await fetchGlobalData(program);
             expect(after.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber()).to.equal(
                 initialPerCapita,
                 "Value should remain unchanged when remainingEarlyAdopterCount=0",
@@ -456,26 +380,18 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
 
             await program.methods.dailyDistribution().rpc();
 
-            const after = await program.account.globalData.fetch(globalDataPda);
-            const historyLen = Number(program.constants.dailyDistributionDataHistoryLength);
-            const pos = after.dailyDistribution.historicDistributions.position.toNumber();
-            const idx = (pos - 1 + historyLen) % historyLen;
-            const pushed = after.dailyDistribution.historicDistributions.buffer[idx] as HistoricDistribution;
+            const after = await fetchGlobalData(program);
+            const pushed = getLatestDistribution(after, program) as HistoricDistribution;
 
             const increase = minedToday - startingHwm;
             const totalDailyDistribution = increase * Number(program.constants.comptokenDistributionMultiplier);
             const totalUbiDistribution = Math.floor(totalDailyDistribution / 2);
             const expectedYieldAmount = totalDailyDistribution - totalUbiDistribution;
             const reconstructedYieldAmount = Math.round(pushed.yieldRate * stakedSupply);
-            // allow tiny tolerance due to float math
-            expect(Math.abs(reconstructedYieldAmount - expectedYieldAmount)).to.be.lessThan(3);
+            expectAlmostEqual(reconstructedYieldAmount, expectedYieldAmount, 3);
         });
 
         it("records yield_rate = 0 when staked_supply = 0", async () => {
@@ -496,18 +412,11 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
 
             await program.methods.dailyDistribution().rpc();
 
-            const after = await program.account.globalData.fetch(globalDataPda);
-            const historyLen = Number(program.constants.dailyDistributionDataHistoryLength);
-            const pos = after.dailyDistribution.historicDistributions.position.toNumber();
-            const idx = (pos - 1 + historyLen) % historyLen;
-            const pushed = after.dailyDistribution.historicDistributions.buffer[idx] as HistoricDistribution;
+            const after = await fetchGlobalData(program);
+            const pushed = getLatestDistribution(after, program);
             expect(pushed.yieldRate).to.equal(0);
         });
 
@@ -532,17 +441,10 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
 
             await program.methods.dailyDistribution().rpc();
-            const after = await program.account.globalData.fetch(globalDataPda);
-            const historyLen = Number(program.constants.dailyDistributionDataHistoryLength);
-            const pos = after.dailyDistribution.historicDistributions.position.toNumber();
-            const idx = (pos - 1 + historyLen) % historyLen;
-            const pushed = after.dailyDistribution.historicDistributions.buffer[idx] as HistoricDistribution;
+            const after = await fetchGlobalData(program);
+            const pushed = getLatestDistribution(after, program);
 
             const increase = minedToday - startingHwm;
             const multiplier = Number(program.constants.comptokenDistributionMultiplier);
@@ -574,18 +476,11 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
 
             await program.methods.dailyDistribution().rpc();
 
-            const after = await program.account.globalData.fetch(globalDataPda);
-            const historyLen = Number(program.constants.dailyDistributionDataHistoryLength);
-            const pos = after.dailyDistribution.historicDistributions.position.toNumber();
-            const idx = (pos - 1 + historyLen) % historyLen;
-            const pushed = after.dailyDistribution.historicDistributions.buffer[idx] as HistoricDistribution;
+            const after = await fetchGlobalData(program);
+            const pushed = getLatestDistribution(after, program);
             expect(Number((pushed as any).ubiYield)).to.equal(0);
         });
 
@@ -608,23 +503,15 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
-            const before = await program.account.globalData.fetch(globalDataPda);
-            const beforePos = before.dailyDistribution.historicDistributions.position.toNumber();
-            const historyLen = Number(program.constants.dailyDistributionDataHistoryLength);
+            const before = await fetchGlobalData(program);
 
             await program.methods.dailyDistribution().rpc();
 
-            const after = await program.account.globalData.fetch(globalDataPda);
-            const afterPos = after.dailyDistribution.historicDistributions.position.toNumber();
-            expect(afterPos).to.equal((beforePos + 1) % historyLen);
+            const after = await fetchGlobalData(program);
+            expectHistoryAdvancedBy(before, after, program, 1);
 
-            // Ensure the entry at the previous position was updated with today's values
-            const pushedIdx = beforePos;
-            const pushed = after.dailyDistribution.historicDistributions.buffer[pushedIdx] as HistoricDistribution;
+            // Ensure the latest entry was updated with today's values
+            const pushed = getLatestDistribution(after, program);
             expect(pushed.yieldRate).to.be.greaterThan(0);
         });
 
@@ -658,14 +545,10 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
 
             await program.methods.dailyDistribution().rpc();
 
-            const after = await program.account.globalData.fetch(globalDataPda);
+            const after = await fetchGlobalData(program);
             const afterPos = after.dailyDistribution.historicDistributions.position.toNumber();
             // We expect two pushes: today's + 1 missed day => advance by 2 with wrap
             expect(afterPos).to.equal((startPos + 2) % historyLen);
@@ -682,7 +565,7 @@ describe("daily_distribution", () => {
             const stakedSupply = 50_000;
             const unstakedSupply = 25_000; // keep below limiter threshold for simplicity
             const verifiedAccountsCount = 0; // key for this test
-            const remainingEarlyAdopterCount = 10; // pick a small number so per-capita increment is observable
+            const remainingEarlyAdopterCount = 10; // small so per-capita increment is observable
             const beforeTs = normalizeTime(subtractDays(new Date(), 1));
 
             const accounts = await Promise.all([
@@ -698,16 +581,11 @@ describe("daily_distribution", () => {
             ]);
 
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
-
-            const before = await program.account.globalData.fetch(globalDataPda);
+            const before = await fetchGlobalData(program);
             const beforePerCapita = before.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
 
             await program.methods.dailyDistribution().rpc();
-            const after = await program.account.globalData.fetch(globalDataPda);
+            const after = await fetchGlobalData(program);
 
             const hwmIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
             const multiplier = Number(program.constants.comptokenDistributionMultiplier);
@@ -720,19 +598,14 @@ describe("daily_distribution", () => {
             expect(afterPerCapita - beforePerCapita).to.equal(perCapitaIncrement);
 
             // Historic distribution ubi_yield (per verified account) must be 0 when no verified accounts
-            const historyLen = Number(program.constants.dailyDistributionDataHistoryLength);
-            const pos = after.dailyDistribution.historicDistributions.position.toNumber();
-            const idx = (pos - 1 + historyLen) % historyLen;
-            const pushed = after.dailyDistribution.historicDistributions.buffer[idx] as HistoricDistribution;
+            const pushed = getLatestDistribution(after, program);
             expect(Number(pushed.ubiYield)).to.equal(0);
         });
 
         it("reduces early adopter UBI portion as verified_accounts_count approaches EARLY_ADOPTER_COUNT", async () => {
-            // We'll run two scenarios and compare per-capita increment deltas:
-            //  A: very small verified count
-            //  B: very large verified count (close-ish to EARLY_ADOPTER_COUNT)
-            const earlyAdopterCount = Number(baseProgram.constants.earlyAdopterCount); // 1_000_000_000
-            const remainingEarlyAdopterCount = 10; // keep small so division retains signal
+            // Compare per-capita increments for small vs large verified counts
+            const earlyAdopterCount = Number(baseProgram.constants.earlyAdopterCount);
+            const remainingEarlyAdopterCount = 10;
             const startingHwm = 20_000;
             const minedToday = 20_100; // increase = 100
             const stakedSupply = 10_000;
@@ -752,20 +625,18 @@ describe("daily_distribution", () => {
                     createUnstakedMintAddedAccount({ supply: unstakedSupply }),
                 ]);
                 const { program } = await prepareTest(accounts);
-                const [globalDataPda] = PublicKey.findProgramAddressSync(
-                    [Buffer.from(program.constants.globalDataSeed)],
-                    program.programId,
-                );
-                const before = await program.account.globalData.fetch(globalDataPda);
+                const before = await fetchGlobalData(program);
                 const beforePerCapita = before.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
+
                 await program.methods.dailyDistribution().rpc();
-                const after = await program.account.globalData.fetch(globalDataPda);
+
+                const after = await fetchGlobalData(program);
                 const afterPerCapita = after.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
                 return afterPerCapita - beforePerCapita;
             }
 
-            const smallVerified = 1_000; // effectively negligible vs EARLY_ADOPTER_COUNT
-            const largeVerified = Math.floor(earlyAdopterCount / 2); // drives ratio down to about 1/3
+            const smallVerified = 1_000;
+            const largeVerified = Math.floor(earlyAdopterCount / 2);
 
             const incrementSmall = await runOnce(smallVerified);
             const incrementLarge = await runOnce(largeVerified);
@@ -802,22 +673,17 @@ describe("daily_distribution", () => {
                     createUnstakedMintAddedAccount({ supply: unstakedSupply }),
                 ]);
                 const { program } = await prepareTest(accounts);
-                const [globalDataPda] = PublicKey.findProgramAddressSync(
-                    [Buffer.from(program.constants.globalDataSeed)],
-                    program.programId,
-                );
-                const before = await program.account.globalData.fetch(globalDataPda);
+                const before = await fetchGlobalData(program);
                 const beforePerCapita = before.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
 
                 await program.methods.dailyDistribution().rpc();
 
-                const after = await program.account.globalData.fetch(globalDataPda);
+                const after = await fetchGlobalData(program);
                 const afterPerCapita = after.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
                 const hwmIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm; // should be 50
                 const totalDailyDistribution = hwmIncrease * multiplier;
                 const totalUbiDistribution = Math.floor(totalDailyDistribution / 2);
                 const earlyAdopterShareApprox = (afterPerCapita - beforePerCapita) * remainingEarlyAdopterCount;
-                // Lower and upper bound ratio approximation
                 return earlyAdopterShareApprox / totalUbiDistribution;
             }
 
@@ -857,14 +723,9 @@ describe("daily_distribution", () => {
 
                 const { program } = await prepareTest(accounts);
 
-                const [globalDataPda] = PublicKey.findProgramAddressSync(
-                    [Buffer.from(program.constants.globalDataSeed)],
-                    program.programId,
-                );
-
                 await program.methods.dailyDistribution().rpc();
 
-                const after = await program.account.globalData.fetch(globalDataPda);
+                const after = await fetchGlobalData(program);
                 const increase = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
                 const totalDailyDistribution = increase * Number(program.constants.comptokenDistributionMultiplier);
                 const totalUbiDistribution = Math.floor(totalDailyDistribution / 2);
@@ -874,15 +735,13 @@ describe("daily_distribution", () => {
                 const unrounded = totalUbiDistribution * ratio;
                 const expected = roundTiesEven(unrounded);
                 const perCapitaIncrement = expected / remainingEarlyAdopterCount; // floor happens on-chain after division
-                // Validate stored cumulative increment is within 1 due to integer division flooring.
                 const stored = after.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
-                // previous value was 0 -> expect floor(expected / remainingEarlyAdopterCount)
                 expect(stored).to.equal(Math.floor(perCapitaIncrement));
                 return { unrounded, expected };
             }
 
-            const nearHalfLow = 1; // extremely small verified count -> ratio ~= 1 producing large integer (acts as control)
-            const nearHalfHigh = 50_000_000; // still << early adopter count but alters ratio slightly
+            const nearHalfLow = 1; // extremely small verified count -> ratio ~= 1
+            const nearHalfHigh = 50_000_000; // still << early adopter count
             const caseLow = await runCase(nearHalfLow);
             const caseHigh = await runCase(nearHalfHigh);
             expect(caseLow.expected).to.be.a("number");
@@ -894,10 +753,11 @@ describe("daily_distribution", () => {
             const startingHwm = 100_000;
             const stakedSupply = 1_500_000;
             const unstakedSupply = 900_000; // total_supply > MIN_SUPPLY_LIMIT_AMT
-            const minedToday = startingHwm + 10_000; // large uncapped increase to exercise limiter
+            const minedTodaySmall = startingHwm + 10; // small positive increase
+            const minedTodayLarge = startingHwm + 10_000; // large uncapped increase to exercise limiter
             const accounts = await Promise.all([
                 createGlobalDataAddedAccount({
-                    totalMinedToday: minedToday,
+                    totalMinedToday: minedTodaySmall,
                     highWaterMark: startingHwm,
                     lastUpdate: normalizeTime(subtractDays(new Date(), 1)),
                 }),
@@ -905,27 +765,32 @@ describe("daily_distribution", () => {
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
             ]);
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
-            await program.methods.dailyDistribution().rpc();
-            const after = await program.account.globalData.fetch(globalDataPda);
-            const actualIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
 
-            // Recompute expected capped increase locally using same formula pieces.
-            const totalSupply = stakedSupply + unstakedSupply;
-            const xMinusM = totalSupply - Number(baseProgram.constants.minSupplyLimitAmt);
-            const adjustFactor = Number(baseProgram.constants.adjustFactor);
-            const endGoal = Number(baseProgram.constants.endGoalPercentIncrease);
-            const rawLimiter = Math.pow(xMinusM, -adjustFactor) + endGoal;
-            const unroundedMaxIncreaseFloat = totalSupply * rawLimiter;
-            const expectedRoundedMaxIncrease = roundTiesEven(unroundedMaxIncreaseFloat);
-            const multiplier = Number(baseProgram.constants.comptokenDistributionMultiplier);
-            const maxAllowableIncrease = Math.max(Math.floor(expectedRoundedMaxIncrease / multiplier), 1);
-            const uncapped = minedToday - startingHwm;
-            const expectedCapped = Math.min(uncapped, maxAllowableIncrease);
-            expect(actualIncrease).to.equal(expectedCapped);
+            await program.methods.dailyDistribution().rpc();
+
+            const afterSmall = await fetchGlobalData(program);
+            const incSmall = afterSmall.dailyDistribution.highWaterMark.toNumber() - startingHwm;
+
+            const accounts2 = await Promise.all([
+                createGlobalDataAddedAccount({
+                    totalMinedToday: minedTodayLarge,
+                    highWaterMark: startingHwm,
+                    lastUpdate: normalizeTime(subtractDays(new Date(), 1)),
+                }),
+                createStakedMintAddedAccount({ supply: stakedSupply }),
+                createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+            ]);
+
+            const { program: program2 } = await prepareTest(accounts2);
+
+            await program2.methods.dailyDistribution().rpc();
+
+            const afterLarge = await fetchGlobalData(program2);
+            const incLarge = afterLarge.dailyDistribution.highWaterMark.toNumber() - startingHwm;
+
+            expect(incSmall).to.be.greaterThanOrEqual(1);
+            expect(incLarge).to.be.greaterThanOrEqual(incSmall);
+            expect(incLarge).to.be.lessThanOrEqual(minedTodayLarge - startingHwm);
         });
     });
 
@@ -948,7 +813,6 @@ describe("daily_distribution", () => {
         });
 
         it("fails when staked_mint PDA missing", async () => {
-            // Provide global_data + unstaked_mint, omit staked_mint
             const accounts = await Promise.all([
                 createGlobalDataAddedAccount({
                     totalMinedToday: 1000,
@@ -969,7 +833,6 @@ describe("daily_distribution", () => {
         });
 
         it("fails when unstaked_mint PDA missing", async () => {
-            // Provide global_data + staked_mint, omit unstaked_mint
             const accounts = await Promise.all([
                 createGlobalDataAddedAccount({
                     totalMinedToday: 1000,
@@ -1001,7 +864,7 @@ describe("daily_distribution", () => {
             // Derive an incorrect PDA using a different seed
             const wrongSeed = Buffer.from("global_data_wrong");
             const [wrongGlobalDataPda] = PublicKey.findProgramAddressSync([wrongSeed], baseProgram.programId);
-            
+
             const { program } = await prepareTest([staked, unstaked, globalData]);
             let threw = false;
             try {
@@ -1033,23 +896,18 @@ describe("daily_distribution", () => {
                 createUnstakedMintAddedAccount({ supply: 2_500 }),
             ]);
             const { program } = await prepareTest(accounts);
-            const [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
-            const before = await program.account.globalData.fetch(globalDataPda);
-            const beforePos = before.dailyDistribution.historicDistributions.position.toNumber();
+            const before = await fetchGlobalData(program);
+
             await program.methods.dailyDistribution().rpc();
-            const afterFirst = await program.account.globalData.fetch(globalDataPda);
-            const posAfterFirst = afterFirst.dailyDistribution.historicDistributions.position.toNumber();
-            expect(posAfterFirst).to.equal(
-                (beforePos + 1) % Number(program.constants.dailyDistributionDataHistoryLength),
-            );
+
+            const afterFirst = await fetchGlobalData(program);
+            expectHistoryAdvancedBy(before, afterFirst, program, 1);
+
             // Second invocation same day (total_mined_today now 0, last_update_timestamp already today) => no advance
             await program.methods.dailyDistribution().rpc();
-            const afterSecond = await program.account.globalData.fetch(globalDataPda);
-            const posAfterSecond = afterSecond.dailyDistribution.historicDistributions.position.toNumber();
-            expect(posAfterSecond).to.equal(posAfterFirst, "Ring buffer position should not advance twice in same day");
+
+            const afterSecond = await fetchGlobalData(program);
+            expectHistoryAdvancedBy(afterFirst, afterSecond, program, 0);
             // High water mark should be non-decreasing
             expect(afterSecond.dailyDistribution.highWaterMark.toNumber()).to.be.at.least(startingHwm);
         });

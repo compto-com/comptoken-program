@@ -16,6 +16,31 @@ export async function fetchGlobalData(program: ProgramWithConstants<Comptoken>) 
     return program.account.globalData.fetch(pda) as Promise<GlobalDataAccountData>;
 }
 
+// UserData helpers (mirroring fetchGlobalData style)
+
+export function getUserDataPda(program: ProgramWithConstants<Comptoken>, userWallet: PublicKey) {
+    const [pda] = PublicKey.findProgramAddressSync(
+        [Buffer.from(program.constants.userDataSeed), userWallet.toBuffer()],
+        program.programId,
+    );
+    return pda;
+}
+
+export async function fetchUserData(program: ProgramWithConstants<Comptoken>, userWallet: PublicKey) {
+    const pda = getUserDataPda(program, userWallet);
+    return program.account.userData.fetch(pda);
+}
+
+export async function fetchUserDataInfo(program: ProgramWithConstants<Comptoken>, userWallet: PublicKey) {
+    const pda = getUserDataPda(program, userWallet);
+    return program.provider.connection.getAccountInfo(pda);
+}
+
+export async function fetchUserDataSize(program: ProgramWithConstants<Comptoken>, userWallet: PublicKey) {
+    const info = await fetchUserDataInfo(program, userWallet);
+    return info?.data.length ?? 0;
+}
+
 export function getHistoryLength(program: ProgramWithConstants<Comptoken>) {
     return Number(program.constants.dailyDistributionDataHistoryLength);
 }

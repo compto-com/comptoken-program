@@ -48,7 +48,7 @@ pub struct Unstake<'info> {
         mut,
         associated_token::mint = mint_staked,
         associated_token::authority = user_wallet,
-        token::token_program = token_program,
+        associated_token::token_program = token_program,
     )]
     pub user_staked_token_account: InterfaceAccount<'info, TokenAccount>,
 
@@ -84,10 +84,10 @@ pub fn unstake(ctx: Context<Unstake>, args: UnstakeArgs) -> Result<()> {
             Burn {
                 mint: ctx.accounts.mint_staked.to_account_info(),
                 from: user_staked_token_account.to_account_info(),
-                authority: ctx.accounts.global_data.to_account_info(),
+                authority: ctx.accounts.user_wallet.to_account_info(),
             },
         )
-        .with_signer(&[&[GLOBAL_DATA_SEED]]),
+        .with_signer(&[&[GLOBAL_DATA_SEED, &[ctx.bumps.global_data]]]),
         args.amount,
     )?;
 
@@ -100,7 +100,7 @@ pub fn unstake(ctx: Context<Unstake>, args: UnstakeArgs) -> Result<()> {
                 authority: ctx.accounts.global_data.to_account_info(),
             },
         )
-        .with_signer(&[&[GLOBAL_DATA_SEED]]),
+        .with_signer(&[&[GLOBAL_DATA_SEED, &[ctx.bumps.global_data]]]),
         args.amount,
         MINT_DECIMALS,
     )?;

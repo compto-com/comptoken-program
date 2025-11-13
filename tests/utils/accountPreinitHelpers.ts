@@ -5,11 +5,13 @@ import {
     ACCOUNT_SIZE,
     type Account,
     AccountLayout,
+    AccountState,
     AccountType,
     ExtensionType,
     MintLayout,
     TOKEN_2022_PROGRAM_ID,
     getAccountLen,
+    getAssociatedTokenAddressSync,
     getMintLen,
     getAccount as splGetAccount,
     getMint as splGetMint,
@@ -317,10 +319,10 @@ export async function createStakedMintAddedAccount({
 }
 
 function writeTlvEntry(type: number, length: number, value: Buffer, buffer: Buffer, offset: number): number {
-    buffer.writeUInt8(type, offset);
-    buffer.writeUInt16LE(length, offset + 1);
-    value.copy(buffer, offset + 3);
-    return offset + 3 + length;
+    buffer.writeUInt16LE(type, offset);
+    buffer.writeUInt16LE(length, offset + 2);
+    value.copy(buffer, offset + 4);
+    return offset + 4 + length;
 }
 
 export async function createUnstakedTokenAccountAddedAccount({
@@ -346,7 +348,7 @@ export async function createUnstakedTokenAccountAddedAccount({
             amount: BigInt(amount),
             delegateOption: 0,
             delegate: PublicKey.default,
-            state: 1, // initialized
+            state: AccountState.Initialized,
             isNativeOption: 0,
             isNative: BigInt(0),
             delegatedAmount: BigInt(0),
@@ -357,7 +359,7 @@ export async function createUnstakedTokenAccountAddedAccount({
     );
 
     return {
-        address: address,
+        address,
         info: {
             owner: TOKEN_2022_PROGRAM_ID,
             data,
@@ -368,11 +370,9 @@ export async function createUnstakedTokenAccountAddedAccount({
 }
 
 export async function createStakedTokenAccountAddedAccount({
-    address,
     owner,
     amount = 0,
 }: {
-    address: PublicKey;
     owner: PublicKey;
     amount?: bigint | number;
 }): Promise<AddedAccount> {
@@ -381,7 +381,7 @@ export async function createStakedTokenAccountAddedAccount({
         baseProgram.programId,
     );
 
-    const data = Buffer.alloc(getAccountLen([ExtensionType.NonTransferableAccount]));
+    const data = Buffer.alloc(getAccountLen([ExtensionType.NonTransferableAccount, ExtensionType.ImmutableOwner]));
 
     AccountLayout.encode(
         {
@@ -390,7 +390,7 @@ export async function createStakedTokenAccountAddedAccount({
             amount: BigInt(amount),
             delegateOption: 0,
             delegate: PublicKey.default,
-            state: 1, // initialized
+            state: AccountState.Initialized,
             isNativeOption: 0,
             isNative: BigInt(0),
             delegatedAmount: BigInt(0),
@@ -406,9 +406,12 @@ export async function createStakedTokenAccountAddedAccount({
     offset += 1;
     // write extensions
     offset = writeTlvEntry(ExtensionType.NonTransferableAccount, 0, Buffer.alloc(0), data, offset);
+    offset = writeTlvEntry(ExtensionType.ImmutableOwner, 0, Buffer.alloc(0), data, offset);
+
+    const address = getAssociatedTokenAddressSync(stakedMintPda, owner, false, TOKEN_2022_PROGRAM_ID);
 
     return {
-        address: address,
+        address,
         info: {
             owner: TOKEN_2022_PROGRAM_ID,
             data,

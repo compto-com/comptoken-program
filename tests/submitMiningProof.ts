@@ -66,7 +66,7 @@ function merkleRoot(extraData: Uint8Array, pubkey: Uint8Array): Uint8Array {
     return doubleSha256([extraData, pubkey]);
 }
 
-describe.only("submit_mining_proof", () => {
+describe("submit_mining_proof", () => {
     describe("Core success path scenarios", () => {
         it("mints MINING_REWARD_AMOUNT into user's unstaked token account for a valid proof when user_data is current", async function () {
             const user = Keypair.fromSeed(
@@ -320,9 +320,209 @@ describe.only("submit_mining_proof", () => {
     });
 
     describe("Proof storage behavior", () => {
-        it.skip("clears previous proofs when recent blockhash changes and inserts new proof", () => {});
-        it.skip("prevents inserting the same proof twice (DuplicateMiningProof)", () => {});
-        it.skip("fails when user_data.proofs capacity is exceeded (UserDataProofsCapacityExceeded)", () => {});
+        it("clears previous proofs when recent blockhash changes and inserts new proof", async function () {
+            const user = Keypair.fromSeed(
+                // prettier-ignore
+                Uint8Array.from([
+                    163, 81, 164, 86, 62, 89, 43, 120, 231, 223, 81, 41, 255, 0, 3, 98,
+                    151, 236, 77, 132, 181, 2, 19, 112, 35, 17, 2, 37, 237, 5, 249, 54,
+                ]),
+            );
+
+            // Old blockhash (what user_data has) and new valid blockhash (what global_data has)
+            const oldBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => 2 * i));
+            const newBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => i));
+
+            // Seed user_data with some existing proofs that should be cleared
+            const existingProofs = [new Uint8Array(32).fill(1), new Uint8Array(32).fill(2), new Uint8Array(32).fill(3)];
+
+            const extraData = Array.from({ length: 32 }).map(() => 0);
+            // prettier-ignore
+            const rawData = [
+                ...user.publicKey.toBuffer(),
+                ...extraData,
+                3, 0, 0, 0, // nonce
+                0, 0, 0, 32, // version
+                0, 0, 0, 0, // timestamp
+            ];
+
+            // Compute expected final hash under NEW blockhash (since program replaces on change)
+            const nonce = rawData.slice(64, 68);
+            const version = rawData.slice(68, 72);
+            const timestamp = rawData.slice(72, 76);
+            const mr = merkleRoot(Uint8Array.from(extraData), user.publicKey.toBytes());
+            const header = buildHeader({ version, validBlockhash: newBlockhash, merkleRoot: mr, timestamp, nonce });
+            const expectedFinal = computeFinalHash(header);
+
+            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
+                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
+                baseProgram.programId,
+            );
+            const userUnstakedAta = getAssociatedTokenAddressSync(
+                unstakedMintPda,
+                user.publicKey,
+                false,
+                TOKEN_2022_PROGRAM_ID,
+            );
+
+            const accounts = await Promise.all([
+                createUserDataAddedAccount({
+                    userPubkey: user.publicKey,
+                    capacity: 10,
+                    recentBlockhash: oldBlockhash,
+                    proofs: existingProofs,
+                }),
+                createGlobalDataAddedAccount({ validBlockhash: newBlockhash }),
+                createUnstakedMintAddedAccount(),
+                createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey, amount: 0 }),
+            ]);
+
+            const { program } = await prepareTest(accounts);
+
+            await program.methods
+                .submitMiningProof({ rawData })
+                .accounts({ userWallet: user.publicKey, userUnstakedTokenAccount: userUnstakedAta })
+                .signers([user])
+                .rpc();
+
+            const userData = await fetchUserData(program, user.publicKey);
+            // Should clear old proofs and insert exactly one new proof
+            expect(userData.proofs.length).to.equal(1);
+            const storedProof0 = Buffer.from(userData.proofs[0][0]);
+            expect(storedProof0.equals(expectedFinal)).to.equal(true);
+            // recent_blockhash should update to newBlockhash
+            expect(Uint8Array.from(userData.recentBlockhash[0])).to.deep.equal(newBlockhash);
+        });
+
+        it("prevents inserting the same proof twice (DuplicateMiningProof)", async function () {
+            const user = Keypair.fromSeed(
+                // prettier-ignore
+                Uint8Array.from([
+                    163, 81, 164, 86, 62, 89, 43, 120, 231, 223, 81, 41, 255, 0, 3, 98,
+                    151, 236, 77, 132, 181, 2, 19, 112, 35, 17, 2, 37, 237, 5, 249, 54,
+                ]),
+            );
+            const validBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => i));
+            const extraData = Array.from({ length: 32 }).map(() => 0);
+            // prettier-ignore
+            const rawData = [
+                ...user.publicKey.toBuffer(),
+                ...extraData,
+                3, 0, 0, 0, // nonce
+                0, 0, 0, 32, // version
+                0, 0, 0, 0, // timestamp
+            ];
+
+            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
+                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
+                baseProgram.programId,
+            );
+            const userUnstakedAta = getAssociatedTokenAddressSync(
+                unstakedMintPda,
+                user.publicKey,
+                false,
+                TOKEN_2022_PROGRAM_ID,
+            );
+
+            const accounts = await Promise.all([
+                createUserDataAddedAccount({ userPubkey: user.publicKey, capacity: 5, proofs: [] }),
+                createGlobalDataAddedAccount({ validBlockhash }),
+                createUnstakedMintAddedAccount(),
+                createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey, amount: 0 }),
+            ]);
+            const { program } = await prepareTest(accounts);
+
+            // First submission should succeed
+            await program.methods
+                .submitMiningProof({ rawData })
+                .accounts({ userWallet: user.publicKey, userUnstakedTokenAccount: userUnstakedAta })
+                .signers([user])
+                .rpc();
+
+            // Second, identical submission should fail with DuplicateMiningProof
+            let threw = false;
+            try {
+                await program.methods
+                    .submitMiningProof({ rawData })
+                    .accounts({ userWallet: user.publicKey, userUnstakedTokenAccount: userUnstakedAta })
+                    .signers([user])
+                    .rpc();
+            } catch (err: any) {
+                threw = true;
+                const msg = (err?.error?.errorMessage ?? err?.toString() ?? "").toLowerCase();
+                expect(
+                    msg.includes("duplicate mining proof") || msg.includes("duplicateminingproof"),
+                    `Expected DuplicateMiningProof error, got: ${msg}`,
+                ).to.be.true;
+            }
+            expect(threw, "Second identical proof should be rejected").to.be.true;
+        });
+
+        it("fails when user_data.proofs capacity is exceeded (UserDataProofsCapacityExceeded)", async function () {
+            const user = Keypair.fromSeed(
+                // prettier-ignore
+                Uint8Array.from([
+                    163, 81, 164, 86, 62, 89, 43, 120, 231, 223, 81, 41, 255, 0, 3, 98,
+                    151, 236, 77, 132, 181, 2, 19, 112, 35, 17, 2, 37, 237, 5, 249, 54,
+                ]),
+            );
+            const validBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => i));
+
+            // Fill user_data proofs to capacity under the SAME blockhash so appending should fail
+            const prefilledProofs = [new Uint8Array(32).fill(7), new Uint8Array(32).fill(8)];
+
+            const extraData = Array.from({ length: 32 }).map(() => 0);
+            // prettier-ignore
+            const rawData = [
+                ...user.publicKey.toBuffer(),
+                ...extraData,
+                3, 0, 0, 0, // nonce
+                0, 0, 0, 32, // version
+                0, 0, 0, 0, // timestamp
+            ];
+
+            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
+                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
+                baseProgram.programId,
+            );
+            const userUnstakedAta = getAssociatedTokenAddressSync(
+                unstakedMintPda,
+                user.publicKey,
+                false,
+                TOKEN_2022_PROGRAM_ID,
+            );
+
+            const accounts = await Promise.all([
+                createUserDataAddedAccount({
+                    userPubkey: user.publicKey,
+                    capacity: prefilledProofs.length,
+                    recentBlockhash: validBlockhash,
+                    proofs: prefilledProofs,
+                }),
+                createGlobalDataAddedAccount({ validBlockhash }),
+                createUnstakedMintAddedAccount(),
+                createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey, amount: 0 }),
+            ]);
+            const { program } = await prepareTest(accounts);
+
+            let threw = false;
+            try {
+                await program.methods
+                    .submitMiningProof({ rawData })
+                    .accounts({ userWallet: user.publicKey, userUnstakedTokenAccount: userUnstakedAta })
+                    .signers([user])
+                    .rpc();
+            } catch (err: any) {
+                threw = true;
+                const msg = (err?.error?.errorMessage ?? err?.toString() ?? "").toLowerCase();
+                expect(
+                    msg.includes("user data proofs capacity exceeded") ||
+                        msg.includes("userdataproofscapacityexceeded"),
+                    `Expected UserDataProofsCapacityExceeded error, got: ${msg}`,
+                ).to.be.true;
+            }
+            expect(threw, "Submitting beyond capacity should be rejected").to.be.true;
+        });
     });
 
     describe("Failure / validation scenarios", () => {

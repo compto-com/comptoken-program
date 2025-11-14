@@ -48,7 +48,7 @@ export async function createUserDataAddedAccount({
     recentBlockhash?: Uint8Array;
     proofs?: Uint8Array[];
 }): Promise<AddedAccount> {
-    expect(proofs.length <= capacity, "Proofs length exceeds capacity");
+    expect(proofs.length).to.be.lessThanOrEqual(capacity, "Proofs length exceeds capacity");
 
     const [userDataPda] = PublicKey.findProgramAddressSync(
         [Buffer.from(baseProgram.constants.userDataSeed), userPubkey.toBuffer()],

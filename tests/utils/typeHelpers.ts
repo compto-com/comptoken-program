@@ -75,7 +75,7 @@ type Constants<ConstantsType extends Program<anchor.Idl>["idl"]["constants"]> = 
     [key in ConstantsType[number] as key["name"]]: key extends {
         type: "u64" | "i64";
     }
-        ? bigint
+        ? anchor.BN
         : key extends {
               type: "string";
           }

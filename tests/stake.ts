@@ -17,7 +17,7 @@ import { prepareTest } from "./utils/utils.ts";
 const { BN } = anchor;
 
 describe("stake", () => {
-    describe.only("Core success path scenarios", () => {
+    describe("Core success path scenarios", () => {
         it("allows a user to stake tokens and increases staked supply", async () => {
             const user = Keypair.generate();
 

@@ -31,4 +31,7 @@ pub enum ComptokenError {
 
     #[msg("Account has already been initialized")]
     AccountAlreadyInitialized,
+
+    #[msg("Stale valid blockhash")]
+    StaleValidBlockhash,
 }

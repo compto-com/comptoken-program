@@ -38,7 +38,7 @@ impl UserData {
     }
 
     // discriminator + all fields including runtime proofs - runtime size of proofs + vec length (4)
-    const SIZE_WITHOUT_PROOFS: usize =
+    pub const SIZE_WITHOUT_PROOFS: usize =
         Self::DISCRIMINATOR.len() + std::mem::size_of::<Self>() - std::mem::size_of::<Vec<Hash>>() + 4;
 
     pub fn space(capacity: usize) -> usize {

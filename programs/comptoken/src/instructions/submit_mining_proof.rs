@@ -94,11 +94,12 @@ impl SubmitMiningProofArgs {
         msg!("final hash: {:?}", hex::encode(final_hash));
         let hash = Hash::new_from_array(final_hash);
 
-        ComptokenMiningProof::new(hash)
+        ComptokenMiningProof::new(Pubkey::new_from_array(pubkey_bytes.try_into().expect("correct size")), hash)
     }
 }
 
 struct ComptokenMiningProof {
+    pubkey: Pubkey,
     hash: Hash,
 }
 
@@ -123,8 +124,8 @@ impl ComptokenMiningProof {
     pub const TARGET_BYTES_MAINNET: Hash = Self::make_target_bytes(Self::TARGET_DIFFICULTY_MAINNET);
     pub const TARGET_BYTES: Hash = Self::make_target_bytes(Self::TARGET_DIFFICULTY);
 
-    pub fn new(hash: Hash) -> Self {
-        Self { hash }
+    pub fn new(pubkey: Pubkey, hash: Hash) -> Self {
+        Self { pubkey, hash }
     }
 
     pub fn is_valid(&self) -> bool {
@@ -143,14 +144,23 @@ fn double_sha256(data: &[&[u8]]) -> [u8; 32] {
 }
 
 pub fn submit_mining_proof(ctx: Context<SubmitMiningProof>, args: SubmitMiningProofArgs) -> Result<()> {
+    let user_data_len = ctx.accounts.user_data.to_account_info().data_len();
+    let user_data_capacity = (user_data_len - UserData::SIZE_WITHOUT_PROOFS) / std::mem::size_of::<Hash>();
     let user_data = &mut ctx.accounts.user_data;
     if !user_data.is_current() {
         return err!(ComptokenError::UserDataNotCurrent);
     }
+    // ensure capacity matches account size
+    let len = user_data.proofs.len();
+    user_data.proofs.reserve_exact(user_data_capacity - len);
 
     let valid_blockhashes = ctx.accounts.global_data.load()?.valid_blockhashes;
+    if valid_blockhashes.is_valid_blockhash_stale() {
+        return err!(ComptokenError::StaleValidBlockhash);
+    }
     let mining_proof = args.parse_and_hash_proof(&valid_blockhashes);
 
+    require_keys_eq!(ctx.accounts.user_wallet.key(), mining_proof.pubkey, ComptokenError::InvalidMiningProof);
     require!(mining_proof.is_valid(), ComptokenError::InvalidMiningProof);
     user_data.insert_proof(valid_blockhashes.valid_blockhash, mining_proof.hash)?;
 
@@ -165,7 +175,7 @@ pub fn submit_mining_proof(ctx: Context<SubmitMiningProof>, args: SubmitMiningPr
                 authority: ctx.accounts.global_data.to_account_info(),
             },
         )
-        .with_signer(&[&[GLOBAL_DATA_SEED]]),
+        .with_signer(&[&[GLOBAL_DATA_SEED, &[ctx.bumps.global_data]]]),
         MINING_REWARD_AMOUNT,
         MINT_DECIMALS,
     )?;

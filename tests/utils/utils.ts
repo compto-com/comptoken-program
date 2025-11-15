@@ -35,3 +35,8 @@ export async function prepareTest(accounts: AddedAccount[] = []) {
 
     return { context, provider, program };
 }
+
+export function saturatingSubtract(a: number, b: number, min: number = 0): number {
+    const val = a - b;
+    return val >= min ? val : min;
+}

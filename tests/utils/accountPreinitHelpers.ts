@@ -349,7 +349,7 @@ export async function createUnstakedTokenAccountAddedAccount({
     AccountLayout.encode(
         {
             mint: unstakedMintPda,
-            owner: owner,
+            owner,
             amount: BigInt(amount),
             delegateOption: 0,
             delegate: PublicKey.default,
@@ -472,17 +472,20 @@ export async function createWorldIdRootAddedAccount({
     const [address, bump] = getWorldIdRootPdaAndBump(rootHash);
 
     // Matches IDL type "root"
-    const accountData = {
+    const accountData: IdlTypes<Comptoken>["root"] = {
         bump,
-        readBlockNumber: Number(readBlockNumber),
-        readBlockHash: Array.from(readBlockHash),
-        readBlockTime: Number(readBlockTime),
-        refundRecipient,
+        read_block_number: new BN(readBlockNumber),
+        read_block_hash: Array.from(readBlockHash),
+        read_block_time: new BN(readBlockTime),
+        refund_recipient: refundRecipient,
         root: Array.from(rootHash),
-        verificationType: [WORLD_VERIFICATION_TYPE],
+        verification_type: [WORLD_VERIFICATION_TYPE],
     };
 
-    const data = await solanaWorldIdCoder.accounts.encode("Root", accountData);
+    //const data = await solanaWorldIdCoder.accounts.encode("Root", accountData);
+    const data = await coder.accounts.encode("Root", accountData);
+    const decoded = coder.accounts.decode("Root", data);
+    expect(BNtoBigIntRecursive(decoded)).to.deep.equal(BNtoBigIntRecursive(accountData));
 
     return {
         address,
@@ -509,16 +512,19 @@ export async function createWorldIdLatestRootAddedAccount({
     const [address, bump] = getWorldIdLatestRootPdaAndBump();
 
     // Matches IDL type "latestRoot"
-    const accountData = {
+    const accountData: IdlTypes<Comptoken>["latestRoot"] = {
         bump,
-        readBlockNumber: Number(readBlockNumber),
-        readBlockHash: Array.from(readBlockHash),
-        readBlockTime: Number(readBlockTime),
+        read_block_number: new BN(readBlockNumber),
+        read_block_hash: Array.from(readBlockHash),
+        read_block_time: new BN(readBlockTime),
         root: Array.from(rootHash),
-        verificationType: [WORLD_VERIFICATION_TYPE],
+        verification_type: [WORLD_VERIFICATION_TYPE],
     };
 
-    const data = await solanaWorldIdCoder.accounts.encode("LatestRoot", accountData);
+    //const data = await solanaWorldIdCoder.accounts.encode("LatestRoot", accountData);
+    const data = await coder.accounts.encode("LatestRoot", accountData);
+    const decoded = coder.accounts.decode("LatestRoot", data);
+    expect(BNtoBigIntRecursive(decoded)).to.deep.equal(BNtoBigIntRecursive(accountData));
 
     return {
         address,
@@ -543,15 +549,19 @@ export async function createWorldIdConfigAddedAccount({
     const [address, bump] = getWorldIdConfigPdaAndBump();
 
     // Matches IDL type "config"
-    const accountData = {
+    const accountData: IdlTypes<Comptoken>["config"] = {
         bump,
         owner,
-        pendingOwner: null,
-        rootExpiry: BigInt(rootExpirySeconds),
-        allowedUpdateStaleness: BigInt(allowedUpdateStalenessSeconds),
+        pending_owner: null,
+        root_expiry: new BN(rootExpirySeconds),
+        allowed_update_staleness: new BN(allowedUpdateStalenessSeconds),
     };
 
-    const data = await solanaWorldIdCoder.accounts.encode("Config", accountData);
+    //const data = await solanaWorldIdCoder.accounts.encode("Config", accountData);
+    const data = await coder.accounts.encode("Config", accountData);
+    const decoded = coder.accounts.decode("Config", data);
+    decoded.owner = new PublicKey(decoded.owner);
+    expect(BNtoBigIntRecursive(decoded)).to.deep.equal(BNtoBigIntRecursive(accountData));
 
     return {
         address,
@@ -636,10 +646,13 @@ export function getMint(
 
 function BNtoBigIntRecursive(obj: any): any {
     if (obj instanceof BN) {
-        return obj.toNumber();
+        return BigInt(obj.toString());
     } else if (Array.isArray(obj)) {
         return obj.map((item) => BNtoBigIntRecursive(item));
     } else if (obj !== null && typeof obj === "object") {
+        if (obj instanceof PublicKey) {
+            return obj;
+        }
         const newObj: any = {};
         for (const key of Object.keys(obj)) {
             newObj[key] = BNtoBigIntRecursive(obj[key]);

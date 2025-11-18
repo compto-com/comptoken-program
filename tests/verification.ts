@@ -1,6 +1,26 @@
-import { Keypair } from "@solana/web3.js";
+import { TOKEN_2022_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import { expect } from "chai";
 
-describe("verification", () => {
+import {
+    baseProgram,
+    buildWorldIdAccountsForVerify,
+    createGlobalDataAddedAccount,
+    createUnstakedMintAddedAccount,
+    createUnstakedTokenAccountAddedAccount,
+    createUserDataAddedAccount,
+    getAccount,
+    getMint,
+    getWorldIdConfigPdaAndBump,
+    getWorldIdLatestRootPdaAndBump,
+    getWorldIdNullifierPda,
+    getWorldIdRootPdaAndBump,
+    solanaWorldIdProgram,
+} from "./utils/accountPreinitHelpers.ts";
+import { fetchGlobalData, fetchUserData, getGlobalDataPda, getUserDataPda } from "./utils/stateHelpers.ts";
+import { prepareTest } from "./utils/utils.ts";
+
+describe.only("verification", () => {
     const worldIdFixture = (() => {
         // appId:  "self_hosted"
         // action: "COMPTO-VerifyHuman"
@@ -29,9 +49,217 @@ describe("verification", () => {
 
     describe("Verify (World ID)", () => {
         describe("Core success path scenarios", () => {
-            it.skip("verifies a valid World ID proof and sets nullifier_hash in user_data", async () => {});
-            it.skip("mints per-capita early adopter UBI to user's unstaked token account when remaining_early_adopter_count > 0", async () => {});
-            it.skip("increments verified_accounts_count and decrements remaining_early_adopter_count on success", async () => {});
+            it("verifies a valid World ID proof and sets nullifier_hash in user_data", async () => {
+                // PDAs used by instruction / assertions
+                const [unstakedMintPda] = PublicKey.findProgramAddressSync(
+                    [Buffer.from(baseProgram.constants.unstakedMintSeed)],
+                    baseProgram.programId,
+                );
+                const userUnstakedAta = getAssociatedTokenAddressSync(
+                    unstakedMintPda,
+                    user.publicKey,
+                    false,
+                    TOKEN_2022_PROGRAM_ID,
+                );
+                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
+                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
+                const worldIdNullifier = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
+                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
+
+                // Seed on-chain state required for verify
+                const accounts = [
+                    await createUserDataAddedAccount({ userPubkey: user.publicKey, proofs: [] }),
+                    await createGlobalDataAddedAccount({}),
+                    await createUnstakedMintAddedAccount(),
+                    await createUnstakedTokenAccountAddedAccount({
+                        address: userUnstakedAta,
+                        owner: user.publicKey,
+                        amount: 0,
+                    }),
+                    ...(await buildWorldIdAccountsForVerify({
+                        userWallet: user.publicKey,
+                        rootHash: worldIdFixture.rootHash,
+                    })),
+                ];
+
+                const { provider, program } = await prepareTest(accounts);
+
+                // Call verify
+                await program.methods
+                    .verify({
+                        rootHash: toHash(worldIdFixture.rootHash),
+                        nullifierHash: toHash(worldIdFixture.nullifierHash),
+                        proof: Array.from(worldIdFixture.proof),
+                    })
+                    .accountsStrict({
+                        payer: provider.wallet.publicKey,
+                        userWallet: user.publicKey,
+                        userUnstakedTokenAccount: userUnstakedAta,
+                        worldIdConfig: worldIdConfigPda,
+                        worldIdLatestRoot: worldIdLatestRoot,
+                        worldIdNullifier: worldIdNullifier,
+                        worldIdProgram: solanaWorldIdProgram.programId,
+                        worldIdRoot: worldIdRoot,
+                        tokenProgram: TOKEN_2022_PROGRAM_ID,
+                        systemProgram: SystemProgram.programId,
+                        userData: getUserDataPda(program, user.publicKey),
+                        globalData: getGlobalDataPda(program),
+                        unstakedMint: unstakedMintPda,
+                    })
+                    .signers([user])
+                    .rpc();
+
+                const userData = await fetchUserData(program, user.publicKey);
+                expect(Uint8Array.from(userData.nullifierHash[0])).to.deep.equal(
+                    Uint8Array.from(worldIdFixture.nullifierHash),
+                );
+            });
+
+            it("mints per-capita early adopter UBI to user's unstaked token account when remaining_early_adopter_count > 0", async () => {
+                const perCapita = 12345; // arbitrary test value
+
+                const [unstakedMintPda] = PublicKey.findProgramAddressSync(
+                    [Buffer.from(baseProgram.constants.unstakedMintSeed)],
+                    baseProgram.programId,
+                );
+                const userUnstakedAta = getAssociatedTokenAddressSync(
+                    unstakedMintPda,
+                    user.publicKey,
+                    false,
+                    TOKEN_2022_PROGRAM_ID,
+                );
+                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
+                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
+                const worldIdNullifier = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
+                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
+
+                const accounts = [
+                    await createUserDataAddedAccount({ userPubkey: user.publicKey, proofs: [] }),
+                    await createGlobalDataAddedAccount({
+                        perCapitaEarlyAdopterUbiAmount: perCapita,
+                        remainingEarlyAdopterCount: 5,
+                        verifiedAccountsCount: 0,
+                    }),
+                    await createUnstakedMintAddedAccount(),
+                    await createUnstakedTokenAccountAddedAccount({
+                        address: userUnstakedAta,
+                        owner: user.publicKey,
+                        amount: 0,
+                    }),
+                    ...(await buildWorldIdAccountsForVerify({
+                        userWallet: user.publicKey,
+                        rootHash: worldIdFixture.rootHash,
+                    })),
+                ];
+
+                const { provider, program } = await prepareTest(accounts);
+
+                const [beforeUserUnstaked, beforeMint] = await Promise.all([
+                    getAccount(provider.connection, userUnstakedAta),
+                    getMint(provider.connection, unstakedMintPda),
+                ]);
+
+                await program.methods
+                    .verify({
+                        rootHash: toHash(worldIdFixture.rootHash),
+                        nullifierHash: toHash(worldIdFixture.nullifierHash),
+                        proof: Array.from(worldIdFixture.proof),
+                    })
+                    .accountsStrict({
+                        payer: provider.wallet.publicKey,
+                        userWallet: user.publicKey,
+                        userData: getUserDataPda(program, user.publicKey),
+                        userUnstakedTokenAccount: userUnstakedAta,
+                        worldIdProgram: solanaWorldIdProgram.programId,
+                        worldIdRoot,
+                        worldIdLatestRoot,
+                        worldIdConfig: worldIdConfigPda,
+                        worldIdNullifier,
+                        globalData: getGlobalDataPda(program),
+                        unstakedMint: unstakedMintPda,
+                        tokenProgram: TOKEN_2022_PROGRAM_ID,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .signers([user])
+                    .rpc();
+
+                const [afterUserUnstaked, afterMint] = await Promise.all([
+                    getAccount(provider.connection, userUnstakedAta),
+                    getMint(provider.connection, unstakedMintPda),
+                ]);
+
+                expect(Number(afterUserUnstaked.amount - beforeUserUnstaked.amount)).to.equal(perCapita);
+                expect(Number(afterMint.supply - beforeMint.supply)).to.equal(perCapita);
+            });
+
+            it("increments verified_accounts_count and decrements remaining_early_adopter_count on success", async () => {
+                const [unstakedMintPda] = PublicKey.findProgramAddressSync(
+                    [Buffer.from(baseProgram.constants.unstakedMintSeed)],
+                    baseProgram.programId,
+                );
+                const userUnstakedAta = getAssociatedTokenAddressSync(
+                    unstakedMintPda,
+                    user.publicKey,
+                    false,
+                    TOKEN_2022_PROGRAM_ID,
+                );
+                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
+                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
+                const worldIdNullifier = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
+                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
+
+                const accounts = [
+                    await createUserDataAddedAccount({ userPubkey: user.publicKey, proofs: [] }),
+                    await createGlobalDataAddedAccount({
+                        perCapitaEarlyAdopterUbiAmount: 1, // non-zero to allow mint if applicable
+                        verifiedAccountsCount: 7,
+                    }),
+                    await createUnstakedMintAddedAccount(),
+                    await createUnstakedTokenAccountAddedAccount({
+                        address: userUnstakedAta,
+                        owner: user.publicKey,
+                        amount: 0,
+                    }),
+                    ...(await buildWorldIdAccountsForVerify({
+                        userWallet: user.publicKey,
+                        rootHash: worldIdFixture.rootHash,
+                    })),
+                ];
+
+                const { provider, program } = await prepareTest(accounts);
+
+                const before = await fetchGlobalData(program);
+                const initialVerified = before.dailyDistribution.verifiedAccountsCount;
+                const initialRemaining = before.dailyDistribution.remainingEarlyAdopterCount;
+
+                await program.methods
+                    .verify({
+                        rootHash: toHash(worldIdFixture.rootHash),
+                        nullifierHash: toHash(worldIdFixture.nullifierHash),
+                        proof: Array.from(worldIdFixture.proof),
+                    })
+                    .accountsStrict({
+                        payer: provider.wallet.publicKey,
+                        userWallet: user.publicKey,
+                        userData: getUserDataPda(program, user.publicKey),
+                        userUnstakedTokenAccount: userUnstakedAta,
+                        worldIdProgram: solanaWorldIdProgram.programId,
+                        worldIdRoot,
+                        worldIdLatestRoot,
+                        worldIdConfig: worldIdConfigPda,
+                        worldIdNullifier,
+                        globalData: getGlobalDataPda(program),
+                        unstakedMint: unstakedMintPda,
+                        tokenProgram: TOKEN_2022_PROGRAM_ID,
+                        systemProgram: SystemProgram.programId,
+                    })
+                    .signers([user])
+                    .rpc();
+
+                const after = await fetchGlobalData(program);
+                expect(after.dailyDistribution.verifiedAccountsCount).to.equal(initialVerified + 1);
+                expect(after.dailyDistribution.remainingEarlyAdopterCount).to.equal(initialRemaining - 1);
+            });
         });
 
         describe("Failure / validation scenarios", () => {

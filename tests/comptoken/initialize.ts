@@ -3,7 +3,7 @@ import { type AccountInfo, PublicKey, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/
 import { BankrunProvider } from "anchor-bankrun";
 import { expect } from "chai";
 
-import { type Comptoken } from "../target/types/comptoken.ts";
+import { type Comptoken } from "../../target/types/comptoken.ts";
 import {
     createGlobalDataAddedAccount,
     createStakedMintAddedAccount,

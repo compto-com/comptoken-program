@@ -21,16 +21,19 @@ import { expect } from "chai";
 import { type AddedAccount } from "solana-bankrun";
 const { BN } = anchor;
 
-import type { Comptoken } from "../../target/types/comptoken.ts";
+import type { Comptoken } from "../../../target/types/comptoken.ts";
+import type { SolanaWorldIdProgram } from "../../../target/types/solana_world_id_program.ts";
 import { getProgramWithConstants } from "./typeHelpers.ts";
 import { normalizeTime, saturatingSubtract, toUnixTime, today } from "./utils.ts";
 
-const projectRoot = `${import.meta.dirname}/../..`;
+const projectRoot = `${import.meta.dirname}/../../..`;
 export const Idl: Comptoken = JSON.parse(fs.readFileSync(`${projectRoot}/target/idl/comptoken.json`, "utf8"));
 export const baseProgram = getProgramWithConstants(Idl, undefined as any); // no provider, this should not be used to make calls (just for constants/account data)
 export const coder = new BorshCoder(Idl);
 
-export const solanaWorldIdIdl = JSON.parse(fs.readFileSync(`${projectRoot}/idls/solana_world_id_program.json`, "utf8"));
+export const solanaWorldIdIdl: SolanaWorldIdProgram = JSON.parse(
+    fs.readFileSync(`${projectRoot}/target/idl/solana_world_id_program.json`, "utf8"),
+);
 export const solanaWorldIdProgram = getProgramWithConstants(solanaWorldIdIdl, undefined as any);
 export const solanaWorldIdCoder = new BorshCoder(solanaWorldIdIdl);
 
@@ -472,19 +475,19 @@ export async function createWorldIdRootAddedAccount({
     const [address, bump] = getWorldIdRootPdaAndBump(rootHash);
 
     // Matches IDL type "root"
-    const accountData: IdlTypes<Comptoken>["root"] = {
+    const accountData: IdlTypes<SolanaWorldIdProgram>["root"] = {
         bump,
-        read_block_number: new BN(readBlockNumber),
-        read_block_hash: Array.from(readBlockHash),
-        read_block_time: new BN(readBlockTime),
-        refund_recipient: refundRecipient,
+        readBlockNumber: new BN(readBlockNumber),
+        readBlockHash: Array.from(readBlockHash),
+        readBlockTime: new BN(readBlockTime),
+        refundRecipient: refundRecipient,
         root: Array.from(rootHash),
-        verification_type: [WORLD_VERIFICATION_TYPE],
+        verificationType: [WORLD_VERIFICATION_TYPE],
     };
 
     //const data = await solanaWorldIdCoder.accounts.encode("Root", accountData);
-    const data = await coder.accounts.encode("Root", accountData);
-    const decoded = coder.accounts.decode("Root", data);
+    const data = await solanaWorldIdCoder.accounts.encode("Root", accountData);
+    const decoded = solanaWorldIdCoder.accounts.decode("Root", data);
     expect(BNtoBigIntRecursive(decoded)).to.deep.equal(BNtoBigIntRecursive(accountData));
 
     return {
@@ -512,18 +515,18 @@ export async function createWorldIdLatestRootAddedAccount({
     const [address, bump] = getWorldIdLatestRootPdaAndBump();
 
     // Matches IDL type "latestRoot"
-    const accountData: IdlTypes<Comptoken>["latestRoot"] = {
+    const accountData: IdlTypes<SolanaWorldIdProgram>["latestRoot"] = {
         bump,
-        read_block_number: new BN(readBlockNumber),
-        read_block_hash: Array.from(readBlockHash),
-        read_block_time: new BN(readBlockTime),
+        readBlockNumber: new BN(readBlockNumber),
+        readBlockHash: Array.from(readBlockHash),
+        readBlockTime: new BN(readBlockTime),
         root: Array.from(rootHash),
-        verification_type: [WORLD_VERIFICATION_TYPE],
+        verificationType: [WORLD_VERIFICATION_TYPE],
     };
 
     //const data = await solanaWorldIdCoder.accounts.encode("LatestRoot", accountData);
-    const data = await coder.accounts.encode("LatestRoot", accountData);
-    const decoded = coder.accounts.decode("LatestRoot", data);
+    const data = await solanaWorldIdCoder.accounts.encode("LatestRoot", accountData);
+    const decoded = solanaWorldIdCoder.accounts.decode("LatestRoot", data);
     expect(BNtoBigIntRecursive(decoded)).to.deep.equal(BNtoBigIntRecursive(accountData));
 
     return {
@@ -552,14 +555,14 @@ export async function createWorldIdConfigAddedAccount({
     const accountData: IdlTypes<Comptoken>["config"] = {
         bump,
         owner,
-        pending_owner: null,
-        root_expiry: new BN(rootExpirySeconds),
-        allowed_update_staleness: new BN(allowedUpdateStalenessSeconds),
+        pendingOwner: null,
+        rootExpiry: new BN(rootExpirySeconds),
+        allowedUpdateStaleness: new BN(allowedUpdateStalenessSeconds),
     };
 
     //const data = await solanaWorldIdCoder.accounts.encode("Config", accountData);
-    const data = await coder.accounts.encode("Config", accountData);
-    const decoded = coder.accounts.decode("Config", data);
+    const data = await solanaWorldIdCoder.accounts.encode("Config", accountData);
+    const decoded = solanaWorldIdCoder.accounts.decode("Config", data);
     decoded.owner = new PublicKey(decoded.owner);
     expect(BNtoBigIntRecursive(decoded)).to.deep.equal(BNtoBigIntRecursive(accountData));
 

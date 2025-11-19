@@ -1,6 +1,6 @@
 import { PublicKey } from "@solana/web3.js";
 
-import type { Comptoken } from "../../target/types/comptoken.ts";
+import type { Comptoken } from "../../../target/types/comptoken.ts";
 import type { GlobalDataAccountData, HistoricDistribution } from "./accountPreinitHelpers.ts";
 import type { ProgramWithConstants } from "./typeHelpers.ts";
 

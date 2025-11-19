@@ -2,7 +2,7 @@ import { type IdlTypes } from "@coral-xyz/anchor";
 import { SYSVAR_SLOT_HASHES_PUBKEY, Transaction } from "@solana/web3.js";
 import { expect } from "chai";
 import { Clock } from "solana-bankrun";
-import { type Comptoken } from "../target/types/comptoken.ts";
+import { type Comptoken } from "../../target/types/comptoken.ts";
 import {
     baseProgram,
     createGlobalDataAddedAccount,

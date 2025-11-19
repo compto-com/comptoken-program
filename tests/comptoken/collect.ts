@@ -2,7 +2,6 @@ import { default as anchor } from "@coral-xyz/anchor";
 import { TOKEN_2022_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
-const { BN } = anchor;
 
 import {
     baseProgram,
@@ -56,7 +55,7 @@ describe("collect:", () => {
             createGlobalDataAddedAccount(),
             createStakedMintAddedAccount(),
             createUnstakedMintAddedAccount(),
-            createStakedTokenAccountAddedAccount({ address: userStakedAta, owner: user.publicKey, amount: 2 }),
+            createStakedTokenAccountAddedAccount({ owner: user.publicKey, amount: 2 }),
             createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey, amount: 5 }),
         ]);
 
@@ -141,7 +140,7 @@ describe("collect:", () => {
             }),
             createStakedMintAddedAccount(),
             createUnstakedMintAddedAccount(),
-            createStakedTokenAccountAddedAccount({ address: userStakedAta, owner: user.publicKey, amount: 0 }),
+            createStakedTokenAccountAddedAccount({ owner: user.publicKey, amount: 0 }),
             createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey, amount: 5 }),
         ]);
 
@@ -229,7 +228,7 @@ describe("collect:", () => {
             }),
             createStakedMintAddedAccount(),
             createUnstakedMintAddedAccount(),
-            createStakedTokenAccountAddedAccount({ address: userStakedAta, owner: user.publicKey, amount: 2 }),
+            createStakedTokenAccountAddedAccount({ owner: user.publicKey, amount: 2 }),
             createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey, amount: 5 }),
         ]);
 
@@ -325,7 +324,7 @@ describe("collect:", () => {
             }),
             createStakedMintAddedAccount(),
             createUnstakedMintAddedAccount(),
-            createStakedTokenAccountAddedAccount({ address: userStakedAta, owner: user.publicKey, amount: 0 }),
+            createStakedTokenAccountAddedAccount({ owner: user.publicKey, amount: 0 }),
             createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey, amount: 5 }),
         ]);
 
@@ -409,7 +408,7 @@ describe("collect:", () => {
             }),
             createStakedMintAddedAccount(),
             createUnstakedMintAddedAccount(),
-            createStakedTokenAccountAddedAccount({ address: userStakedAta, owner: user.publicKey, amount: 2 }),
+            createStakedTokenAccountAddedAccount({ owner: user.publicKey, amount: 2 }),
             createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey, amount: 5 }),
         ]);
 

@@ -237,6 +237,59 @@ describe("verification", () => {
                 expect(after.dailyDistribution.verifiedAccountsCount).to.equal(initialVerified + 1);
                 expect(after.dailyDistribution.remainingEarlyAdopterCount).to.equal(initialRemaining - 1);
             });
+
+            it("sets nullifier owner to user_wallet on success", async () => {
+                const [unstakedMintPda] = PublicKey.findProgramAddressSync(
+                    [Buffer.from(baseProgram.constants.unstakedMintSeed)],
+                    baseProgram.programId,
+                );
+                const userUnstakedAta = getAssociatedTokenAddressSync(
+                    unstakedMintPda,
+                    user.publicKey,
+                    false,
+                    TOKEN_2022_PROGRAM_ID,
+                );
+                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
+                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
+                const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
+
+                const accounts = [
+                    await createUserDataAddedAccount({ userPubkey: user.publicKey, proofs: [] }),
+                    await createGlobalDataAddedAccount(),
+                    await createUnstakedMintAddedAccount(),
+                    await createUnstakedTokenAccountAddedAccount({
+                        address: userUnstakedAta,
+                        owner: user.publicKey,
+                        amount: 0,
+                    }),
+                    ...(await buildWorldIdAccountsForVerify({
+                        userWallet: user.publicKey,
+                        rootHash: worldIdFixture.rootHash,
+                    })),
+                ];
+
+                const { provider, program } = await prepareTest(accounts);
+
+                await program.methods
+                    .verify({
+                        rootHash: toHash(worldIdFixture.rootHash),
+                        nullifierHash: toHash(worldIdFixture.nullifierHash),
+                        proof: Array.from(worldIdFixture.proof),
+                    })
+                    .accountsPartial({
+                        payer: provider.wallet.publicKey,
+                        userWallet: user.publicKey,
+                        userUnstakedTokenAccount: userUnstakedAta,
+                        worldIdRoot,
+                        worldIdLatestRoot,
+                        worldIdNullifier: worldIdNullifierPda,
+                    })
+                    .signers([user])
+                    .rpc();
+
+                const nullifier = await program.account.nullifier.fetch(worldIdNullifierPda);
+                expect(nullifier.userWallet.toBase58()).to.equal(user.publicKey.toBase58());
+            });
         });
 
         describe("Failure / validation scenarios", () => {
@@ -430,11 +483,10 @@ describe("verification", () => {
                 const conn = program.provider.connection;
                 const info = await conn.getAccountInfo(worldIdNullifierPda, "confirmed");
                 expect(info).to.not.equal(null);
-                if (info) {
-                    const decoded: any = coder.accounts.decode("Nullifier", info.data);
-                    const ownerPk = new PublicKey(decoded.user_wallet);
-                    expect(ownerPk.toBase58()).to.equal(PublicKey.default.toBase58());
-                }
+
+                const decoded = coder.accounts.decode("Nullifier", info.data);
+                const ownerPk = new PublicKey(decoded.user_wallet);
+                expect(ownerPk.toBase58()).to.equal(PublicKey.default.toBase58());
 
                 const after = await fetchGlobalData(program);
                 expect(after.dailyDistribution.verifiedAccountsCount).to.equal(beforeVerified - 1);

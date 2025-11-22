@@ -20,7 +20,7 @@ import {
 import { fetchGlobalData, fetchUserData, getGlobalDataPda, getUserDataPda } from "./utils/stateHelpers.ts";
 import { prepareTest } from "./utils/utils.ts";
 
-describe.only("verification", () => {
+describe("verification", () => {
     const worldIdFixture = (() => {
         // appId:  "self_hosted"
         // action: "COMPTO-VerifyHuman"
@@ -61,15 +61,13 @@ describe.only("verification", () => {
                     false,
                     TOKEN_2022_PROGRAM_ID,
                 );
-                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
                 const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
-                const worldIdNullifier = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
                 const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
 
                 // Seed on-chain state required for verify
                 const accounts = [
                     await createUserDataAddedAccount({ userPubkey: user.publicKey, proofs: [] }),
-                    await createGlobalDataAddedAccount({}),
+                    await createGlobalDataAddedAccount(),
                     await createUnstakedMintAddedAccount(),
                     await createUnstakedTokenAccountAddedAccount({
                         address: userUnstakedAta,
@@ -91,20 +89,13 @@ describe.only("verification", () => {
                         nullifierHash: toHash(worldIdFixture.nullifierHash),
                         proof: Array.from(worldIdFixture.proof),
                     })
-                    .accountsStrict({
+                    .accountsPartial({
                         payer: provider.wallet.publicKey,
                         userWallet: user.publicKey,
                         userUnstakedTokenAccount: userUnstakedAta,
-                        worldIdConfig: worldIdConfigPda,
                         worldIdLatestRoot: worldIdLatestRoot,
-                        worldIdNullifier: worldIdNullifier,
-                        worldIdProgram: solanaWorldIdProgram.programId,
                         worldIdRoot: worldIdRoot,
-                        tokenProgram: TOKEN_2022_PROGRAM_ID,
-                        systemProgram: SystemProgram.programId,
-                        userData: getUserDataPda(program, user.publicKey),
-                        globalData: getGlobalDataPda(program),
-                        unstakedMint: unstakedMintPda,
+                        worldIdNullifier: getWorldIdNullifierPda(worldIdFixture.nullifierHash),
                     })
                     .signers([user])
                     .rpc();
@@ -128,7 +119,6 @@ describe.only("verification", () => {
                     false,
                     TOKEN_2022_PROGRAM_ID,
                 );
-                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
                 const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
                 const worldIdNullifier = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
                 const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
@@ -165,20 +155,13 @@ describe.only("verification", () => {
                         nullifierHash: toHash(worldIdFixture.nullifierHash),
                         proof: Array.from(worldIdFixture.proof),
                     })
-                    .accountsStrict({
+                    .accountsPartial({
                         payer: provider.wallet.publicKey,
                         userWallet: user.publicKey,
-                        userData: getUserDataPda(program, user.publicKey),
                         userUnstakedTokenAccount: userUnstakedAta,
-                        worldIdProgram: solanaWorldIdProgram.programId,
                         worldIdRoot,
                         worldIdLatestRoot,
-                        worldIdConfig: worldIdConfigPda,
                         worldIdNullifier,
-                        globalData: getGlobalDataPda(program),
-                        unstakedMint: unstakedMintPda,
-                        tokenProgram: TOKEN_2022_PROGRAM_ID,
-                        systemProgram: SystemProgram.programId,
                     })
                     .signers([user])
                     .rpc();
@@ -238,20 +221,13 @@ describe.only("verification", () => {
                         nullifierHash: toHash(worldIdFixture.nullifierHash),
                         proof: Array.from(worldIdFixture.proof),
                     })
-                    .accountsStrict({
+                    .accountsPartial({
                         payer: provider.wallet.publicKey,
                         userWallet: user.publicKey,
-                        userData: getUserDataPda(program, user.publicKey),
                         userUnstakedTokenAccount: userUnstakedAta,
-                        worldIdProgram: solanaWorldIdProgram.programId,
                         worldIdRoot,
                         worldIdLatestRoot,
-                        worldIdConfig: worldIdConfigPda,
                         worldIdNullifier,
-                        globalData: getGlobalDataPda(program),
-                        unstakedMint: unstakedMintPda,
-                        tokenProgram: TOKEN_2022_PROGRAM_ID,
-                        systemProgram: SystemProgram.programId,
                     })
                     .signers([user])
                     .rpc();

@@ -23,7 +23,7 @@ const { BN } = anchor;
 
 import type { Comptoken } from "../../../target/types/comptoken.ts";
 import type { SolanaWorldIdProgram } from "../../../target/types/solana_world_id_program.ts";
-import { getProgramWithConstants } from "./typeHelpers.ts";
+import { type CamelToSnakeCaseObject, type ProgramWithConstants, getProgramWithConstants } from "./typeHelpers.ts";
 import { normalizeTime, saturatingSubtract, toUnixTime, today } from "./utils.ts";
 
 const projectRoot = `${import.meta.dirname}/../../..`;
@@ -434,20 +434,20 @@ const WORLD_VERIFICATION_TYPE = 1;
 // PDA helpers (use program address from current IDL)
 export function getWorldIdRootPdaAndBump(rootHash: Uint8Array) {
     return PublicKey.findProgramAddressSync(
-        [Buffer.from("root"), Buffer.from(rootHash), Buffer.from([WORLD_VERIFICATION_TYPE])],
+        [Buffer.from("Root"), Buffer.from(rootHash), Buffer.from([WORLD_VERIFICATION_TYPE])],
         solanaWorldIdProgram.programId,
     );
 }
 
 export function getWorldIdLatestRootPdaAndBump() {
     return PublicKey.findProgramAddressSync(
-        [Buffer.from("latest_root"), Buffer.from([WORLD_VERIFICATION_TYPE])],
+        [Buffer.from("LatestRoot"), Buffer.from([WORLD_VERIFICATION_TYPE])],
         solanaWorldIdProgram.programId,
     );
 }
 
 export function getWorldIdConfigPdaAndBump() {
-    return PublicKey.findProgramAddressSync([Buffer.from("config")], solanaWorldIdProgram.programId);
+    return PublicKey.findProgramAddressSync([Buffer.from("Config")], solanaWorldIdProgram.programId);
 }
 
 export function getWorldIdNullifierPda(nullifierHash: Uint8Array) {
@@ -474,18 +474,16 @@ export async function createWorldIdRootAddedAccount({
 }): Promise<AddedAccount> {
     const [address, bump] = getWorldIdRootPdaAndBump(rootHash);
 
-    // Matches IDL type "root"
-    const accountData: IdlTypes<SolanaWorldIdProgram>["root"] = {
+    const accountData: CamelToSnakeCaseObject<IdlTypes<SolanaWorldIdProgram>["root"]> = {
         bump,
-        readBlockNumber: new BN(readBlockNumber),
-        readBlockHash: Array.from(readBlockHash),
-        readBlockTime: new BN(readBlockTime),
-        refundRecipient: refundRecipient,
+        read_block_number: new BN(readBlockNumber),
+        read_block_hash: Array.from(readBlockHash),
+        read_block_time: new BN(readBlockTime),
+        refund_recipient: refundRecipient,
         root: Array.from(rootHash),
-        verificationType: [WORLD_VERIFICATION_TYPE],
+        verification_type: [WORLD_VERIFICATION_TYPE],
     };
 
-    //const data = await solanaWorldIdCoder.accounts.encode("Root", accountData);
     const data = await solanaWorldIdCoder.accounts.encode("Root", accountData);
     const decoded = solanaWorldIdCoder.accounts.decode("Root", data);
     expect(BNtoBigIntRecursive(decoded)).to.deep.equal(BNtoBigIntRecursive(accountData));
@@ -514,17 +512,15 @@ export async function createWorldIdLatestRootAddedAccount({
 }): Promise<AddedAccount> {
     const [address, bump] = getWorldIdLatestRootPdaAndBump();
 
-    // Matches IDL type "latestRoot"
-    const accountData: IdlTypes<SolanaWorldIdProgram>["latestRoot"] = {
+    const accountData: CamelToSnakeCaseObject<IdlTypes<SolanaWorldIdProgram>["latestRoot"]> = {
         bump,
-        readBlockNumber: new BN(readBlockNumber),
-        readBlockHash: Array.from(readBlockHash),
-        readBlockTime: new BN(readBlockTime),
+        read_block_number: new BN(readBlockNumber),
+        read_block_hash: Array.from(readBlockHash),
+        read_block_time: new BN(readBlockTime),
         root: Array.from(rootHash),
-        verificationType: [WORLD_VERIFICATION_TYPE],
+        verification_type: [WORLD_VERIFICATION_TYPE],
     };
 
-    //const data = await solanaWorldIdCoder.accounts.encode("LatestRoot", accountData);
     const data = await solanaWorldIdCoder.accounts.encode("LatestRoot", accountData);
     const decoded = solanaWorldIdCoder.accounts.decode("LatestRoot", data);
     expect(BNtoBigIntRecursive(decoded)).to.deep.equal(BNtoBigIntRecursive(accountData));
@@ -551,16 +547,14 @@ export async function createWorldIdConfigAddedAccount({
 }): Promise<AddedAccount> {
     const [address, bump] = getWorldIdConfigPdaAndBump();
 
-    // Matches IDL type "config"
-    const accountData: IdlTypes<Comptoken>["config"] = {
+    const accountData: CamelToSnakeCaseObject<IdlTypes<Comptoken>["config"]> = {
         bump,
         owner,
-        pendingOwner: null,
-        rootExpiry: new BN(rootExpirySeconds),
-        allowedUpdateStaleness: new BN(allowedUpdateStalenessSeconds),
+        pending_owner: null,
+        root_expiry: new BN(rootExpirySeconds),
+        allowed_update_staleness: new BN(allowedUpdateStalenessSeconds),
     };
 
-    //const data = await solanaWorldIdCoder.accounts.encode("Config", accountData);
     const data = await solanaWorldIdCoder.accounts.encode("Config", accountData);
     const decoded = solanaWorldIdCoder.accounts.decode("Config", data);
     decoded.owner = new PublicKey(decoded.owner);
@@ -580,9 +574,11 @@ export async function createWorldIdConfigAddedAccount({
 export async function createWorldIdNullifierAddedAccount({
     nullifierHash,
     userWallet,
+    program,
 }: {
     nullifierHash: Uint8Array;
     userWallet: PublicKey;
+    program: ProgramWithConstants<Comptoken>;
 }): Promise<AddedAccount> {
     const address = getWorldIdNullifierPda(nullifierHash);
 
@@ -596,7 +592,7 @@ export async function createWorldIdNullifierAddedAccount({
     return {
         address,
         info: {
-            owner: baseProgram.programId,
+            owner: program.programId,
             data,
             executable: false,
             lamports: 1_000_000_000,
@@ -623,16 +619,20 @@ export async function buildWorldIdAccountsForVerify({
 
 export async function buildWorldIdAccountsWithNullifier({
     userWallet,
-    nullifierHash,
     rootHash,
+    refundRecipient = userWallet,
+    nullifierHash,
+    program,
 }: {
     userWallet: PublicKey;
-    nullifierHash: Uint8Array;
     rootHash: Uint8Array;
+    refundRecipient?: PublicKey;
+    nullifierHash: Uint8Array;
+    program: ProgramWithConstants<Comptoken>;
 }): Promise<AddedAccount[]> {
     return [
-        ...(await buildWorldIdAccountsForVerify({ userWallet, rootHash })),
-        await createWorldIdNullifierAddedAccount({ nullifierHash, userWallet }),
+        ...(await buildWorldIdAccountsForVerify({ userWallet, rootHash, refundRecipient })),
+        await createWorldIdNullifierAddedAccount({ userWallet, nullifierHash, program }),
     ];
 }
 

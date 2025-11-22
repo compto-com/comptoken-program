@@ -584,10 +584,14 @@ export async function createWorldIdNullifierAddedAccount({
 
     // Matches IDL type "nullifier" (bytemuck C layout)
     const accountData = {
-        userWallet,
+        user_wallet: userWallet,
     };
 
-    const data = await coder.accounts.encode("WorldIdNullifier", accountData);
+    const data = await coder.accounts.encode("Nullifier", accountData);
+    const decoded: CamelToSnakeCaseObject<IdlTypes<Comptoken>["nullifier"]> = coder.accounts.decode("Nullifier", data);
+    console.log("Decoded nullifier:", decoded);
+    decoded.user_wallet = new PublicKey(decoded.user_wallet);
+    expect(BNtoBigIntRecursive(decoded)).to.deep.equal(BNtoBigIntRecursive(accountData));
 
     return {
         address,

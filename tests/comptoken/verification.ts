@@ -5,6 +5,7 @@ import { expect } from "chai";
 import {
     baseProgram,
     buildWorldIdAccountsForVerify,
+    buildWorldIdAccountsWithNullifier,
     createGlobalDataAddedAccount,
     createUnstakedMintAddedAccount,
     createUnstakedTokenAccountAddedAccount,
@@ -239,7 +240,7 @@ describe("verification", () => {
 
         describe("Failure / validation scenarios", () => {
             it.skip("fails with UserDataNotCurrent when user_data is stale", () => {});
-            it.skip("fails with NullifierAlreadyUsed when nullifier was used by a different wallet", () => {});
+            it.skip("fails with NullifierAlreadyUsed when nullifier was used", () => {});
             it.skip("fails when World ID proof is invalid", () => {});
             it.skip("fails when user_unstaked_token_account mint doesn't match unstaked_mint", () => {});
             it.skip("fails when user_unstaked_token_account is not owned by user_wallet", () => {});
@@ -262,8 +263,107 @@ describe("verification", () => {
 
     describe("Reverify (World ID)", () => {
         describe("Core success path scenarios", () => {
-            it.skip("re-verifies under the same nullifier without requiring user_data to be current", () => {});
-            it.skip("updates last_verified_timestamp on success", () => {});
+            it("re-verifies under the same nullifier without requiring user_data to be current", async () => {
+                // prepare PDAs
+                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
+                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
+                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
+
+                // Seed on-chain state: user_data is stale (last_claimed not equal to today) but has nullifier set
+                const accounts = [
+                    await createUserDataAddedAccount({
+                        userPubkey: user.publicKey,
+                        // make last_claimed old so `is_current()` is false
+                        lastClaimed: new Date(0),
+                        lastVerified: new Date(0),
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        proofs: [],
+                    }),
+                    // world id PDAs + pre-created nullifier owned by program with correct owner set
+                    ...(await buildWorldIdAccountsWithNullifier({
+                        userWallet: user.publicKey,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        program: baseProgram,
+                    })),
+                ];
+
+                const { program } = await prepareTest(accounts);
+
+                // Call reverify - should succeed even though user_data.is_current() === false
+                await program.methods
+                    .reverify({
+                        rootHash: toHash(worldIdFixture.rootHash),
+                        nullifierHash: toHash(worldIdFixture.nullifierHash),
+                        proof: Array.from(worldIdFixture.proof),
+                    })
+                    .accountsPartial({
+                        userWallet: user.publicKey,
+                        worldIdRoot: worldIdRoot,
+                        worldIdLatestRoot: worldIdLatestRoot,
+                        worldIdConfig: worldIdConfigPda,
+                        worldIdNullifier: getWorldIdNullifierPda(worldIdFixture.nullifierHash),
+                    })
+                    .signers([user])
+                    .rpc();
+
+                const userData = await fetchUserData(program, user.publicKey);
+                // nullifier hash must remain set to the same value
+                expect(Uint8Array.from(userData.nullifierHash[0])).to.deep.equal(
+                    Uint8Array.from(worldIdFixture.nullifierHash),
+                );
+            });
+
+            it("updates last_verified_timestamp on success", async () => {
+                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
+                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
+                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
+
+                // create user data with an older last_verified timestamp
+                const oldVerified = new Date(Date.now() - 24 * 60 * 60 * 1000); // 1 day ago
+
+                const accounts = [
+                    await createUserDataAddedAccount({
+                        userPubkey: user.publicKey,
+                        lastClaimed: new Date(0),
+                        lastVerified: oldVerified,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        proofs: [],
+                    }),
+                    ...(await buildWorldIdAccountsWithNullifier({
+                        userWallet: user.publicKey,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        program: baseProgram,
+                    })),
+                ];
+
+                const { program } = await prepareTest(accounts);
+
+                const before = await fetchUserData(program, user.publicKey);
+                const beforeTs = Number(before.lastVerifiedTimestamp);
+
+                await program.methods
+                    .reverify({
+                        rootHash: toHash(worldIdFixture.rootHash),
+                        nullifierHash: toHash(worldIdFixture.nullifierHash),
+                        proof: Array.from(worldIdFixture.proof),
+                    })
+                    .accountsPartial({
+                        userWallet: user.publicKey,
+                        worldIdRoot: worldIdRoot,
+                        worldIdLatestRoot: worldIdLatestRoot,
+                        worldIdConfig: worldIdConfigPda,
+                        worldIdNullifier: getWorldIdNullifierPda(worldIdFixture.nullifierHash),
+                    })
+                    .signers([user])
+                    .rpc();
+
+                const after = await fetchUserData(program, user.publicKey);
+                const afterTs = Number(after.lastVerifiedTimestamp);
+
+                expect(afterTs).to.be.greaterThan(beforeTs);
+            });
         });
 
         describe("Failure / validation scenarios", () => {

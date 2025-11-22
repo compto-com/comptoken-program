@@ -6,6 +6,7 @@ import {
     baseProgram,
     buildWorldIdAccountsForVerify,
     buildWorldIdAccountsWithNullifier,
+    coder,
     createGlobalDataAddedAccount,
     createUnstakedMintAddedAccount,
     createUnstakedTokenAccountAddedAccount,
@@ -379,8 +380,110 @@ describe("verification", () => {
 
     describe("Unverify (World ID)", () => {
         describe("Core success path scenarios", () => {
-            it.skip("verifies proof and clears nullifier_hash from user_data", () => {});
-            it.skip("sets nullifier owner to default (unused) and decrements verified_accounts_count", () => {});
+            it("verifies proof and clears nullifier_hash from user_data", async () => {
+                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
+                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
+                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
+                const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
+
+                const accounts = [
+                    await createUserDataAddedAccount({
+                        userPubkey: user.publicKey,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        proofs: [],
+                    }),
+                    await createGlobalDataAddedAccount({ verifiedAccountsCount: 3 }),
+                    ...(await buildWorldIdAccountsWithNullifier({
+                        userWallet: user.publicKey,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        program: baseProgram,
+                    })),
+                ];
+
+                const { program } = await prepareTest(accounts);
+
+                const before = await fetchGlobalData(program);
+                const beforeVerified = before.dailyDistribution.verifiedAccountsCount;
+
+                await program.methods
+                    .unverify({
+                        rootHash: toHash(worldIdFixture.rootHash),
+                        nullifierHash: toHash(worldIdFixture.nullifierHash),
+                        proof: Array.from(worldIdFixture.proof),
+                    })
+                    .accountsPartial({
+                        userWallet: user.publicKey,
+                        worldIdRoot: worldIdRoot,
+                        worldIdLatestRoot: worldIdLatestRoot,
+                        worldIdConfig: worldIdConfigPda,
+                        worldIdNullifier: worldIdNullifierPda,
+                    })
+                    .rpc();
+
+                const userData = await fetchUserData(program, user.publicKey);
+                expect(Uint8Array.from(userData.nullifierHash[0])).to.deep.equal(
+                    Uint8Array.from(new Uint8Array(32).fill(0)),
+                );
+
+                // verify nullifier account owner was reset to default (unused)
+                const conn = program.provider.connection;
+                const info = await conn.getAccountInfo(worldIdNullifierPda, "confirmed");
+                expect(info).to.not.equal(null);
+                if (info) {
+                    const decoded: any = coder.accounts.decode("Nullifier", info.data);
+                    const ownerPk = new PublicKey(decoded.user_wallet);
+                    expect(ownerPk.toBase58()).to.equal(PublicKey.default.toBase58());
+                }
+
+                const after = await fetchGlobalData(program);
+                expect(after.dailyDistribution.verifiedAccountsCount).to.equal(beforeVerified - 1);
+            });
+
+            it("sets nullifier owner to default (unused) and decrements verified_accounts_count", async () => {
+                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
+                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
+                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
+                const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
+
+                const accounts = [
+                    await createUserDataAddedAccount({
+                        userPubkey: user.publicKey,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        proofs: [],
+                    }),
+                    await createGlobalDataAddedAccount({ verifiedAccountsCount: 5 }),
+                    ...(await buildWorldIdAccountsWithNullifier({
+                        userWallet: user.publicKey,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        program: baseProgram,
+                    })),
+                ];
+
+                const { program } = await prepareTest(accounts);
+
+                const before = await fetchGlobalData(program);
+                const beforeVerified = before.dailyDistribution.verifiedAccountsCount;
+
+                await program.methods
+                    .unverify({
+                        rootHash: toHash(worldIdFixture.rootHash),
+                        nullifierHash: toHash(worldIdFixture.nullifierHash),
+                        proof: Array.from(worldIdFixture.proof),
+                    })
+                    .accountsPartial({
+                        userWallet: user.publicKey,
+                        worldIdRoot: worldIdRoot,
+                        worldIdLatestRoot: worldIdLatestRoot,
+                        worldIdConfig: worldIdConfigPda,
+                        worldIdNullifier: worldIdNullifierPda,
+                    })
+                    .rpc();
+
+                const after = await fetchGlobalData(program);
+                expect(after.dailyDistribution.verifiedAccountsCount).to.equal(beforeVerified - 1);
+            });
         });
 
         describe("Failure / validation scenarios", () => {
@@ -397,8 +500,92 @@ describe("verification", () => {
 
     describe("Unverify2 (no proof)", () => {
         describe("Core success path scenarios", () => {
-            it.skip("clears nullifier_hash without CPI when user_wallet signs and data is current", () => {});
-            it.skip("decrements verified_accounts_count and resets last_verified_timestamp to 0", () => {});
+            it("clears nullifier_hash without CPI when user_wallet signs and data is current", async () => {
+                const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
+
+                const accounts = [
+                    await createUserDataAddedAccount({
+                        userPubkey: user.publicKey,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        proofs: [],
+                    }),
+                    await createGlobalDataAddedAccount({ verifiedAccountsCount: 2 }),
+                    ...(await buildWorldIdAccountsWithNullifier({
+                        userWallet: user.publicKey,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        program: baseProgram,
+                    })),
+                ];
+
+                const { program } = await prepareTest(accounts);
+
+                const before = await fetchGlobalData(program);
+                const beforeVerified = before.dailyDistribution.verifiedAccountsCount;
+
+                // call unverify2 as signer (no CPI to world id program)
+                await program.methods
+                    .unverify2({ nullifierHash: toHash(worldIdFixture.nullifierHash) })
+                    .accountsPartial({
+                        userWallet: user.publicKey,
+                        worldIdNullifier: worldIdNullifierPda,
+                    })
+                    .signers([user])
+                    .rpc();
+
+                const userData = await fetchUserData(program, user.publicKey);
+                expect(Uint8Array.from(userData.nullifierHash[0])).to.deep.equal(
+                    Uint8Array.from(new Uint8Array(32).fill(0)),
+                );
+            });
+
+            it("decrements verified_accounts_count and resets last_verified_timestamp to 0", async () => {
+                const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
+
+                const now = new Date();
+
+                const accounts = [
+                    await createUserDataAddedAccount({
+                        userPubkey: user.publicKey,
+                        lastClaimed: new Date(),
+                        lastVerified: now,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        proofs: [],
+                    }),
+                    await createGlobalDataAddedAccount({ verifiedAccountsCount: 8 }),
+                    ...(await buildWorldIdAccountsWithNullifier({
+                        userWallet: user.publicKey,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        program: baseProgram,
+                    })),
+                ];
+
+                const { program } = await prepareTest(accounts);
+
+                const before = await fetchGlobalData(program);
+                const beforeVerified = before.dailyDistribution.verifiedAccountsCount;
+
+                const beforeUser = await fetchUserData(program, user.publicKey);
+                const beforeTs = Number(beforeUser.lastVerifiedTimestamp);
+                expect(beforeTs).to.be.greaterThan(0);
+
+                await program.methods
+                    .unverify2({ nullifierHash: toHash(worldIdFixture.nullifierHash) })
+                    .accountsPartial({
+                        userWallet: user.publicKey,
+                        worldIdNullifier: worldIdNullifierPda,
+                    })
+                    .signers([user])
+                    .rpc();
+
+                const after = await fetchGlobalData(program);
+                expect(after.dailyDistribution.verifiedAccountsCount).to.equal(beforeVerified - 1);
+
+                const afterUser = await fetchUserData(program, user.publicKey);
+                const afterTs = Number(afterUser.lastVerifiedTimestamp);
+                expect(afterTs).to.equal(0);
+            });
         });
 
         describe("Failure / validation scenarios", () => {

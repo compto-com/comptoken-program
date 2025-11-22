@@ -2,12 +2,12 @@
 import * as anchor from "@coral-xyz/anchor";
 
 export function deriveRootKey(
-  worldIdProgramId: anchor.web3.PublicKey,
-  root: Buffer,
-  type: number
+    worldIdProgramId: anchor.web3.PublicKey,
+    root: Buffer,
+    type: number,
 ): anchor.web3.PublicKey {
-  return anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from("Root"), root, Buffer.from([type])],
-    worldIdProgramId
-  )[0];
+    return anchor.web3.PublicKey.findProgramAddressSync(
+        [Buffer.from("Root"), root, Buffer.from([type])],
+        worldIdProgramId,
+    )[0];
 }

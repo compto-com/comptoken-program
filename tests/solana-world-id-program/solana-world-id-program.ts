@@ -17,11 +17,11 @@ import { BN } from "bn.js";
 import { assert, expect, use } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { SolanaWorldIdProgram } from "../../target/types/solana_world_id_program";
-import { deriveConfigKey } from "./helpers/config";
-import { deriveGuardianSetKey } from "./helpers/guardianSet";
-import { deriveLatestRootKey } from "./helpers/latestRoot";
-import { deriveRootKey } from "./helpers/root";
-import { appIdActionToExternalNullifierHash, hashToField } from "./helpers/utils/hashing";
+import { deriveConfigKey } from "./helpers/config.ts";
+import { deriveGuardianSetKey } from "./helpers/guardianSet.ts";
+import { deriveLatestRootKey } from "./helpers/latestRoot.ts";
+import { deriveRootKey } from "./helpers/root.ts";
+import { appIdActionToExternalNullifierHash, hashToField } from "./helpers/utils/hashing.ts";
 
 use(chaiAsPromised);
 
@@ -1304,12 +1304,23 @@ describe("solana-world-id-program", () => {
             [program.programId.toBuffer()],
             new anchor.web3.PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
         )[0];
+
+        const upgradeLock = anchor.web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("upgrade_lock")],
+            program.programId,
+        )[0];
+
         await expect(
             program.methods
                 .claimOwnership()
                 .accountsPartial({
+                    config: deriveConfigKey(program.programId),
+                    upgradeLock,
                     newOwner: anchor.getProvider().publicKey,
                     programData,
+                    bpfLoaderUpgradeableProgram: new anchor.web3.PublicKey(
+                        "BPFLoaderUpgradeab1e11111111111111111111111",
+                    ),
                 })
                 .rpc(),
         ).to.be.rejectedWith(

@@ -122,6 +122,7 @@ pub fn claim_ownership(ctx: Context<ClaimOwnership>) -> Result<()> {
     let account_infos = [
         ctx.accounts.program_data.to_account_info(),
         ctx.accounts.upgrade_lock.to_account_info(),
+        ctx.accounts.new_owner.to_account_info(),
         ctx.accounts.bpf_loader_upgradeable_program.to_account_info(),
     ];
     let signers_seeds: &[&[&[u8]]] = &[&[b"upgrade_lock", &[ctx.bumps.upgrade_lock]]];

@@ -8,45 +8,18 @@ use ethnum::u256;
 
 use crate::{
     constants::{
-        GLOBAL_DATA_SEED, NULLIFIER_SEED, UNSTAKED_MINT_SEED, USER_DATA_SEED, WORLD_ACTION, WORLD_APP_ID,
-        WORLD_ID_PROOF_SIZE, WORLD_VERIFICATION_TYPE,
+        GLOBAL_DATA_SEED, MINT_DECIMALS, NULLIFIER_SEED, UNSTAKED_MINT_SEED, USER_DATA_SEED, WORLD_ACTION,
+        WORLD_APP_ID, WORLD_ID_PROOF_SIZE, WORLD_VERIFICATION_TYPE,
     },
     state::{
-        error::ComptokenError, ext::world_id_program, global_data::GlobalData, hash::Hash, nullifier::Nullifier,
+        error::ComptokenError,
+        ext::world_id_program::{self, WorldIdConfig, WorldIdLatestRoot, WorldIdProgram, WorldIdRoot},
+        global_data::GlobalData,
+        hash::Hash,
+        nullifier::Nullifier,
         user_data::UserData,
     },
 };
-
-pub struct WorldIdVerifyProof<'info> {
-    pub root: AccountInfo<'info>,
-    pub latest_root: AccountInfo<'info>,
-    pub config: AccountInfo<'info>,
-    pub nullifier: AccountInfo<'info>,
-    pub payer: AccountInfo<'info>,
-}
-impl<'info> ToAccountInfos<'info> for WorldIdVerifyProof<'info> {
-    fn to_account_infos(&self) -> Vec<AccountInfo<'info>> {
-        vec![
-            self.root.clone(),
-            self.latest_root.clone(),
-            self.config.clone(),
-            self.nullifier.clone(),
-            self.payer.clone(),
-        ]
-    }
-}
-impl ToAccountMetas for WorldIdVerifyProof<'_> {
-    fn to_account_metas(&self, is_signer: Option<bool>) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new_readonly(*self.root.key, false),
-            AccountMeta::new_readonly(*self.latest_root.key, false),
-            AccountMeta::new_readonly(*self.config.key, false),
-            AccountMeta::new(*self.nullifier.key, false),
-            AccountMeta::new(*self.payer.key, is_signer.unwrap_or(false)),
-        ]
-    }
-}
-// END TODO: delete
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct WorldIdVerificationData {
@@ -77,38 +50,38 @@ pub struct Verify<'info> {
     )]
     pub user_unstaked_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    pub world_id_program: Program<'info, world_id_program::WorldIdProgram>,
+    pub world_id_program: Program<'info, WorldIdProgram>,
 
     #[account(
-        seeds = [world_id_program::WORLD_ID_ROOT_SEED, args.root_hash.as_ref()],
-        owner = world_id_program.key(),
+        seeds = [WorldIdRoot::SEED_PREFIX, args.root_hash.as_ref(), &[WORLD_VERIFICATION_TYPE]],
+        seeds::program = world_id_program.key(),
         bump,
     )]
-    pub world_id_root: Account<'info, world_id_program::WorldIdRoot>,
+    pub world_id_root: Account<'info, WorldIdRoot>,
 
     #[account(
-        seeds = [world_id_program::WORLD_ID_LATEST_ROOT_SEED],
-        owner = world_id_program.key(),
+        seeds = [WorldIdLatestRoot::SEED_PREFIX, &[WORLD_VERIFICATION_TYPE]],
+        seeds::program = world_id_program.key(),
         bump,
     )]
-    pub world_id_latest_root: Account<'info, world_id_program::WorldIdLatestRoot>,
+    pub world_id_latest_root: Account<'info, WorldIdLatestRoot>,
 
     #[account(
-        seeds = [world_id_program::WORLD_ID_CONFIG_SEED],
-        owner = world_id_program.key(),
+        seeds = [WorldIdConfig::SEED_PREFIX],
+        seeds::program = world_id_program.key(),
         bump,
     )]
-    pub world_id_config: Account<'info, world_id_program::WorldIdConfig>,
+    pub world_id_config: Account<'info, WorldIdConfig>,
 
+    /// CHECK: handled in instruction logic
     #[account(
         init_if_needed,
         payer = payer,
         space = std::mem::size_of::<Nullifier>() + 8,
         seeds = [NULLIFIER_SEED, args.nullifier_hash.as_ref()],
-        constraint = world_id_nullifier.load()?.user_wallet == Pubkey::default() @ ComptokenError::NullifierAlreadyUsed,
         bump,
     )]
-    pub world_id_nullifier: AccountLoader<'info, Nullifier>,
+    pub world_id_nullifier: UncheckedAccount<'info>,
 
     #[account(
         mut,
@@ -118,6 +91,7 @@ pub struct Verify<'info> {
     pub global_data: AccountLoader<'info, GlobalData>,
 
     #[account(
+        mut,
         seeds = [UNSTAKED_MINT_SEED],
         bump,
         mint::token_program = token_program,
@@ -135,12 +109,33 @@ pub fn verify(ctx: Context<Verify>, args: WorldIdVerificationData) -> Result<()>
         return err!(ComptokenError::UserDataNotCurrent);
     }
 
+    let nullifier_acct_info = ctx.accounts.world_id_nullifier.to_account_info();
+
+    if nullifier_acct_info.data.borrow().len() != std::mem::size_of::<Nullifier>() + 8 {
+        return Err(Error::from(ErrorCode::AccountDidNotDeserialize));
+    }
+
     // 1. check if nullifier is used
-    let (mut nullifier, nullifier_exists) = if ctx.accounts.world_id_nullifier.to_account_info().data_is_empty() {
-        (ctx.accounts.world_id_nullifier.load_init()?, false)
+    // First inspect the raw account data to determine whether this is a newly created account
+    // and to validate the discriminator
+    let nullifier_exists = if nullifier_acct_info.data.borrow()[0..8] == [0; 8] {
+        // newly created account, initialize discriminator
+        ctx.accounts.world_id_nullifier.data.borrow_mut()[0..8].copy_from_slice(Nullifier::DISCRIMINATOR);
+        false
     } else {
-        (ctx.accounts.world_id_nullifier.load_mut()?, true)
+        if &nullifier_acct_info.data.borrow()[0..8] != Nullifier::DISCRIMINATOR {
+            return Err(Error::from(ErrorCode::AccountDiscriminatorMismatch));
+        }
+        true
     };
+
+    let mut nullifier_data = nullifier_acct_info.data.borrow_mut();
+    let nullifier: &mut Nullifier = bytemuck::try_from_bytes_mut(&mut nullifier_data[8..])
+        .map_err(|_| Error::from(ErrorCode::AccountDidNotDeserialize))?;
+
+    if nullifier_exists && nullifier.user_wallet != Pubkey::default() {
+        return err!(ComptokenError::NullifierAlreadyUsed);
+    }
 
     nullifier.user_wallet = ctx.accounts.user_wallet.key();
 
@@ -166,26 +161,34 @@ pub fn verify(ctx: Context<Verify>, args: WorldIdVerificationData) -> Result<()>
 
     let mut global_data = ctx.accounts.global_data.load_mut()?;
 
-    // 4. mint early adopter UBI if applicable (nullifier reuse means a re-verification)
+    // 4. update global data
+    global_data.daily_distribution.verified_accounts_count += 1;
+
+    // 5. mint early adopter UBI if applicable (nullifier reuse means a re-verification)
     if global_data.daily_distribution.remaining_early_adopter_count > 0 && !nullifier_exists {
         msg!("Minting early adopter UBI reward");
-        anchor_spl::token_2022::mint_to(
+
+        global_data.daily_distribution.remaining_early_adopter_count -= 1;
+
+        let amount = global_data.daily_distribution.per_capita_early_adopter_ubi_amount;
+
+        // release borrow on global data for CPI
+        std::mem::drop(global_data);
+
+        anchor_spl::token_2022::mint_to_checked(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
-                anchor_spl::token_2022::MintTo {
+                anchor_spl::token_2022::MintToChecked {
                     mint: ctx.accounts.unstaked_mint.to_account_info(),
                     to: ctx.accounts.user_unstaked_token_account.to_account_info(),
-                    authority: ctx.accounts.unstaked_mint.to_account_info(),
+                    authority: ctx.accounts.global_data.to_account_info(),
                 },
             )
-            .with_signer(&[&[GLOBAL_DATA_SEED]]),
-            global_data.daily_distribution.per_capita_early_adopter_ubi_amount,
+            .with_signer(&[&[GLOBAL_DATA_SEED, &[ctx.bumps.global_data]]]),
+            amount,
+            MINT_DECIMALS,
         )?;
     }
-
-    // 5. update global data
-    global_data.daily_distribution.verified_accounts_count += 1;
-    global_data.daily_distribution.remaining_early_adopter_count -= 1;
 
     msg!("World ID proof verified");
     Ok(())
@@ -203,28 +206,28 @@ pub struct Reverify<'info> {
     )]
     pub user_data: Account<'info, UserData>,
 
-    pub world_id_program: Program<'info, world_id_program::WorldIdProgram>,
+    pub world_id_program: Program<'info, WorldIdProgram>,
 
     #[account(
-        seeds = [world_id_program::WORLD_ID_ROOT_SEED, args.root_hash.as_ref()],
-        owner = world_id_program.key(),
+        seeds = [WorldIdRoot::SEED_PREFIX, args.root_hash.as_ref(), &[WORLD_VERIFICATION_TYPE]],
+        seeds::program = world_id_program.key(),
         bump,
     )]
-    pub world_id_root: Account<'info, world_id_program::WorldIdRoot>,
+    pub world_id_root: Account<'info, WorldIdRoot>,
 
     #[account(
-        seeds = [world_id_program::WORLD_ID_LATEST_ROOT_SEED],
-        owner = world_id_program.key(),
+        seeds = [WorldIdLatestRoot::SEED_PREFIX, &[WORLD_VERIFICATION_TYPE]],
+        seeds::program = world_id_program.key(),
         bump,
     )]
-    pub world_id_latest_root: Account<'info, world_id_program::WorldIdLatestRoot>,
+    pub world_id_latest_root: Account<'info, WorldIdLatestRoot>,
 
     #[account(
-        seeds = [world_id_program::WORLD_ID_CONFIG_SEED],
-        owner = world_id_program.key(),
+        seeds = [WorldIdConfig::SEED_PREFIX],
+        seeds::program = world_id_program.key(),
         bump,
     )]
-    pub world_id_config: Account<'info, world_id_program::WorldIdConfig>,
+    pub world_id_config: Account<'info, WorldIdConfig>,
 
     #[account(
         seeds = [NULLIFIER_SEED, args.nullifier_hash.as_ref()],
@@ -281,28 +284,28 @@ pub struct Unverify<'info> {
     )]
     pub user_data: Account<'info, UserData>,
 
-    pub world_id_program: Program<'info, world_id_program::WorldIdProgram>,
+    pub world_id_program: Program<'info, WorldIdProgram>,
 
     #[account(
-        seeds = [world_id_program::WORLD_ID_ROOT_SEED, args.root_hash.as_ref()],
-        owner = world_id_program.key(),
+        seeds = [WorldIdRoot::SEED_PREFIX, args.root_hash.as_ref(), &[WORLD_VERIFICATION_TYPE]],
+        seeds::program = world_id_program.key(),
         bump,
     )]
-    pub world_id_root: Account<'info, world_id_program::WorldIdRoot>,
+    pub world_id_root: Account<'info, WorldIdRoot>,
 
     #[account(
-        seeds = [world_id_program::WORLD_ID_LATEST_ROOT_SEED],
-        owner = world_id_program.key(),
+        seeds = [WorldIdLatestRoot::SEED_PREFIX, &[WORLD_VERIFICATION_TYPE]],
+        seeds::program = world_id_program.key(),
         bump,
     )]
-    pub world_id_latest_root: Account<'info, world_id_program::WorldIdLatestRoot>,
+    pub world_id_latest_root: Account<'info, WorldIdLatestRoot>,
 
     #[account(
-        seeds = [world_id_program::WORLD_ID_CONFIG_SEED],
-        owner = world_id_program.key(),
+        seeds = [WorldIdConfig::SEED_PREFIX],
+        seeds::program = world_id_program.key(),
         bump,
     )]
-    pub world_id_config: Account<'info, world_id_program::WorldIdConfig>,
+    pub world_id_config: Account<'info, WorldIdConfig>,
 
     #[account(
         mut,

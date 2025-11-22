@@ -1,5 +1,5 @@
 import { TOKEN_2022_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
-import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
 
 import {
@@ -15,9 +15,8 @@ import {
     getWorldIdLatestRootPdaAndBump,
     getWorldIdNullifierPda,
     getWorldIdRootPdaAndBump,
-    solanaWorldIdProgram,
 } from "./utils/accountPreinitHelpers.ts";
-import { fetchGlobalData, fetchUserData, getGlobalDataPda, getUserDataPda } from "./utils/stateHelpers.ts";
+import { fetchGlobalData, fetchUserData } from "./utils/stateHelpers.ts";
 import { prepareTest } from "./utils/utils.ts";
 
 describe("verification", () => {

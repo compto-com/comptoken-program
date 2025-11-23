@@ -21,6 +21,7 @@ wallet = "~/.config/solana/id.json"
 [scripts]
 test = "npm run test"
 test-with-logs = "npm run test-with-logs"
+test-ci = "./tests/test.sh"
 
 [test]
 upgradeable = true

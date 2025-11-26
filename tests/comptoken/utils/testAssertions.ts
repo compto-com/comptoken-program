@@ -1,14 +1,13 @@
+import type { ComptokenProgram } from "@compto/comptoken.js";
 import { expect } from "chai";
 
-import type { Comptoken } from "../../target/types/comptoken.ts";
 import type { GlobalDataAccountData } from "./accountPreinitHelpers.ts";
 import { getHistoryLength, getHistoryPosition } from "./stateHelpers.ts";
-import type { ProgramWithConstants } from "./typeHelpers.ts";
 
 export function expectHistoryAdvancedBy(
     beforeGlobal: GlobalDataAccountData,
     afterGlobal: GlobalDataAccountData,
-    program: ProgramWithConstants<Comptoken>,
+    program: ComptokenProgram,
     delta: number,
 ) {
     const historyLen = getHistoryLength(program);

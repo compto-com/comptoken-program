@@ -3,51 +3,37 @@ import { type AccountInfo, PublicKey, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/
 import { BankrunProvider } from "anchor-bankrun";
 import { expect } from "chai";
 
-import { type Comptoken } from "../../target/types/comptoken.ts";
+import type { ComptokenProgram } from "@compto/comptoken.js";
+import { getGlobalDataAddress, getStakedMintAddress, getUnstakedMintAddress } from "@compto/comptoken.js";
 import {
     createGlobalDataAddedAccount,
     createStakedMintAddedAccount,
     createUnstakedMintAddedAccount,
 } from "./utils/accountPreinitHelpers.ts";
-import { type ProgramWithConstants } from "./utils/typeHelpers.ts";
 import { normalizeTime, prepareTest } from "./utils/utils.ts";
 
 describe("initialize", () => {
     describe("successful initialization", () => {
         let provider: BankrunProvider;
-        let program: ProgramWithConstants<Comptoken>;
+        let program: ComptokenProgram;
         let stakedMintPda: PublicKey;
         let unstakedMintPda: PublicKey;
         let globalDataPda: PublicKey;
         let globalDataInfo: AccountInfo<Buffer>;
         let stakedMintInfo: AccountInfo<Buffer>;
         let unstakedMintInfo: AccountInfo<Buffer>;
-        let globalData: Awaited<ReturnType<ProgramWithConstants<Comptoken>["account"]["globalData"]["fetch"]>>;
+        let globalData: Awaited<ReturnType<ComptokenProgram["account"]["globalData"]["fetch"]>>;
         let stakedMintDecoded: Mint;
         let unstakedMintDecoded: Mint;
 
         before(async () => {
             ({ provider, program } = await prepareTest());
-            [stakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.stakedMintSeed)],
-                program.programId,
-            );
-            [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.unstakedMintSeed)],
-                program.programId,
-            );
-            [globalDataPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(program.constants.globalDataSeed)],
-                program.programId,
-            );
+            stakedMintPda = getStakedMintAddress(program);
+            unstakedMintPda = getUnstakedMintAddress(program);
+            globalDataPda = getGlobalDataAddress(program);
 
-            // Single initialize call
-            await program.methods
-                .initialize()
-                .accounts({
-                    slotHashes: SYSVAR_SLOT_HASHES_PUBKEY,
-                })
-                .rpc();
+            // Single initialize call (initialize has no wrapper; use direct RPC)
+            await program.methods.initialize().accounts({ slotHashes: SYSVAR_SLOT_HASHES_PUBKEY }).rpc();
 
             // Fetch accounts & decoded data once
             stakedMintInfo = await provider.connection.getAccountInfo(stakedMintPda);

@@ -1,7 +1,15 @@
-import { TOKEN_2022_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import {
+    getUnstakedMintAddress,
+    getUserUnstakedAssociatedTokenAddress,
+    reverify,
+    unverify,
+    unverify2,
+    verify,
+} from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
 
+import type { AddedAccount } from "solana-bankrun";
 import {
     baseProgram,
     buildWorldIdAccountsForVerify,
@@ -11,17 +19,15 @@ import {
     createUnstakedMintAddedAccount,
     createUnstakedTokenAccountAddedAccount,
     createUserDataAddedAccount,
+    createWalletAddedAccount,
     getAccount,
     getMint,
-    getWorldIdConfigPdaAndBump,
-    getWorldIdLatestRootPdaAndBump,
     getWorldIdNullifierPda,
-    getWorldIdRootPdaAndBump,
 } from "./utils/accountPreinitHelpers.ts";
 import { fetchGlobalData, fetchUserData } from "./utils/stateHelpers.ts";
 import { prepareTest } from "./utils/utils.ts";
 
-describe("verification", () => {
+describe.only("verification", () => {
     const worldIdFixture = (() => {
         // appId:  "self_hosted"
         // action: "COMPTO-VerifyHuman"
@@ -52,21 +58,11 @@ describe("verification", () => {
         describe("Core success path scenarios", () => {
             it("verifies a valid World ID proof and sets nullifier_hash in user_data", async () => {
                 // PDAs used by instruction / assertions
-                const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                    [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                    baseProgram.programId,
-                );
-                const userUnstakedAta = getAssociatedTokenAddressSync(
-                    unstakedMintPda,
-                    user.publicKey,
-                    false,
-                    TOKEN_2022_PROGRAM_ID,
-                );
-                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
-                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
+                const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
                 // Seed on-chain state required for verify
-                const accounts = [
+                const accounts: AddedAccount[] = [
+                    await createWalletAddedAccount(user.publicKey),
                     await createUserDataAddedAccount({ userPubkey: user.publicKey, proofs: [] }),
                     await createGlobalDataAddedAccount(),
                     await createUnstakedMintAddedAccount(),
@@ -81,25 +77,19 @@ describe("verification", () => {
                     })),
                 ];
 
-                const { provider, program } = await prepareTest(accounts);
+                const { program, solanaWorldIdProgram } = await prepareTest(accounts);
 
                 // Call verify
-                await program.methods
-                    .verify({
-                        rootHash: toHash(worldIdFixture.rootHash),
-                        nullifierHash: toHash(worldIdFixture.nullifierHash),
-                        proof: Array.from(worldIdFixture.proof),
-                    })
-                    .accountsPartial({
-                        payer: provider.wallet.publicKey,
-                        userWallet: user.publicKey,
-                        userUnstakedTokenAccount: userUnstakedAta,
-                        worldIdLatestRoot: worldIdLatestRoot,
-                        worldIdRoot: worldIdRoot,
-                        worldIdNullifier: getWorldIdNullifierPda(worldIdFixture.nullifierHash),
-                    })
-                    .signers([user])
-                    .rpc();
+                await verify({
+                    program,
+                    solanaWorldIdProgram,
+                    rootHash: worldIdFixture.rootHash,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    proof: worldIdFixture.proof,
+                    accounts: {
+                        userWallet: user,
+                    },
+                });
 
                 const userData = await fetchUserData(program, user.publicKey);
                 expect(Uint8Array.from(userData.nullifierHash[0])).to.deep.equal(
@@ -110,21 +100,11 @@ describe("verification", () => {
             it("mints per-capita early adopter UBI to user's unstaked token account when remaining_early_adopter_count > 0", async () => {
                 const perCapita = 12345; // arbitrary test value
 
-                const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                    [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                    baseProgram.programId,
-                );
-                const userUnstakedAta = getAssociatedTokenAddressSync(
-                    unstakedMintPda,
-                    user.publicKey,
-                    false,
-                    TOKEN_2022_PROGRAM_ID,
-                );
-                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
-                const worldIdNullifier = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
-                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
+                const unstakedMintPda = getUnstakedMintAddress(baseProgram);
+                const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
                 const accounts = [
+                    await createWalletAddedAccount(user.publicKey),
                     await createUserDataAddedAccount({ userPubkey: user.publicKey, proofs: [] }),
                     await createGlobalDataAddedAccount({
                         perCapitaEarlyAdopterUbiAmount: perCapita,
@@ -143,29 +123,23 @@ describe("verification", () => {
                     })),
                 ];
 
-                const { provider, program } = await prepareTest(accounts);
+                const { provider, program, solanaWorldIdProgram } = await prepareTest(accounts);
 
                 const [beforeUserUnstaked, beforeMint] = await Promise.all([
                     getAccount(provider.connection, userUnstakedAta),
                     getMint(provider.connection, unstakedMintPda),
                 ]);
 
-                await program.methods
-                    .verify({
-                        rootHash: toHash(worldIdFixture.rootHash),
-                        nullifierHash: toHash(worldIdFixture.nullifierHash),
-                        proof: Array.from(worldIdFixture.proof),
-                    })
-                    .accountsPartial({
-                        payer: provider.wallet.publicKey,
-                        userWallet: user.publicKey,
-                        userUnstakedTokenAccount: userUnstakedAta,
-                        worldIdRoot,
-                        worldIdLatestRoot,
-                        worldIdNullifier,
-                    })
-                    .signers([user])
-                    .rpc();
+                await verify({
+                    program,
+                    solanaWorldIdProgram,
+                    rootHash: worldIdFixture.rootHash,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    proof: worldIdFixture.proof,
+                    accounts: {
+                        userWallet: user,
+                    },
+                });
 
                 const [afterUserUnstaked, afterMint] = await Promise.all([
                     getAccount(provider.connection, userUnstakedAta),
@@ -177,22 +151,10 @@ describe("verification", () => {
             });
 
             it("increments verified_accounts_count and decrements remaining_early_adopter_count on success", async () => {
-                const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                    [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                    baseProgram.programId,
-                );
-                const userUnstakedAta = getAssociatedTokenAddressSync(
-                    unstakedMintPda,
-                    user.publicKey,
-                    false,
-                    TOKEN_2022_PROGRAM_ID,
-                );
-                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
-                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
-                const worldIdNullifier = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
-                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
+                const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
                 const accounts = [
+                    await createWalletAddedAccount(user.publicKey),
                     await createUserDataAddedAccount({ userPubkey: user.publicKey, proofs: [] }),
                     await createGlobalDataAddedAccount({
                         perCapitaEarlyAdopterUbiAmount: 1, // non-zero to allow mint if applicable
@@ -210,28 +172,22 @@ describe("verification", () => {
                     })),
                 ];
 
-                const { provider, program } = await prepareTest(accounts);
+                const { program, solanaWorldIdProgram } = await prepareTest(accounts);
 
                 const before = await fetchGlobalData(program);
                 const initialVerified = before.dailyDistribution.verifiedAccountsCount;
                 const initialRemaining = before.dailyDistribution.remainingEarlyAdopterCount;
 
-                await program.methods
-                    .verify({
-                        rootHash: toHash(worldIdFixture.rootHash),
-                        nullifierHash: toHash(worldIdFixture.nullifierHash),
-                        proof: Array.from(worldIdFixture.proof),
-                    })
-                    .accountsPartial({
-                        payer: provider.wallet.publicKey,
-                        userWallet: user.publicKey,
-                        userUnstakedTokenAccount: userUnstakedAta,
-                        worldIdRoot,
-                        worldIdLatestRoot,
-                        worldIdNullifier,
-                    })
-                    .signers([user])
-                    .rpc();
+                await verify({
+                    program,
+                    solanaWorldIdProgram,
+                    rootHash: worldIdFixture.rootHash,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    proof: worldIdFixture.proof,
+                    accounts: {
+                        userWallet: user,
+                    },
+                });
 
                 const after = await fetchGlobalData(program);
                 expect(after.dailyDistribution.verifiedAccountsCount).to.equal(initialVerified + 1);
@@ -239,21 +195,11 @@ describe("verification", () => {
             });
 
             it("sets nullifier owner to user_wallet on success", async () => {
-                const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                    [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                    baseProgram.programId,
-                );
-                const userUnstakedAta = getAssociatedTokenAddressSync(
-                    unstakedMintPda,
-                    user.publicKey,
-                    false,
-                    TOKEN_2022_PROGRAM_ID,
-                );
-                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
-                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
+                const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
                 const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
 
                 const accounts = [
+                    await createWalletAddedAccount(user.publicKey),
                     await createUserDataAddedAccount({ userPubkey: user.publicKey, proofs: [] }),
                     await createGlobalDataAddedAccount(),
                     await createUnstakedMintAddedAccount(),
@@ -268,24 +214,18 @@ describe("verification", () => {
                     })),
                 ];
 
-                const { provider, program } = await prepareTest(accounts);
+                const { program, solanaWorldIdProgram } = await prepareTest(accounts);
 
-                await program.methods
-                    .verify({
-                        rootHash: toHash(worldIdFixture.rootHash),
-                        nullifierHash: toHash(worldIdFixture.nullifierHash),
-                        proof: Array.from(worldIdFixture.proof),
-                    })
-                    .accountsPartial({
-                        payer: provider.wallet.publicKey,
-                        userWallet: user.publicKey,
-                        userUnstakedTokenAccount: userUnstakedAta,
-                        worldIdRoot,
-                        worldIdLatestRoot,
-                        worldIdNullifier: worldIdNullifierPda,
-                    })
-                    .signers([user])
-                    .rpc();
+                await verify({
+                    program,
+                    solanaWorldIdProgram,
+                    rootHash: worldIdFixture.rootHash,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    proof: worldIdFixture.proof,
+                    accounts: {
+                        userWallet: user,
+                    },
+                });
 
                 const nullifier = await program.account.nullifier.fetch(worldIdNullifierPda);
                 expect(nullifier.userWallet.toBase58()).to.equal(user.publicKey.toBase58());
@@ -318,11 +258,6 @@ describe("verification", () => {
     describe("Reverify (World ID)", () => {
         describe("Core success path scenarios", () => {
             it("re-verifies under the same nullifier without requiring user_data to be current", async () => {
-                // prepare PDAs
-                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
-                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
-                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
-
                 // Seed on-chain state: user_data is stale (last_claimed not equal to today) but has nullifier set
                 const accounts = [
                     await createUserDataAddedAccount({
@@ -342,24 +277,19 @@ describe("verification", () => {
                     })),
                 ];
 
-                const { program } = await prepareTest(accounts);
+                const { program, solanaWorldIdProgram } = await prepareTest(accounts);
 
                 // Call reverify - should succeed even though user_data.is_current() === false
-                await program.methods
-                    .reverify({
-                        rootHash: toHash(worldIdFixture.rootHash),
-                        nullifierHash: toHash(worldIdFixture.nullifierHash),
-                        proof: Array.from(worldIdFixture.proof),
-                    })
-                    .accountsPartial({
-                        userWallet: user.publicKey,
-                        worldIdRoot: worldIdRoot,
-                        worldIdLatestRoot: worldIdLatestRoot,
-                        worldIdConfig: worldIdConfigPda,
-                        worldIdNullifier: getWorldIdNullifierPda(worldIdFixture.nullifierHash),
-                    })
-                    .signers([user])
-                    .rpc();
+                await reverify({
+                    program,
+                    solanaWorldIdProgram,
+                    rootHash: worldIdFixture.rootHash,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    proof: worldIdFixture.proof,
+                    accounts: {
+                        userWallet: user,
+                    },
+                });
 
                 const userData = await fetchUserData(program, user.publicKey);
                 // nullifier hash must remain set to the same value
@@ -369,10 +299,6 @@ describe("verification", () => {
             });
 
             it("updates last_verified_timestamp on success", async () => {
-                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
-                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
-                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
-
                 // create user data with an older last_verified timestamp
                 const oldVerified = new Date(Date.now() - 24 * 60 * 60 * 1000); // 1 day ago
 
@@ -392,26 +318,21 @@ describe("verification", () => {
                     })),
                 ];
 
-                const { program } = await prepareTest(accounts);
+                const { program, solanaWorldIdProgram } = await prepareTest(accounts);
 
                 const before = await fetchUserData(program, user.publicKey);
                 const beforeTs = Number(before.lastVerifiedTimestamp);
 
-                await program.methods
-                    .reverify({
-                        rootHash: toHash(worldIdFixture.rootHash),
-                        nullifierHash: toHash(worldIdFixture.nullifierHash),
-                        proof: Array.from(worldIdFixture.proof),
-                    })
-                    .accountsPartial({
-                        userWallet: user.publicKey,
-                        worldIdRoot: worldIdRoot,
-                        worldIdLatestRoot: worldIdLatestRoot,
-                        worldIdConfig: worldIdConfigPda,
-                        worldIdNullifier: getWorldIdNullifierPda(worldIdFixture.nullifierHash),
-                    })
-                    .signers([user])
-                    .rpc();
+                await reverify({
+                    program,
+                    solanaWorldIdProgram,
+                    rootHash: worldIdFixture.rootHash,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    proof: worldIdFixture.proof,
+                    accounts: {
+                        userWallet: user,
+                    },
+                });
 
                 const after = await fetchUserData(program, user.publicKey);
                 const afterTs = Number(after.lastVerifiedTimestamp);
@@ -434,9 +355,6 @@ describe("verification", () => {
     describe("Unverify (World ID)", () => {
         describe("Core success path scenarios", () => {
             it("verifies proof and clears nullifier_hash from user_data", async () => {
-                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
-                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
-                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
                 const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
 
                 const accounts = [
@@ -454,25 +372,21 @@ describe("verification", () => {
                     })),
                 ];
 
-                const { program } = await prepareTest(accounts);
+                const { program, solanaWorldIdProgram } = await prepareTest(accounts);
 
                 const before = await fetchGlobalData(program);
                 const beforeVerified = before.dailyDistribution.verifiedAccountsCount;
 
-                await program.methods
-                    .unverify({
-                        rootHash: toHash(worldIdFixture.rootHash),
-                        nullifierHash: toHash(worldIdFixture.nullifierHash),
-                        proof: Array.from(worldIdFixture.proof),
-                    })
-                    .accountsPartial({
-                        userWallet: user.publicKey,
-                        worldIdRoot: worldIdRoot,
-                        worldIdLatestRoot: worldIdLatestRoot,
-                        worldIdConfig: worldIdConfigPda,
-                        worldIdNullifier: worldIdNullifierPda,
-                    })
-                    .rpc();
+                await unverify({
+                    program,
+                    solanaWorldIdProgram,
+                    rootHash: worldIdFixture.rootHash,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    proof: worldIdFixture.proof,
+                    accounts: {
+                        user: user.publicKey,
+                    },
+                });
 
                 const userData = await fetchUserData(program, user.publicKey);
                 expect(Uint8Array.from(userData.nullifierHash[0])).to.deep.equal(
@@ -493,11 +407,6 @@ describe("verification", () => {
             });
 
             it("sets nullifier owner to default (unused) and decrements verified_accounts_count", async () => {
-                const [worldIdLatestRoot] = getWorldIdLatestRootPdaAndBump();
-                const [worldIdRoot] = getWorldIdRootPdaAndBump(worldIdFixture.rootHash);
-                const [worldIdConfigPda] = getWorldIdConfigPdaAndBump();
-                const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
-
                 const accounts = [
                     await createUserDataAddedAccount({
                         userPubkey: user.publicKey,
@@ -513,25 +422,21 @@ describe("verification", () => {
                     })),
                 ];
 
-                const { program } = await prepareTest(accounts);
+                const { program, solanaWorldIdProgram } = await prepareTest(accounts);
 
                 const before = await fetchGlobalData(program);
                 const beforeVerified = before.dailyDistribution.verifiedAccountsCount;
 
-                await program.methods
-                    .unverify({
-                        rootHash: toHash(worldIdFixture.rootHash),
-                        nullifierHash: toHash(worldIdFixture.nullifierHash),
-                        proof: Array.from(worldIdFixture.proof),
-                    })
-                    .accountsPartial({
-                        userWallet: user.publicKey,
-                        worldIdRoot: worldIdRoot,
-                        worldIdLatestRoot: worldIdLatestRoot,
-                        worldIdConfig: worldIdConfigPda,
-                        worldIdNullifier: worldIdNullifierPda,
-                    })
-                    .rpc();
+                await unverify({
+                    program,
+                    solanaWorldIdProgram,
+                    rootHash: worldIdFixture.rootHash,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    proof: worldIdFixture.proof,
+                    accounts: {
+                        user: user.publicKey,
+                    },
+                });
 
                 const after = await fetchGlobalData(program);
                 expect(after.dailyDistribution.verifiedAccountsCount).to.equal(beforeVerified - 1);
@@ -553,8 +458,6 @@ describe("verification", () => {
     describe("Unverify2 (no proof)", () => {
         describe("Core success path scenarios", () => {
             it("clears nullifier_hash without CPI when user_wallet signs and data is current", async () => {
-                const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
-
                 const accounts = [
                     await createUserDataAddedAccount({
                         userPubkey: user.publicKey,
@@ -572,18 +475,14 @@ describe("verification", () => {
 
                 const { program } = await prepareTest(accounts);
 
-                const before = await fetchGlobalData(program);
-                const beforeVerified = before.dailyDistribution.verifiedAccountsCount;
-
                 // call unverify2 as signer (no CPI to world id program)
-                await program.methods
-                    .unverify2({ nullifierHash: toHash(worldIdFixture.nullifierHash) })
-                    .accountsPartial({
-                        userWallet: user.publicKey,
-                        worldIdNullifier: worldIdNullifierPda,
-                    })
-                    .signers([user])
-                    .rpc();
+                await unverify2({
+                    program,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    accounts: {
+                        userWallet: user,
+                    },
+                });
 
                 const userData = await fetchUserData(program, user.publicKey);
                 expect(Uint8Array.from(userData.nullifierHash[0])).to.deep.equal(
@@ -592,8 +491,6 @@ describe("verification", () => {
             });
 
             it("decrements verified_accounts_count and resets last_verified_timestamp to 0", async () => {
-                const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
-
                 const now = new Date();
 
                 const accounts = [
@@ -622,14 +519,13 @@ describe("verification", () => {
                 const beforeTs = Number(beforeUser.lastVerifiedTimestamp);
                 expect(beforeTs).to.be.greaterThan(0);
 
-                await program.methods
-                    .unverify2({ nullifierHash: toHash(worldIdFixture.nullifierHash) })
-                    .accountsPartial({
-                        userWallet: user.publicKey,
-                        worldIdNullifier: worldIdNullifierPda,
-                    })
-                    .signers([user])
-                    .rpc();
+                await unverify2({
+                    program,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    accounts: {
+                        userWallet: user,
+                    },
+                });
 
                 const after = await fetchGlobalData(program);
                 expect(after.dailyDistribution.verifiedAccountsCount).to.equal(beforeVerified - 1);

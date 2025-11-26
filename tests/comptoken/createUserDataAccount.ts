@@ -1,7 +1,6 @@
-import { default as anchor } from "@coral-xyz/anchor";
-import { PublicKey } from "@solana/web3.js";
+import * as comptoken from "@compto/comptoken.js";
+import { getUserDataAddress } from "@compto/comptoken.js";
 import { expect } from "chai";
-const { BN } = anchor;
 
 import { normalizeTime, prepareTest } from "./utils/utils.ts";
 
@@ -9,18 +8,14 @@ describe("create_user_data_account", async () => {
     it("creates user data with capacity", async () => {
         const { provider, program } = await prepareTest();
         // Derive the UserData PDA using the same seed as in the program
-        const userPubkey = provider.wallet.publicKey;
-        const [userDataPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(program.constants.userDataSeed), userPubkey.toBuffer()],
-            program.programId,
-        );
+        const user = provider.wallet.payer;
+        const userDataPda = getUserDataAddress(program, user.publicKey);
 
-        // Execute the create_user_data instruction
-        const ixBuilder = program.methods.createUserDataAccount({ capacity: new BN(10) }).accounts({
-            payer: userPubkey,
-            userWallet: userPubkey,
+        await comptoken.createUserDataAccount({
+            program,
+            capacity: 10,
+            accounts: { userWallet: user, payer: user },
         });
-        const _sig = await ixBuilder.rpc();
 
         // Verify the UserData account was created and is owned by our program
         const userDataInfo = await provider.connection.getAccountInfo(userDataPda);

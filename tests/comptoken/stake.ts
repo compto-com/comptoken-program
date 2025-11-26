@@ -1,7 +1,15 @@
+import {
+    getStakedMintAddress,
+    getUnstakedMintAddress,
+    getUserStakedTokensAddress,
+    getUserUnstakedAssociatedTokenAddress,
+    stake,
+    unstake,
+} from "@compto/comptoken.js";
 import { default as anchor } from "@coral-xyz/anchor";
-import { TOKEN_2022_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js";
 import { expect } from "chai";
+
 import {
     baseProgram,
     createGlobalDataAddedAccount,
@@ -14,7 +22,6 @@ import {
     getMint,
 } from "./utils/accountPreinitHelpers.ts";
 import { prepareTest } from "./utils/utils.ts";
-const { BN } = anchor;
 
 describe("stake", () => {
     describe("Core success path scenarios", () => {
@@ -22,28 +29,11 @@ describe("stake", () => {
             const user = Keypair.generate();
 
             // Derive PDAs for mints & user data
-            const [stakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.stakedMintSeed)],
-                baseProgram.programId,
-            );
-            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                baseProgram.programId,
-            );
+            const stakedMintPda = getStakedMintAddress(baseProgram);
+            const unstakedMintPda = getUnstakedMintAddress(baseProgram);
 
-            // Associated Token Accounts for user (staked & unstaked)
-            const userStakedAta = getAssociatedTokenAddressSync(
-                stakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
-            const userUnstakedAta = getAssociatedTokenAddressSync(
-                unstakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
+            const userStakedAta = getUserStakedTokensAddress(baseProgram, user.publicKey);
+            const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
             const initialUnstakedUserAmount = 500n;
             const stakeAmount = 200n; // < initialUnstakedUserAmount
@@ -75,20 +65,13 @@ describe("stake", () => {
             const totalSupplyBefore = beforeUnstakedMint.supply + beforeStakedMint.supply;
 
             // Invoke stake
-            const builder = program.methods
-                .stake({ amount: new BN(stakeAmount) })
-                .accounts({
-                    userWallet: user.publicKey,
-                    userUnstakedTokenAccount: userUnstakedAta,
-                })
-                .signers([user]);
-            const ix = await builder.instruction();
-            console.log(
-                "Unstake instruction accounts:",
-                ix.keys.map((k) => k.pubkey.toBase58()),
-            );
-            console.log("staked ata:", userStakedAta.toBase58());
-            await builder.rpc();
+            await stake({
+                program,
+                amount: Number(stakeAmount),
+                accounts: {
+                    userWallet: user,
+                },
+            });
 
             // Fetch after state
             const [afterUnstakedAcct, afterStakedAcct, afterUnstakedMint, afterStakedMint] = await Promise.all([
@@ -106,27 +89,11 @@ describe("stake", () => {
 
         it("allows a user to unstake tokens and decreases staked supply", async () => {
             const user = Keypair.generate();
-            const [stakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.stakedMintSeed)],
-                baseProgram.programId,
-            );
-            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                baseProgram.programId,
-            );
+            const stakedMintPda = getStakedMintAddress(baseProgram);
+            const unstakedMintPda = getUnstakedMintAddress(baseProgram);
 
-            const userStakedAta = getAssociatedTokenAddressSync(
-                stakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
-            const userUnstakedAta = getAssociatedTokenAddressSync(
-                unstakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
+            const userStakedAta = getUserStakedTokensAddress(baseProgram, user.publicKey);
+            const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
             const initialStakedUserAmount = 300n;
             const initialUnstakedUserAmount = 100n;
@@ -158,14 +125,13 @@ describe("stake", () => {
             ]);
             const totalSupplyBefore = beforeUnstakedMint.supply + beforeStakedMint.supply;
 
-            await program.methods
-                .unstake({ amount: new BN(unstakeAmount) })
-                .accounts({
-                    userWallet: user.publicKey,
-                    userUnstakedTokenAccount: userUnstakedAta,
-                })
-                .signers([user])
-                .rpc();
+            await unstake({
+                program,
+                amount: Number(unstakeAmount), // negative amount to unstake
+                accounts: {
+                    userWallet: user,
+                },
+            });
 
             const [afterUnstakedAcct, afterStakedAcct, afterUnstakedMint, afterStakedMint] = await Promise.all([
                 getAccount(provider.connection, userUnstakedAta),
@@ -181,27 +147,11 @@ describe("stake", () => {
 
         it("accrues rewards correctly after multiple stake/unstake cycles (supply invariant)", async () => {
             const user = Keypair.generate();
-            const [stakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.stakedMintSeed)],
-                baseProgram.programId,
-            );
-            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                baseProgram.programId,
-            );
+            const stakedMintPda = getStakedMintAddress(baseProgram);
+            const unstakedMintPda = getUnstakedMintAddress(baseProgram);
 
-            const userStakedAta = getAssociatedTokenAddressSync(
-                stakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
-            const userUnstakedAta = getAssociatedTokenAddressSync(
-                unstakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
+            const userStakedAta = getUserStakedTokensAddress(baseProgram, user.publicKey);
+            const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
             const accounts = await Promise.all([
                 createUserDataAddedAccount({ userPubkey: user.publicKey }),
@@ -237,24 +187,22 @@ describe("stake", () => {
             const unstake1 = 250n;
 
             async function stakeOnce(amount: bigint) {
-                await program.methods
-                    .stake({ amount: new BN(amount) })
-                    .accounts({
-                        userWallet: user.publicKey,
-                        userUnstakedTokenAccount: userUnstakedAta,
-                    })
-                    .signers([user])
-                    .rpc();
+                return stake({
+                    program,
+                    amount: Number(amount),
+                    accounts: {
+                        userWallet: user,
+                    },
+                });
             }
             async function unstakeOnce(amount: bigint) {
-                await program.methods
-                    .unstake({ amount: new BN(Number(amount)) })
-                    .accounts({
-                        userWallet: user.publicKey,
-                        userUnstakedTokenAccount: userUnstakedAta,
-                    })
-                    .signers([user])
-                    .rpc();
+                return unstake({
+                    program,
+                    amount: Number(amount),
+                    accounts: {
+                        userWallet: user,
+                    },
+                });
             }
 
             await stakeOnce(stake1);
@@ -277,27 +225,10 @@ describe("stake", () => {
 
         it("prevents unstake when user has insufficient staked balance", async () => {
             const user = Keypair.generate();
-            const [stakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.stakedMintSeed)],
-                baseProgram.programId,
-            );
-            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                baseProgram.programId,
-            );
+            const stakedMintPda = getStakedMintAddress(baseProgram);
+            const unstakedMintPda = getUnstakedMintAddress(baseProgram);
 
-            const userStakedAta = getAssociatedTokenAddressSync(
-                stakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
-            const userUnstakedAta = getAssociatedTokenAddressSync(
-                unstakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
+            const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
             const accounts = await Promise.all([
                 createUserDataAddedAccount({ userPubkey: user.publicKey }),
@@ -321,14 +252,13 @@ describe("stake", () => {
 
             let threw = false;
             try {
-                await program.methods
-                    .unstake({ amount: new BN(200) }) // greater than user staked (50)
-                    .accounts({
-                        userWallet: user.publicKey,
-                        userUnstakedTokenAccount: userUnstakedAta,
-                    })
-                    .signers([user])
-                    .rpc();
+                await unstake({
+                    program,
+                    amount: 51, // more than staked balance of 50
+                    accounts: {
+                        userWallet: user,
+                    },
+                });
             } catch (e: any) {
                 threw = true;
                 expect(String(e.message || e)).to.match(/InsufficientFunds|insufficient|fail/i);

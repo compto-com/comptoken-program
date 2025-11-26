@@ -7,7 +7,7 @@ import {
     EthCallWithFinalityQueryResponse,
     PerChainQueryRequest,
     QueryProxyMock,
-    QueryProxyQueryResponse,
+    type QueryProxyQueryResponse,
     QueryRequest,
     QueryResponse,
     signaturesToSolanaArray,
@@ -16,7 +16,7 @@ import axios from "axios";
 import { BN } from "bn.js";
 import { assert, expect, use } from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { SolanaWorldIdProgram } from "../../target/types/solana_world_id_program";
+import type { SolanaWorldIdProgram } from "../../target/types/solana_world_id_program";
 import { deriveConfigKey } from "./helpers/config.ts";
 import { deriveGuardianSetKey } from "./helpers/guardianSet.ts";
 import { deriveLatestRootKey } from "./helpers/latestRoot.ts";

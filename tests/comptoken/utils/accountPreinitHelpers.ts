@@ -1,5 +1,3 @@
-import fs from "fs";
-
 import { BorshCoder, type IdlAccounts, type IdlTypes, default as anchor } from "@coral-xyz/anchor";
 import {
     ACCOUNT_SIZE,
@@ -16,28 +14,52 @@ import {
     getAccount as splGetAccount,
     getMint as splGetMint,
 } from "@solana/spl-token";
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { expect } from "chai";
 import { type AddedAccount } from "solana-bankrun";
 const { BN } = anchor;
 
-import type { Comptoken } from "../../../target/types/comptoken.ts";
-import type { SolanaWorldIdProgram } from "../../../target/types/solana_world_id_program.ts";
-import { type CamelToSnakeCaseObject, type ProgramWithConstants, getProgramWithConstants } from "./typeHelpers.ts";
+import type { ComptokenIdl, ComptokenProgram, SolanaWorldIdIDL } from "@compto/comptoken.js";
+import {
+    createComptokenProgram,
+    createSolanaWorldIdProgram,
+    getComptokenIdl,
+    getGlobalDataAddress,
+    getSolanaWorldIdIdl,
+    getStakedMintAddress,
+    getUnstakedMintAddress,
+    getUserDataAddress,
+    getWorldIdNullifierAddress,
+} from "@compto/comptoken.js";
+import { type CamelToSnakeCaseObject } from "./typeHelpers.ts";
 import { normalizeTime, saturatingSubtract, toUnixTime, today } from "./utils.ts";
 
 const projectRoot = `${import.meta.dirname}/../../..`;
-export const Idl: Comptoken = JSON.parse(fs.readFileSync(`${projectRoot}/target/idl/comptoken.json`, "utf8"));
-export const baseProgram = getProgramWithConstants(Idl, undefined as any); // no provider, this should not be used to make calls (just for constants/account data)
+export const Idl = getComptokenIdl(`${projectRoot}/target/idl/comptoken.json`);
+export const baseProgram = createComptokenProgram(Idl, anchor.AnchorProvider.local());
 export const coder = new BorshCoder(Idl);
 
-export const solanaWorldIdIdl: SolanaWorldIdProgram = JSON.parse(
-    fs.readFileSync(`${projectRoot}/target/idl/solana_world_id_program.json`, "utf8"),
-);
-export const solanaWorldIdProgram = getProgramWithConstants(solanaWorldIdIdl, undefined as any);
+export const solanaWorldIdIdl = getSolanaWorldIdIdl(`${projectRoot}/target/idl/solana_world_id_program.json`);
+export const solanaWorldIdProgram = createSolanaWorldIdProgram(solanaWorldIdIdl, anchor.AnchorProvider.local());
 export const solanaWorldIdCoder = new BorshCoder(solanaWorldIdIdl);
 
-type userDataAccountData = IdlAccounts<Comptoken>["userData"];
+type userDataAccountData = IdlAccounts<ComptokenIdl>["userData"];
+
+export async function createWalletAddedAccount(
+    address: PublicKey,
+    lamports: number = 1_000_000_000,
+): Promise<AddedAccount> {
+    return {
+        address,
+        info: {
+            executable: false,
+            owner: SystemProgram.programId,
+            lamports,
+            data: Buffer.alloc(0),
+            rentEpoch: 0,
+        },
+    };
+}
 
 export async function createUserDataAddedAccount({
     userPubkey,
@@ -58,10 +80,7 @@ export async function createUserDataAddedAccount({
 }): Promise<AddedAccount> {
     expect(proofs.length).to.be.lessThanOrEqual(capacity, "Proofs length exceeds capacity");
 
-    const [userDataPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from(baseProgram.constants.userDataSeed), userPubkey.toBuffer()],
-        baseProgram.programId,
-    );
+    const userDataPda = getUserDataAddress(baseProgram, userPubkey);
 
     const userData: userDataAccountData = {
         lastClaimedTimestamp: new BN.BN(normalizeTime(lastClaimed).getTime() / 1000),
@@ -107,11 +126,11 @@ export async function createUserDataAddedAccount({
     };
 }
 
-export type HistoricDistribution = IdlTypes<Comptoken>["historicDistribution"];
-export type GlobalDataAccountData = Omit<IdlAccounts<Comptoken>["globalData"], "dailyDistribution"> & {
-    dailyDistribution: Omit<IdlAccounts<Comptoken>["globalData"]["dailyDistribution"], "historicDistributions"> & {
+export type HistoricDistribution = IdlTypes<ComptokenIdl>["historicDistribution"];
+export type GlobalDataAccountData = Omit<IdlAccounts<ComptokenIdl>["globalData"], "dailyDistribution"> & {
+    dailyDistribution: Omit<IdlAccounts<ComptokenIdl>["globalData"]["dailyDistribution"], "historicDistributions"> & {
         historicDistributions: Omit<
-            IdlAccounts<Comptoken>["globalData"]["dailyDistribution"]["historicDistributions"],
+            IdlAccounts<ComptokenIdl>["globalData"]["dailyDistribution"]["historicDistributions"],
             "buffer"
         > & {
             buffer: HistoricDistribution[];
@@ -160,10 +179,7 @@ export async function createGlobalDataAddedAccount({
     }
     expect(historicDistributions.buffer.length === Number(baseProgram.constants.dailyDistributionDataHistoryLength));
 
-    const [globalDataPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from(baseProgram.constants.globalDataSeed)],
-        baseProgram.programId,
-    );
+    const globalDataPda = getGlobalDataAddress(baseProgram);
 
     // Dummy initial data for GlobalData account
     const globalData: GlobalDataAccountData = {
@@ -247,14 +263,8 @@ export async function createUnstakedMintAddedAccount({
 }: {
     supply?: number | bigint;
 } = {}): Promise<AddedAccount> {
-    const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-        baseProgram.programId,
-    );
-    const [globalDataPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from(baseProgram.constants.globalDataSeed)],
-        baseProgram.programId,
-    );
+    const unstakedMintPda = getUnstakedMintAddress(baseProgram);
+    const globalDataPda = getGlobalDataAddress(baseProgram);
 
     const data = Buffer.alloc(MintLayout.span);
     MintLayout.encode(
@@ -286,14 +296,8 @@ export async function createStakedMintAddedAccount({
 }: {
     supply?: number | bigint;
 } = {}): Promise<AddedAccount> {
-    const [stakedMintPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from(baseProgram.constants.stakedMintSeed)],
-        baseProgram.programId,
-    );
-    const [globalDataPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from(baseProgram.constants.globalDataSeed)],
-        baseProgram.programId,
-    );
+    const stakedMintPda = getStakedMintAddress(baseProgram);
+    const globalDataPda = getGlobalDataAddress(baseProgram);
 
     const data = Buffer.alloc(getMintLen([ExtensionType.NonTransferable]));
     MintLayout.encode(
@@ -342,10 +346,7 @@ export async function createUnstakedTokenAccountAddedAccount({
     owner: PublicKey;
     amount?: bigint | number;
 }): Promise<AddedAccount> {
-    const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-        baseProgram.programId,
-    );
+    const unstakedMintPda = getUnstakedMintAddress(baseProgram);
 
     const data = Buffer.alloc(getAccountLen([]));
 
@@ -384,10 +385,7 @@ export async function createStakedTokenAccountAddedAccount({
     owner: PublicKey;
     amount?: bigint | number;
 }): Promise<AddedAccount> {
-    const [stakedMintPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from(baseProgram.constants.stakedMintSeed)],
-        baseProgram.programId,
-    );
+    const stakedMintPda = getStakedMintAddress(baseProgram);
 
     const data = Buffer.alloc(getAccountLen([ExtensionType.NonTransferableAccount, ExtensionType.ImmutableOwner]));
 
@@ -451,10 +449,7 @@ export function getWorldIdConfigPdaAndBump() {
 }
 
 export function getWorldIdNullifierPda(nullifierHash: Uint8Array) {
-    return PublicKey.findProgramAddressSync(
-        [Buffer.from(baseProgram.constants.nullifierSeed), Buffer.from(nullifierHash)],
-        baseProgram.programId,
-    )[0];
+    return getWorldIdNullifierAddress(baseProgram, Buffer.from(nullifierHash));
 }
 
 // AddedAccount constructors for Bankrun state seeding
@@ -474,7 +469,7 @@ export async function createWorldIdRootAddedAccount({
 }): Promise<AddedAccount> {
     const [address, bump] = getWorldIdRootPdaAndBump(rootHash);
 
-    const accountData: CamelToSnakeCaseObject<IdlTypes<SolanaWorldIdProgram>["root"]> = {
+    const accountData: CamelToSnakeCaseObject<IdlTypes<SolanaWorldIdIDL>["root"]> = {
         bump,
         read_block_number: new BN(readBlockNumber),
         read_block_hash: Array.from(readBlockHash),
@@ -512,7 +507,7 @@ export async function createWorldIdLatestRootAddedAccount({
 }): Promise<AddedAccount> {
     const [address, bump] = getWorldIdLatestRootPdaAndBump();
 
-    const accountData: CamelToSnakeCaseObject<IdlTypes<SolanaWorldIdProgram>["latestRoot"]> = {
+    const accountData: CamelToSnakeCaseObject<IdlTypes<SolanaWorldIdIDL>["latestRoot"]> = {
         bump,
         read_block_number: new BN(readBlockNumber),
         read_block_hash: Array.from(readBlockHash),
@@ -547,7 +542,7 @@ export async function createWorldIdConfigAddedAccount({
 }): Promise<AddedAccount> {
     const [address, bump] = getWorldIdConfigPdaAndBump();
 
-    const accountData: CamelToSnakeCaseObject<IdlTypes<Comptoken>["config"]> = {
+    const accountData: CamelToSnakeCaseObject<IdlTypes<SolanaWorldIdIDL>["config"]> = {
         bump,
         owner,
         pending_owner: null,
@@ -578,7 +573,7 @@ export async function createWorldIdNullifierAddedAccount({
 }: {
     nullifierHash: Uint8Array;
     userWallet: PublicKey;
-    program: ProgramWithConstants<Comptoken>;
+    program: ComptokenProgram;
 }): Promise<AddedAccount> {
     const address = getWorldIdNullifierPda(nullifierHash);
 
@@ -588,7 +583,10 @@ export async function createWorldIdNullifierAddedAccount({
     };
 
     const data = await coder.accounts.encode("Nullifier", accountData);
-    const decoded: CamelToSnakeCaseObject<IdlTypes<Comptoken>["nullifier"]> = coder.accounts.decode("Nullifier", data);
+    const decoded: CamelToSnakeCaseObject<IdlTypes<ComptokenIdl>["nullifier"]> = coder.accounts.decode(
+        "Nullifier",
+        data,
+    );
     console.log("Decoded nullifier:", decoded);
     decoded.user_wallet = new PublicKey(decoded.user_wallet);
     expect(BNtoBigIntRecursive(decoded)).to.deep.equal(BNtoBigIntRecursive(accountData));
@@ -632,7 +630,7 @@ export async function buildWorldIdAccountsWithNullifier({
     rootHash: Uint8Array;
     refundRecipient?: PublicKey;
     nullifierHash: Uint8Array;
-    program: ProgramWithConstants<Comptoken>;
+    program: ComptokenProgram;
 }): Promise<AddedAccount[]> {
     return [
         ...(await buildWorldIdAccountsForVerify({ userWallet, rootHash, refundRecipient })),

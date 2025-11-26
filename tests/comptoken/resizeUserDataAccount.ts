@@ -1,3 +1,4 @@
+import { resizeUserDataAccount } from "@compto/comptoken.js";
 import { default as anchor } from "@coral-xyz/anchor";
 import { Keypair } from "@solana/web3.js";
 import { expect } from "chai";
@@ -31,11 +32,11 @@ describe("resize_user_data_account", () => {
 
             const newCap = 7;
 
-            await program.methods
-                .resizeUserDataAccount({ newCapacity: new BN(newCap) })
-                .accounts({ payer: provider.wallet.publicKey, userWallet: user.publicKey })
-                .signers([user])
-                .rpc();
+            await resizeUserDataAccount({
+                program,
+                newCapacity: newCap,
+                accounts: { payer: user, userWallet: user },
+            });
 
             const after = await fetchUserDataInfo(program, user.publicKey);
             expect(after).to.not.be.null;
@@ -56,11 +57,11 @@ describe("resize_user_data_account", () => {
 
             let threw = false;
             try {
-                await program.methods
-                    .resizeUserDataAccount({ newCapacity: new BN(2) })
-                    .accounts({ payer: provider.wallet.publicKey, userWallet: user.publicKey })
-                    .signers([user])
-                    .rpc();
+                await resizeUserDataAccount({
+                    program,
+                    newCapacity: 2,
+                    accounts: { payer: user, userWallet: user },
+                });
             } catch (e: any) {
                 threw = true;
                 expect(String(e.message || e)).to.match(/invalid|capacity|fail|constraint/i);
@@ -85,11 +86,11 @@ describe("resize_user_data_account", () => {
 
             const minRentBefore = await provider.connection.getMinimumBalanceForRentExemption(before!.data.length);
 
-            await program.methods
-                .resizeUserDataAccount({ newCapacity: new BN(newCap) })
-                .accounts({ payer: provider.wallet.publicKey, userWallet: user.publicKey })
-                .signers([user])
-                .rpc();
+            await resizeUserDataAccount({
+                program,
+                newCapacity: newCap,
+                accounts: { payer: user, userWallet: user },
+            });
 
             const after = await fetchUserDataInfo(program, user.publicKey);
             expect(after).to.not.be.null;
@@ -114,11 +115,11 @@ describe("resize_user_data_account", () => {
 
             const { provider, program } = await prepareTest(accounts);
 
-            await program.methods
-                .resizeUserDataAccount({ newCapacity: new BN(newCap) })
-                .accounts({ payer: provider.wallet.publicKey, userWallet: user.publicKey })
-                .signers([user])
-                .rpc();
+            await resizeUserDataAccount({
+                program,
+                newCapacity: Number(newCap),
+                accounts: { payer: user, userWallet: user },
+            });
 
             const userData = await fetchUserData(program, user.publicKey);
             expect(userData.proofs.length).to.equal(2);
@@ -135,20 +136,20 @@ describe("resize_user_data_account", () => {
 
             const { provider, program } = await prepareTest(accounts);
 
-            await program.methods
-                .resizeUserDataAccount({ newCapacity: new BN(5) })
-                .accounts({ payer: provider.wallet.publicKey, userWallet: user.publicKey })
-                .signers([user])
-                .rpc();
+            await resizeUserDataAccount({
+                program,
+                newCapacity: 5,
+                accounts: { payer: user, userWallet: user },
+            });
 
             const sizeFirst = await fetchUserDataSize(program, user.publicKey);
             expect(sizeFirst).to.equal(userDataSize(5));
 
-            await program.methods
-                .resizeUserDataAccount({ newCapacity: new BN(8) })
-                .accounts({ payer: provider.wallet.publicKey, userWallet: user.publicKey })
-                .signers([user])
-                .rpc();
+            await resizeUserDataAccount({
+                program,
+                newCapacity: 8,
+                accounts: { payer: user, userWallet: user },
+            });
 
             const sizeSecond = await fetchUserDataSize(program, user.publicKey);
             expect(sizeSecond).to.equal(userDataSize(8));

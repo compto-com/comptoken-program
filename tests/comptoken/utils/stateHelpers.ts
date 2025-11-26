@@ -1,47 +1,43 @@
 import { PublicKey } from "@solana/web3.js";
 
-import type { Comptoken } from "../../../target/types/comptoken.ts";
+import type { ComptokenProgram } from "@compto/comptoken.js";
+import { getGlobalDataAddress, getUserDataAddress } from "@compto/comptoken.js";
+
 import type { GlobalDataAccountData, HistoricDistribution } from "./accountPreinitHelpers.ts";
-import type { ProgramWithConstants } from "./typeHelpers.ts";
 
 // Program/account state helpers (non-assertion)
 
-export function getGlobalDataPda(program: ProgramWithConstants<Comptoken>) {
-    const [pda] = PublicKey.findProgramAddressSync([program.constants.globalDataSeed], program.programId);
-    return pda;
+export function getGlobalDataPda(program: ComptokenProgram) {
+    return getGlobalDataAddress(program);
 }
 
-export async function fetchGlobalData(program: ProgramWithConstants<Comptoken>) {
+export async function fetchGlobalData(program: ComptokenProgram) {
     const pda = getGlobalDataPda(program);
     return program.account.globalData.fetch(pda) as Promise<GlobalDataAccountData>;
 }
 
 // UserData helpers (mirroring fetchGlobalData style)
 
-export function getUserDataPda(program: ProgramWithConstants<Comptoken>, userWallet: PublicKey) {
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from(program.constants.userDataSeed), userWallet.toBuffer()],
-        program.programId,
-    );
-    return pda;
+export function getUserDataPda(program: ComptokenProgram, userWallet: PublicKey) {
+    return getUserDataAddress(program, userWallet);
 }
 
-export async function fetchUserData(program: ProgramWithConstants<Comptoken>, userWallet: PublicKey) {
+export async function fetchUserData(program: ComptokenProgram, userWallet: PublicKey) {
     const pda = getUserDataPda(program, userWallet);
     return program.account.userData.fetch(pda);
 }
 
-export async function fetchUserDataInfo(program: ProgramWithConstants<Comptoken>, userWallet: PublicKey) {
+export async function fetchUserDataInfo(program: ComptokenProgram, userWallet: PublicKey) {
     const pda = getUserDataPda(program, userWallet);
     return program.provider.connection.getAccountInfo(pda);
 }
 
-export async function fetchUserDataSize(program: ProgramWithConstants<Comptoken>, userWallet: PublicKey) {
+export async function fetchUserDataSize(program: ComptokenProgram, userWallet: PublicKey) {
     const info = await fetchUserDataInfo(program, userWallet);
     return info?.data.length ?? 0;
 }
 
-export function getHistoryLength(program: ProgramWithConstants<Comptoken>) {
+export function getHistoryLength(program: ComptokenProgram) {
     return Number(program.constants.dailyDistributionDataHistoryLength);
 }
 
@@ -51,7 +47,7 @@ export function getHistoryPosition(globalData: GlobalDataAccountData) {
 
 export function getLatestDistribution(
     globalData: GlobalDataAccountData,
-    program: ProgramWithConstants<Comptoken>,
+    program: ComptokenProgram,
 ): HistoricDistribution {
     const historyLen = getHistoryLength(program);
     const pos = getHistoryPosition(globalData);

@@ -1,5 +1,7 @@
+import { dailyDistribution } from "@compto/comptoken.js";
 import { PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
+
 import {
     baseProgram,
     createGlobalDataAddedAccount,
@@ -32,7 +34,7 @@ describe("daily_distribution", () => {
             const { program } = await prepareTest(accounts);
             const beforeGlobal = await fetchGlobalData(program);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const afterGlobal = await fetchGlobalData(program);
             expectHistoryAdvancedBy(beforeGlobal, afterGlobal, program, 1);
@@ -63,7 +65,7 @@ describe("daily_distribution", () => {
             const { program } = await prepareTest(accounts);
             const beforeGlobal = await fetchGlobalData(program);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const afterGlobal = await fetchGlobalData(program);
             expectHistoryAdvancedBy(beforeGlobal, afterGlobal, program, 1);
@@ -89,7 +91,8 @@ describe("daily_distribution", () => {
             const { program } = await prepareTest(accounts);
             const beforeGlobal = await fetchGlobalData(program);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
+
             const afterGlobal = await fetchGlobalData(program);
             expectHistoryAdvancedBy(beforeGlobal, afterGlobal, program, 1);
 
@@ -116,7 +119,7 @@ describe("daily_distribution", () => {
             const before = await fetchGlobalData(program);
             const beforeTs = before.dailyDistribution.lastUpdateTimestamp.toNumber();
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const after = await fetchGlobalData(program);
             const afterTs = after.dailyDistribution.lastUpdateTimestamp.toNumber();
@@ -151,7 +154,7 @@ describe("daily_distribution", () => {
             const before = await fetchGlobalData(program);
             expect(before.dailyDistribution.highWaterMark.toNumber()).to.equal(startingHwm);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const after = await fetchGlobalData(program);
             // Uncapped since total supply < threshold; increase = minedToday - startingHwm
@@ -192,7 +195,7 @@ describe("daily_distribution", () => {
             const before = await fetchGlobalData(program);
             expect(before.dailyDistribution.highWaterMark.toNumber()).to.equal(startingHwm);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const after = await fetchGlobalData(program);
             const actualIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
@@ -225,7 +228,7 @@ describe("daily_distribution", () => {
 
             const { program } = await prepareTest(accounts);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const after = await fetchGlobalData(program);
 
@@ -268,7 +271,7 @@ describe("daily_distribution", () => {
             const before = await fetchGlobalData(program);
             const beforePerCapita = before.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const after = await fetchGlobalData(program);
             const hwmIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
@@ -311,7 +314,7 @@ describe("daily_distribution", () => {
             const before = await fetchGlobalData(program);
             const beforePerCapita = before.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const after = await fetchGlobalData(program);
 
@@ -350,7 +353,7 @@ describe("daily_distribution", () => {
 
             const { program } = await prepareTest(accounts);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const after = await fetchGlobalData(program);
             expect(after.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber()).to.equal(
@@ -381,7 +384,7 @@ describe("daily_distribution", () => {
 
             const { program } = await prepareTest(accounts);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const after = await fetchGlobalData(program);
             const pushed = getLatestDistribution(after, program) as HistoricDistribution;
@@ -413,7 +416,7 @@ describe("daily_distribution", () => {
 
             const { program } = await prepareTest(accounts);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const after = await fetchGlobalData(program);
             const pushed = getLatestDistribution(after, program);
@@ -442,7 +445,8 @@ describe("daily_distribution", () => {
 
             const { program } = await prepareTest(accounts);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
+
             const after = await fetchGlobalData(program);
             const pushed = getLatestDistribution(after, program);
 
@@ -477,7 +481,7 @@ describe("daily_distribution", () => {
 
             const { program } = await prepareTest(accounts);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const after = await fetchGlobalData(program);
             const pushed = getLatestDistribution(after, program);
@@ -505,7 +509,7 @@ describe("daily_distribution", () => {
             const { program } = await prepareTest(accounts);
             const before = await fetchGlobalData(program);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const after = await fetchGlobalData(program);
             expectHistoryAdvancedBy(before, after, program, 1);
@@ -546,7 +550,7 @@ describe("daily_distribution", () => {
 
             const { program } = await prepareTest(accounts);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const after = await fetchGlobalData(program);
             const afterPos = after.dailyDistribution.historicDistributions.position.toNumber();
@@ -584,7 +588,8 @@ describe("daily_distribution", () => {
             const before = await fetchGlobalData(program);
             const beforePerCapita = before.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
+
             const after = await fetchGlobalData(program);
 
             const hwmIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
@@ -628,7 +633,7 @@ describe("daily_distribution", () => {
                 const before = await fetchGlobalData(program);
                 const beforePerCapita = before.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
 
-                await program.methods.dailyDistribution().rpc();
+                await dailyDistribution({ program });
 
                 const after = await fetchGlobalData(program);
                 const afterPerCapita = after.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
@@ -676,7 +681,7 @@ describe("daily_distribution", () => {
                 const before = await fetchGlobalData(program);
                 const beforePerCapita = before.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
 
-                await program.methods.dailyDistribution().rpc();
+                await dailyDistribution({ program });
 
                 const after = await fetchGlobalData(program);
                 const afterPerCapita = after.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
@@ -723,7 +728,7 @@ describe("daily_distribution", () => {
 
                 const { program } = await prepareTest(accounts);
 
-                await program.methods.dailyDistribution().rpc();
+                await dailyDistribution({ program });
 
                 const after = await fetchGlobalData(program);
                 const increase = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
@@ -766,7 +771,7 @@ describe("daily_distribution", () => {
             ]);
             const { program } = await prepareTest(accounts);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const afterSmall = await fetchGlobalData(program);
             const incSmall = afterSmall.dailyDistribution.highWaterMark.toNumber() - startingHwm;
@@ -783,7 +788,7 @@ describe("daily_distribution", () => {
 
             const { program: program2 } = await prepareTest(accounts2);
 
-            await program2.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program: program2 });
 
             const afterLarge = await fetchGlobalData(program2);
             const incLarge = afterLarge.dailyDistribution.highWaterMark.toNumber() - startingHwm;
@@ -804,7 +809,7 @@ describe("daily_distribution", () => {
             const { program } = await prepareTest(accounts);
             let threw = false;
             try {
-                await program.methods.dailyDistribution().rpc();
+                await dailyDistribution({ program });
             } catch (e: any) {
                 threw = true;
                 expect(String(e.message || e)).to.match(/account|global|not.*exist|failed/i);
@@ -824,7 +829,7 @@ describe("daily_distribution", () => {
             const { program } = await prepareTest(accounts);
             let threw = false;
             try {
-                await program.methods.dailyDistribution().rpc();
+                await dailyDistribution({ program });
             } catch (e: any) {
                 threw = true;
                 expect(String(e.message || e)).to.match(/staked|mint|account|not.*exist|failed/i);
@@ -844,7 +849,7 @@ describe("daily_distribution", () => {
             const { program } = await prepareTest(accounts);
             let threw = false;
             try {
-                await program.methods.dailyDistribution().rpc();
+                await dailyDistribution({ program });
             } catch (e: any) {
                 threw = true;
                 expect(String(e.message || e)).to.match(/unstaked|mint|account|not.*exist|failed/i);
@@ -898,13 +903,13 @@ describe("daily_distribution", () => {
             const { program } = await prepareTest(accounts);
             const before = await fetchGlobalData(program);
 
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const afterFirst = await fetchGlobalData(program);
             expectHistoryAdvancedBy(before, afterFirst, program, 1);
 
             // Second invocation same day (total_mined_today now 0, last_update_timestamp already today) => no advance
-            await program.methods.dailyDistribution().rpc();
+            await dailyDistribution({ program });
 
             const afterSecond = await fetchGlobalData(program);
             expectHistoryAdvancedBy(afterFirst, afterSecond, program, 0);

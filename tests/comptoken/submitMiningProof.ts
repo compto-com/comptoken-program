@@ -1,7 +1,13 @@
-import { TOKEN_2022_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
-import { Keypair, PublicKey } from "@solana/web3.js";
-import { expect } from "chai";
 import crypto from "crypto";
+
+import {
+    ComptokenProof,
+    getUnstakedMintAddress,
+    getUserUnstakedAssociatedTokenAddress,
+    submitMiningProof,
+} from "@compto/comptoken.js";
+import { Keypair } from "@solana/web3.js";
+import { expect } from "chai";
 
 import {
     baseProgram,
@@ -15,90 +21,27 @@ import {
 import { fetchGlobalData, fetchUserData } from "./utils/stateHelpers.ts";
 import { prepareTest } from "./utils/utils.ts";
 
-// --- Local helpers to mirror on-chain hashing exactly ---
-function doubleSha256(parts: Uint8Array[]): Uint8Array {
-    const h1 = crypto.createHash("sha256");
-    for (const p of parts) h1.update(p);
-    const first = h1.digest();
-    const h2 = crypto.createHash("sha256");
-    h2.update(first);
-    return new Uint8Array(h2.digest());
-}
-
-function reverseBytes(b: Uint8Array): Uint8Array {
-    return Uint8Array.from(Array.from(b).reverse());
-}
-
-function buildHeader({
-    version,
-    validBlockhash,
-    merkleRoot,
-    timestamp,
-    nonce,
-}: {
-    version: number[];
-    validBlockhash: Uint8Array; // 32 bytes (little-endian expected by program after reverse)
-    merkleRoot: Uint8Array; // 32 bytes
-    timestamp: number[]; // 4 bytes
-    nonce: number[]; // 4 bytes
-}): Uint8Array {
-    const nbits = Uint8Array.from([0xd8, 0xad, 0x0e, 0x18]);
-    // Program reverses valid_blockhash bytes before composing header
-    const bh = reverseBytes(validBlockhash);
-    const parts = [version, bh, merkleRoot, timestamp, nbits, nonce];
-    const len = parts.reduce((a, p) => a + p.length, 0);
-    if (len !== 80) throw new Error(`header size mismatch: ${len}`);
-    const out = new Uint8Array(80);
-    let off = 0;
-    for (const p of parts) {
-        out.set(p, off);
-        off += p.length;
-    }
-    return out;
-}
-
-function computeFinalHash(header: Uint8Array): Uint8Array {
-    const h = doubleSha256([header]);
-    return reverseBytes(h);
-}
-
-function merkleRoot(extraData: Uint8Array, pubkey: Uint8Array): Uint8Array {
-    return doubleSha256([extraData, pubkey]);
-}
-
 describe("submit_mining_proof", () => {
+    const user = Keypair.fromSeed(
+        // prettier-ignore
+        Uint8Array.from([163, 81, 164, 86, 62, 89, 43, 120, 231, 223, 81, 41, 255, 0, 3, 98, 151, 236, 77, 132, 181, 2, 19, 112, 35, 17, 2, 37, 237, 5, 249, 54,]),
+    );
+    const validBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => i));
+
+    const proof = new ComptokenProof({
+        pubkey: user.publicKey,
+        recentBlockHash: validBlockhash,
+        extraData: Uint8Array.from(Array.from({ length: 32 }).map(() => 0)),
+        nonce: 33,
+        version: 0,
+        timestamp: 0,
+        target: ComptokenProof.TARGET_BYTES_DEVNET,
+    });
+
     describe("Core success path scenarios", () => {
         it("mints MINING_REWARD_AMOUNT into user's unstaked token account for a valid proof when user_data is current", async function () {
-            const user = Keypair.fromSeed(
-                // prettier-ignore
-                Uint8Array.from([
-                    // arbitrary but fixed for test stability
-                    163, 81,  164, 86,  62,  89,  43,  120, 231, 223, 81,  41,  255, 0,   3,   98,
-                    151, 236, 77,  132, 181, 2,   19,  112, 35,  17,  2,   37,  237, 5,   249, 54,
-                ]),
-            );
-            const validBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => i));
-            const extraData = Array.from({ length: 32 }).map(() => 0);
-            // prettier-ignore
-            const rawData = [
-                ...user.publicKey.toBuffer(),
-                ...extraData,
-                3, 0, 0, 0, // nonce
-                0, 0, 0, 32, // mostly arbitrary version
-                0, 0, 0, 0, // can be arbitrary, for compatibility with bitcoin mining, effectively another nonce
-            ];
-
-            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                baseProgram.programId,
-            );
-
-            const userUnstakedAta = getAssociatedTokenAddressSync(
-                unstakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
+            const unstakedMintPda = getUnstakedMintAddress(baseProgram);
+            const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
             const accounts = await Promise.all([
                 // user_data must be current and have spare proofs capacity
@@ -115,11 +58,7 @@ describe("submit_mining_proof", () => {
                 getMint(provider.connection, unstakedMintPda),
             ]);
 
-            await program.methods
-                .submitMiningProof({ rawData })
-                .accounts({ userWallet: user.publicKey, userUnstakedTokenAccount: userUnstakedAta })
-                .signers([user])
-                .rpc();
+            await submitMiningProof({ program, proof, accounts: { userWallet: user } });
 
             const [afterUserUnstaked, afterUnstakedMint] = await Promise.all([
                 getAccount(provider.connection, userUnstakedAta),
@@ -132,35 +71,7 @@ describe("submit_mining_proof", () => {
         });
 
         it("increments global total_mined_today by MINING_REWARD_AMOUNT on success", async function () {
-            const user = Keypair.fromSeed(
-                // prettier-ignore
-                Uint8Array.from([
-                    // arbitrary but fixed for test stability
-                    163, 81,  164, 86,  62,  89,  43,  120, 231, 223, 81,  41,  255, 0,   3,   98,
-                    151, 236, 77,  132, 181, 2,   19,  112, 35,  17,  2,   37,  237, 5,   249, 54,
-                ]),
-            );
-            const validBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => i));
-            const extraData = Array.from({ length: 32 }).map(() => 0);
-            // prettier-ignore
-            const rawData = [
-                ...user.publicKey.toBuffer(),
-                ...extraData,
-                3, 0, 0, 0, // nonce
-                0, 0, 0, 32, // mostly arbitrary version
-                0, 0, 0, 0, // can be arbitrary, for compatibility with bitcoin mining, effectively another nonce
-            ];
-
-            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                baseProgram.programId,
-            );
-            const userUnstakedAta = getAssociatedTokenAddressSync(
-                unstakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
+            const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
             const accounts = await Promise.all([
                 createUserDataAddedAccount({ userPubkey: user.publicKey, proofs: [] }),
@@ -172,11 +83,7 @@ describe("submit_mining_proof", () => {
 
             const beforeGlobal = await fetchGlobalData(program);
 
-            await program.methods
-                .submitMiningProof({ rawData })
-                .accounts({ userWallet: user.publicKey, userUnstakedTokenAccount: userUnstakedAta })
-                .signers([user])
-                .rpc();
+            await submitMiningProof({ program, proof, accounts: { userWallet: user } });
 
             const afterGlobal = await fetchGlobalData(program);
             const reward = Number(baseProgram.constants.miningRewardAmount);
@@ -186,45 +93,11 @@ describe("submit_mining_proof", () => {
         });
 
         it("stores parsed proof hash and recent blockhash in user_data", async function () {
-            const user = Keypair.fromSeed(
-                // prettier-ignore
-                Uint8Array.from([
-                    // arbitrary but fixed for test stability
-                    163, 81,  164, 86,  62,  89,  43,  120, 231, 223, 81,  41,  255, 0,   3,   98,
-                    151, 236, 77,  132, 181, 2,   19,  112, 35,  17,  2,   37,  237, 5,   249, 54,
-                ]),
-            );
-            const validBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => i));
-            const extraData = Array.from({ length: 32 }).map(() => 0);
-            // prettier-ignore
-            const rawData = [
-                ...user.publicKey.toBuffer(),
-                ...extraData,
-                3, 0, 0, 0,
-                0, 0, 0, 32, // mostly arbitrary version
-                0, 0, 0, 0, // can be arbitrary, for compatibility with bitcoin mining, effectively another nonce
-            ];
-
-            // Recompute final hash for the pre-seeded vector and compare (use pubkey from rawData)
-            const nonce = rawData.slice(64, 68);
-            const version = rawData.slice(68, 72);
-            const timestamp = rawData.slice(72, 76);
-            const mr = merkleRoot(Uint8Array.from(extraData), user.publicKey.toBytes());
-            const header = buildHeader({ version, validBlockhash, merkleRoot: mr, timestamp, nonce });
-            const expectedFinal = computeFinalHash(header);
+            const expectedFinal = proof.hash;
 
             console.log("Expected final hash:", Buffer.from(expectedFinal).toString("hex"));
 
-            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                baseProgram.programId,
-            );
-            const userUnstakedAta = getAssociatedTokenAddressSync(
-                unstakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
+            const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
             const accounts = await Promise.all([
                 createUserDataAddedAccount({ userPubkey: user.publicKey, proofs: [] }),
@@ -235,11 +108,7 @@ describe("submit_mining_proof", () => {
 
             const { program } = await prepareTest(accounts);
 
-            await program.methods
-                .submitMiningProof({ rawData })
-                .accounts({ userWallet: user.publicKey, userUnstakedTokenAccount: userUnstakedAta })
-                .signers([user])
-                .rpc();
+            await submitMiningProof({ program, proof, accounts: { userWallet: user } });
 
             const userData = await fetchUserData(program, user.publicKey);
             // recent_blockhash should equal what we set
@@ -250,42 +119,10 @@ describe("submit_mining_proof", () => {
         });
 
         it("accepts consecutive valid proofs under the same recent blockhash until capacity is reached", async function () {
-            const user = Keypair.fromSeed(
-                // prettier-ignore
-                Uint8Array.from([
-                    // arbitrary but fixed for test stability
-                    163, 81,  164, 86,  62,  89,  43,  120, 231, 223, 81,  41,  255, 0,   3,   98,
-                    151, 236, 77,  132, 181, 2,   19,  112, 35,  17,  2,   37,  237, 5,   249, 54,
-                ]),
-            );
-            const validBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => i));
-            const extraData = Array.from({ length: 32 }).map(() => 0);
-            function makeRawDataWithNonce(nonceNum: number): number[] {
-                const buf = Buffer.alloc(4);
-                buf.writeUInt32LE(nonceNum, 0);
-                // prettier-ignore
-                return [
-                    ...user.publicKey.toBuffer(),
-                    ...extraData,
-                    ...buf,
-                    0, 0, 0, 32, // mostly arbitrary version
-                    0, 0, 0, 0, // can be arbitrary, for compatibility with bitcoin mining, effectively another nonce
-                ];
-            }
-
-            const nonces = [3, 4, 5];
+            const nonces = [33, 77, 80];
             const capacity = nonces.length;
 
-            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                baseProgram.programId,
-            );
-            const userUnstakedAta = getAssociatedTokenAddressSync(
-                unstakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
+            const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
             const accounts = await Promise.all([
                 createUserDataAddedAccount({ userPubkey: user.publicKey, capacity, proofs: [] }),
@@ -301,11 +138,20 @@ describe("submit_mining_proof", () => {
 
             let successful = 0;
             for (; successful < capacity; successful++) {
-                await program.methods
-                    .submitMiningProof({ rawData: makeRawDataWithNonce(nonces[successful]) })
-                    .accounts({ userWallet: user.publicKey, userUnstakedTokenAccount: userUnstakedAta })
-                    .signers([user])
-                    .rpc();
+                const p = new ComptokenProof({
+                    pubkey: proof.pubkey,
+                    recentBlockHash: proof.recentBlockHash,
+                    extraData: proof.extraData,
+                    nonce: nonces[successful],
+                    version: proof.version,
+                    timestamp: proof.timestamp,
+                });
+
+                await submitMiningProof({
+                    program,
+                    proof: p,
+                    accounts: { userWallet: user },
+                });
             }
 
             const after = await getAccount(provider.connection, userUnstakedAta);
@@ -321,49 +167,15 @@ describe("submit_mining_proof", () => {
 
     describe("Proof storage behavior", () => {
         it("clears previous proofs when recent blockhash changes and inserts new proof", async function () {
-            const user = Keypair.fromSeed(
-                // prettier-ignore
-                Uint8Array.from([
-                    163, 81, 164, 86, 62, 89, 43, 120, 231, 223, 81, 41, 255, 0, 3, 98,
-                    151, 236, 77, 132, 181, 2, 19, 112, 35, 17, 2, 37, 237, 5, 249, 54,
-                ]),
-            );
-
             // Old blockhash (what user_data has) and new valid blockhash (what global_data has)
             const oldBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => 2 * i));
-            const newBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => i));
 
             // Seed user_data with some existing proofs that should be cleared
             const existingProofs = [new Uint8Array(32).fill(1), new Uint8Array(32).fill(2), new Uint8Array(32).fill(3)];
 
-            const extraData = Array.from({ length: 32 }).map(() => 0);
-            // prettier-ignore
-            const rawData = [
-                ...user.publicKey.toBuffer(),
-                ...extraData,
-                3, 0, 0, 0, // nonce
-                0, 0, 0, 32, // version
-                0, 0, 0, 0, // timestamp
-            ];
+            const expectedFinal = proof.hash;
 
-            // Compute expected final hash under NEW blockhash (since program replaces on change)
-            const nonce = rawData.slice(64, 68);
-            const version = rawData.slice(68, 72);
-            const timestamp = rawData.slice(72, 76);
-            const mr = merkleRoot(Uint8Array.from(extraData), user.publicKey.toBytes());
-            const header = buildHeader({ version, validBlockhash: newBlockhash, merkleRoot: mr, timestamp, nonce });
-            const expectedFinal = computeFinalHash(header);
-
-            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                baseProgram.programId,
-            );
-            const userUnstakedAta = getAssociatedTokenAddressSync(
-                unstakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
+            const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
             const accounts = await Promise.all([
                 createUserDataAddedAccount({
@@ -372,18 +184,14 @@ describe("submit_mining_proof", () => {
                     recentBlockhash: oldBlockhash,
                     proofs: existingProofs,
                 }),
-                createGlobalDataAddedAccount({ validBlockhash: newBlockhash }),
+                createGlobalDataAddedAccount({ validBlockhash: proof.recentBlockHash }),
                 createUnstakedMintAddedAccount(),
                 createUnstakedTokenAccountAddedAccount({ address: userUnstakedAta, owner: user.publicKey, amount: 0 }),
             ]);
 
             const { program } = await prepareTest(accounts);
 
-            await program.methods
-                .submitMiningProof({ rawData })
-                .accounts({ userWallet: user.publicKey, userUnstakedTokenAccount: userUnstakedAta })
-                .signers([user])
-                .rpc();
+            await submitMiningProof({ program, proof, accounts: { userWallet: user } });
 
             const userData = await fetchUserData(program, user.publicKey);
             // Should clear old proofs and insert exactly one new proof
@@ -391,38 +199,11 @@ describe("submit_mining_proof", () => {
             const storedProof0 = Buffer.from(userData.proofs[0][0]);
             expect(storedProof0.equals(expectedFinal)).to.equal(true);
             // recent_blockhash should update to newBlockhash
-            expect(Uint8Array.from(userData.recentBlockhash[0])).to.deep.equal(newBlockhash);
+            expect(Uint8Array.from(userData.recentBlockhash[0])).to.deep.equal(proof.recentBlockHash);
         });
 
         it("prevents inserting the same proof twice (DuplicateMiningProof)", async function () {
-            const user = Keypair.fromSeed(
-                // prettier-ignore
-                Uint8Array.from([
-                    163, 81, 164, 86, 62, 89, 43, 120, 231, 223, 81, 41, 255, 0, 3, 98,
-                    151, 236, 77, 132, 181, 2, 19, 112, 35, 17, 2, 37, 237, 5, 249, 54,
-                ]),
-            );
-            const validBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => i));
-            const extraData = Array.from({ length: 32 }).map(() => 0);
-            // prettier-ignore
-            const rawData = [
-                ...user.publicKey.toBuffer(),
-                ...extraData,
-                3, 0, 0, 0, // nonce
-                0, 0, 0, 32, // version
-                0, 0, 0, 0, // timestamp
-            ];
-
-            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                baseProgram.programId,
-            );
-            const userUnstakedAta = getAssociatedTokenAddressSync(
-                unstakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
+            const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
             const accounts = await Promise.all([
                 createUserDataAddedAccount({ userPubkey: user.publicKey, capacity: 5, proofs: [] }),
@@ -433,20 +214,12 @@ describe("submit_mining_proof", () => {
             const { program } = await prepareTest(accounts);
 
             // First submission should succeed
-            await program.methods
-                .submitMiningProof({ rawData })
-                .accounts({ userWallet: user.publicKey, userUnstakedTokenAccount: userUnstakedAta })
-                .signers([user])
-                .rpc();
+            await submitMiningProof({ program, proof, accounts: { userWallet: user } });
 
             // Second, identical submission should fail with DuplicateMiningProof
             let threw = false;
             try {
-                await program.methods
-                    .submitMiningProof({ rawData })
-                    .accounts({ userWallet: user.publicKey, userUnstakedTokenAccount: userUnstakedAta })
-                    .signers([user])
-                    .rpc();
+                await submitMiningProof({ program, proof, accounts: { userWallet: user } });
             } catch (err: any) {
                 threw = true;
                 const msg = (err?.error?.errorMessage ?? err?.toString() ?? "").toLowerCase();
@@ -459,38 +232,10 @@ describe("submit_mining_proof", () => {
         });
 
         it("fails when user_data.proofs capacity is exceeded (UserDataProofsCapacityExceeded)", async function () {
-            const user = Keypair.fromSeed(
-                // prettier-ignore
-                Uint8Array.from([
-                    163, 81, 164, 86, 62, 89, 43, 120, 231, 223, 81, 41, 255, 0, 3, 98,
-                    151, 236, 77, 132, 181, 2, 19, 112, 35, 17, 2, 37, 237, 5, 249, 54,
-                ]),
-            );
-            const validBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => i));
-
             // Fill user_data proofs to capacity under the SAME blockhash so appending should fail
             const prefilledProofs = [new Uint8Array(32).fill(7), new Uint8Array(32).fill(8)];
 
-            const extraData = Array.from({ length: 32 }).map(() => 0);
-            // prettier-ignore
-            const rawData = [
-                ...user.publicKey.toBuffer(),
-                ...extraData,
-                3, 0, 0, 0, // nonce
-                0, 0, 0, 32, // version
-                0, 0, 0, 0, // timestamp
-            ];
-
-            const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-                baseProgram.programId,
-            );
-            const userUnstakedAta = getAssociatedTokenAddressSync(
-                unstakedMintPda,
-                user.publicKey,
-                false,
-                TOKEN_2022_PROGRAM_ID,
-            );
+            const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
             const accounts = await Promise.all([
                 createUserDataAddedAccount({
@@ -507,11 +252,7 @@ describe("submit_mining_proof", () => {
 
             let threw = false;
             try {
-                await program.methods
-                    .submitMiningProof({ rawData })
-                    .accounts({ userWallet: user.publicKey, userUnstakedTokenAccount: userUnstakedAta })
-                    .signers([user])
-                    .rpc();
+                await submitMiningProof({ program, proof, accounts: { userWallet: user } });
             } catch (err: any) {
                 threw = true;
                 const msg = (err?.error?.errorMessage ?? err?.toString() ?? "").toLowerCase();

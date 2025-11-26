@@ -1,6 +1,12 @@
-import { default as anchor } from "@coral-xyz/anchor";
-import { TOKEN_2022_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
-import { Keypair, PublicKey } from "@solana/web3.js";
+import {
+    collect,
+    getStakedMintAddress,
+    getUnstakedMintAddress,
+    getUserDataAddress,
+    getUserStakedTokensAddress,
+    getUserUnstakedAssociatedTokenAddress,
+} from "@compto/comptoken.js";
+import { Keypair } from "@solana/web3.js";
 import { expect } from "chai";
 
 import {
@@ -24,31 +30,12 @@ describe("collect:", () => {
     it("claims nothing when available reward is 0", async () => {
         const user = Keypair.generate();
 
-        const [userDataPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.userDataSeed), user.publicKey.toBuffer()],
-            baseProgram.programId,
-        );
-        const [stakedMintPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.stakedMintSeed)],
-            baseProgram.programId,
-        );
-        const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-            baseProgram.programId,
-        );
+        const userDataPda = getUserDataAddress(baseProgram, user.publicKey);
+        const stakedMintPda = getStakedMintAddress(baseProgram);
+        const unstakedMintPda = getUnstakedMintAddress(baseProgram);
 
-        const userStakedAta = getAssociatedTokenAddressSync(
-            stakedMintPda,
-            user.publicKey,
-            false,
-            TOKEN_2022_PROGRAM_ID,
-        );
-        const userUnstakedAta = getAssociatedTokenAddressSync(
-            unstakedMintPda,
-            user.publicKey,
-            false,
-            TOKEN_2022_PROGRAM_ID,
-        );
+        const userStakedAta = getUserStakedTokensAddress(baseProgram, user.publicKey);
+        const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
         const accounts = await Promise.all([
             createUserDataAddedAccount({ userPubkey: user.publicKey, lastClaimed: weekAgo }),
@@ -69,15 +56,7 @@ describe("collect:", () => {
             program.account.userData.fetch(userDataPda),
         ]);
 
-        const ixBuilder = program.methods
-            .collect()
-            .accounts({
-                userWallet: user.publicKey,
-                userStakedTokenAccount: userStakedAta,
-                userUnstakedTokenAccount: userUnstakedAta,
-            })
-            .signers([user]);
-        const _sig = await ixBuilder.rpc();
+        await collect({ program, accounts: { userWallet: user } });
 
         // Verify no error and state remains consistent
         const [afterUnstaked, afterStaked, afterUnstakedMint, afterStakedMint, afterUserData] = await Promise.all([
@@ -104,31 +83,12 @@ describe("collect:", () => {
     it("claims nothing when not staked and unverified", async () => {
         const user = Keypair.generate();
 
-        const [userDataPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.userDataSeed), user.publicKey.toBuffer()],
-            baseProgram.programId,
-        );
-        const [stakedMintPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.stakedMintSeed)],
-            baseProgram.programId,
-        );
-        const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-            baseProgram.programId,
-        );
+        const userDataPda = getUserDataAddress(baseProgram, user.publicKey);
+        const stakedMintPda = getStakedMintAddress(baseProgram);
+        const unstakedMintPda = getUnstakedMintAddress(baseProgram);
 
-        const userStakedAta = getAssociatedTokenAddressSync(
-            stakedMintPda,
-            user.publicKey,
-            false,
-            TOKEN_2022_PROGRAM_ID,
-        );
-        const userUnstakedAta = getAssociatedTokenAddressSync(
-            unstakedMintPda,
-            user.publicKey,
-            false,
-            TOKEN_2022_PROGRAM_ID,
-        );
+        const userStakedAta = getUserStakedTokensAddress(baseProgram, user.publicKey);
+        const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
         const accounts = await Promise.all([
             createUserDataAddedAccount({ userPubkey: user.publicKey, lastClaimed: weekAgo }),
@@ -154,15 +114,7 @@ describe("collect:", () => {
             program.account.userData.fetch(userDataPda),
         ]);
 
-        const ixBuilder = program.methods
-            .collect()
-            .accounts({
-                userWallet: user.publicKey,
-                userStakedTokenAccount: userStakedAta,
-                userUnstakedTokenAccount: userUnstakedAta,
-            })
-            .signers([user]);
-        const _sig = await ixBuilder.rpc();
+        await collect({ program, accounts: { userWallet: user } });
 
         // Verify no error and state remains consistent
         const [afterUnstaked, afterStaked, afterUnstakedMint, afterStakedMint, afterUserData] = await Promise.all([
@@ -190,31 +142,12 @@ describe("collect:", () => {
         console.log("starting ", this.currentTest?.title);
         const user = Keypair.generate();
 
-        const [userDataPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.userDataSeed), user.publicKey.toBuffer()],
-            baseProgram.programId,
-        );
-        const [stakedMintPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.stakedMintSeed)],
-            baseProgram.programId,
-        );
-        const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-            baseProgram.programId,
-        );
+        const userDataPda = getUserDataAddress(baseProgram, user.publicKey);
+        const stakedMintPda = getStakedMintAddress(baseProgram);
+        const unstakedMintPda = getUnstakedMintAddress(baseProgram);
 
-        const userStakedAta = getAssociatedTokenAddressSync(
-            stakedMintPda,
-            user.publicKey,
-            false,
-            TOKEN_2022_PROGRAM_ID,
-        );
-        const userUnstakedAta = getAssociatedTokenAddressSync(
-            unstakedMintPda,
-            user.publicKey,
-            false,
-            TOKEN_2022_PROGRAM_ID,
-        );
+        const userStakedAta = getUserStakedTokensAddress(baseProgram, user.publicKey);
+        const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
         console.log("Preparing accounts for test...");
 
@@ -246,15 +179,7 @@ describe("collect:", () => {
 
         console.log("invoking collect...");
 
-        const ixBuilder = program.methods
-            .collect()
-            .accounts({
-                userWallet: user.publicKey,
-                userStakedTokenAccount: userStakedAta,
-                userUnstakedTokenAccount: userUnstakedAta,
-            })
-            .signers([user]);
-        const _sig = await ixBuilder.rpc();
+        await collect({ program, accounts: { userWallet: user } });
 
         console.log("getting after state...");
 
@@ -288,31 +213,12 @@ describe("collect:", () => {
     it("claims rewards when unstaked but verified", async () => {
         const user = Keypair.generate();
 
-        const [userDataPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.userDataSeed), user.publicKey.toBuffer()],
-            baseProgram.programId,
-        );
-        const [stakedMintPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.stakedMintSeed)],
-            baseProgram.programId,
-        );
-        const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-            baseProgram.programId,
-        );
+        const userDataPda = getUserDataAddress(baseProgram, user.publicKey);
+        const stakedMintPda = getStakedMintAddress(baseProgram);
+        const unstakedMintPda = getUnstakedMintAddress(baseProgram);
 
-        const userStakedAta = getAssociatedTokenAddressSync(
-            stakedMintPda,
-            user.publicKey,
-            false,
-            TOKEN_2022_PROGRAM_ID,
-        );
-        const userUnstakedAta = getAssociatedTokenAddressSync(
-            unstakedMintPda,
-            user.publicKey,
-            false,
-            TOKEN_2022_PROGRAM_ID,
-        );
+        const userStakedAta = getUserStakedTokensAddress(baseProgram, user.publicKey);
+        const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
         const accounts = await Promise.all([
             createUserDataAddedAccount({ userPubkey: user.publicKey, lastClaimed: weekAgo, lastVerified: weekAgo }),
@@ -338,15 +244,7 @@ describe("collect:", () => {
             program.account.userData.fetch(userDataPda),
         ]);
 
-        const ixBuilder = program.methods
-            .collect()
-            .accounts({
-                userWallet: user.publicKey,
-                userStakedTokenAccount: userStakedAta,
-                userUnstakedTokenAccount: userUnstakedAta,
-            })
-            .signers([user]);
-        const _sig = await ixBuilder.rpc();
+        await collect({ program, accounts: { userWallet: user } });
 
         // Verify no error and state remains consistent
         const [afterUnstaked, afterStaked, afterUnstakedMint, afterStakedMint, afterUserData] = await Promise.all([
@@ -372,31 +270,12 @@ describe("collect:", () => {
     it("claims rewards when staked and verified", async () => {
         const user = Keypair.generate();
 
-        const [userDataPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.userDataSeed), user.publicKey.toBuffer()],
-            baseProgram.programId,
-        );
-        const [stakedMintPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.stakedMintSeed)],
-            baseProgram.programId,
-        );
-        const [unstakedMintPda] = PublicKey.findProgramAddressSync(
-            [Buffer.from(baseProgram.constants.unstakedMintSeed)],
-            baseProgram.programId,
-        );
+        const userDataPda = getUserDataAddress(baseProgram, user.publicKey);
+        const stakedMintPda = getStakedMintAddress(baseProgram);
+        const unstakedMintPda = getUnstakedMintAddress(baseProgram);
 
-        const userStakedAta = getAssociatedTokenAddressSync(
-            stakedMintPda,
-            user.publicKey,
-            false,
-            TOKEN_2022_PROGRAM_ID,
-        );
-        const userUnstakedAta = getAssociatedTokenAddressSync(
-            unstakedMintPda,
-            user.publicKey,
-            false,
-            TOKEN_2022_PROGRAM_ID,
-        );
+        const userStakedAta = getUserStakedTokensAddress(baseProgram, user.publicKey);
+        const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
         const accounts = await Promise.all([
             createUserDataAddedAccount({ userPubkey: user.publicKey, lastClaimed: weekAgo, lastVerified: weekAgo }),
@@ -422,15 +301,7 @@ describe("collect:", () => {
             program.account.userData.fetch(userDataPda),
         ]);
 
-        const ixBuilder = program.methods
-            .collect()
-            .accounts({
-                userWallet: user.publicKey,
-                userStakedTokenAccount: userStakedAta,
-                userUnstakedTokenAccount: userUnstakedAta,
-            })
-            .signers([user]);
-        const _sig = await ixBuilder.rpc();
+        await collect({ program, accounts: { userWallet: user } });
 
         // Verify no error and state remains consistent
         const [afterUnstaked, afterStaked, afterUnstakedMint, afterStakedMint, afterUserData] = await Promise.all([

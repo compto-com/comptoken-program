@@ -9,7 +9,7 @@ skip-lint = false
 
 [programs.localnet]
 comptoken = "F9SW7dcgDHV6QGYcFHyqKtykAdsHvL4BJYA2YP4YkEJX"
-solana_world_id_program = "9TMVfMJs6qyu8jnc7TJfAWhn81Ju2uSRj4uYqLHyKXnh"
+solana-world-id-program = "9TMVfMJs6qyu8jnc7TJfAWhn81Ju2uSRj4uYqLHyKXnh"
 
 [registry]
 url = "https://api.apr.dev"
@@ -22,6 +22,7 @@ wallet = "~/.config/solana/id.json"
 test = "npm run test"
 test-with-logs = "npm run test-with-logs"
 test-ci = "bash ./tests/test.sh"
+fix-idl-address = "npm run fix-idl-address"
 
 [test]
 upgradeable = true

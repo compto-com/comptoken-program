@@ -24,7 +24,10 @@ import { prepareTest } from "./utils/utils.ts";
 describe("submit_mining_proof", () => {
     const user = Keypair.fromSeed(
         // prettier-ignore
-        Uint8Array.from([163, 81, 164, 86, 62, 89, 43, 120, 231, 223, 81, 41, 255, 0, 3, 98, 151, 236, 77, 132, 181, 2, 19, 112, 35, 17, 2, 37, 237, 5, 249, 54,]),
+        Uint8Array.from([
+            163, 81,  164, 86,  62,  89,  43, 120, 231, 223, 81,  41,  255, 0,   3,   98,
+            151, 236, 77,  132, 181, 2,   19, 112, 35,  17,  2,   37,  237, 5,   249, 54,
+        ]),
     );
     const validBlockhash = Uint8Array.from(Array.from({ length: 32 }).map((_, i) => i));
 
@@ -32,7 +35,7 @@ describe("submit_mining_proof", () => {
         pubkey: user.publicKey,
         recentBlockHash: validBlockhash,
         extraData: Uint8Array.from(Array.from({ length: 32 }).map(() => 0)),
-        nonce: 33,
+        nonce: 31,
         version: 0,
         timestamp: 0,
         target: ComptokenProof.TARGET_BYTES_DEVNET,
@@ -119,7 +122,7 @@ describe("submit_mining_proof", () => {
         });
 
         it("accepts consecutive valid proofs under the same recent blockhash until capacity is reached", async function () {
-            const nonces = [33, 77, 80];
+            const nonces = [31, 39, 49];
             const capacity = nonces.length;
 
             const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
@@ -145,6 +148,7 @@ describe("submit_mining_proof", () => {
                     nonce: nonces[successful],
                     version: proof.version,
                     timestamp: proof.timestamp,
+                    target: ComptokenProof.TARGET_BYTES_DEVNET,
                 });
 
                 await submitMiningProof({

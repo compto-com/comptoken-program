@@ -27,7 +27,7 @@ import {
 import { fetchGlobalData, fetchUserData } from "./utils/stateHelpers.ts";
 import { prepareTest } from "./utils/utils.ts";
 
-describe.only("verification", () => {
+describe("verification", () => {
     const worldIdFixture = (() => {
         // appId:  "self_hosted"
         // action: "COMPTO-VerifyHuman"

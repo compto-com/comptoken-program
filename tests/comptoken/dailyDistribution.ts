@@ -1,6 +1,7 @@
-import { dailyDistribution } from "@compto/comptoken.js";
+import { transactions } from "@compto/comptoken.js";
 import { PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
+const { dailyDistribution } = transactions;
 
 import {
     baseProgram,

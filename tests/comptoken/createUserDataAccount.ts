@@ -1,6 +1,7 @@
-import * as comptoken from "@compto/comptoken.js";
-import { getUserDataAddress } from "@compto/comptoken.js";
+import { addresses, transactions } from "@compto/comptoken.js";
 import { expect } from "chai";
+const { getUserDataAddress } = addresses;
+const { createUserDataAccount } = transactions;
 
 import { normalizeTime, prepareTest } from "./utils/utils.ts";
 
@@ -11,7 +12,7 @@ describe("create_user_data_account", async () => {
         const user = provider.wallet.payer;
         const userDataPda = getUserDataAddress(program, user.publicKey);
 
-        await comptoken.createUserDataAccount({
+        await createUserDataAccount({
             program,
             capacity: 10,
             accounts: { userWallet: user, payer: user },
@@ -42,8 +43,6 @@ describe("create_user_data_account", async () => {
                 4 + // proofs vec length
                 10 * 32, // proofs capacity (10) * size of each proof (32 bytes)
         );
-
-        console.log("✓ UserData account initialized with expected defaults");
     });
 
     // Stubs for untested aspects of create_user_data_account

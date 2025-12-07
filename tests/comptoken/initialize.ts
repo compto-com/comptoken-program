@@ -1,10 +1,11 @@
+import type { ComptokenProgram } from "@compto/comptoken.js";
+import { addresses } from "@compto/comptoken.js";
 import { type Mint, TOKEN_2022_PROGRAM_ID, getMint } from "@solana/spl-token";
 import { type AccountInfo, PublicKey, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/web3.js";
 import { BankrunProvider } from "anchor-bankrun";
 import { expect } from "chai";
+const { getGlobalDataAddress, getStakedMintAddress, getUnstakedMintAddress } = addresses;
 
-import type { ComptokenProgram } from "@compto/comptoken.js";
-import { getGlobalDataAddress, getStakedMintAddress, getUnstakedMintAddress } from "@compto/comptoken.js";
 import {
     createGlobalDataAddedAccount,
     createStakedMintAddedAccount,

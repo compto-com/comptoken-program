@@ -1,3 +1,12 @@
+import type { ComptokenIdl, ComptokenProgram, SolanaWorldIdIdl } from "@compto/comptoken.js";
+import {
+    addresses,
+    createComptokenProgram,
+    createDummyProvider,
+    createSolanaWorldIdProgram,
+    getComptokenIdl,
+    getSolanaWorldIdIdl,
+} from "@compto/comptoken.js";
 import { BorshCoder, type IdlAccounts, type IdlTypes, default as anchor } from "@coral-xyz/anchor";
 import {
     ACCOUNT_SIZE,
@@ -16,31 +25,26 @@ import {
 } from "@solana/spl-token";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { expect } from "chai";
-import { type AddedAccount } from "solana-bankrun";
+import type { AddedAccount } from "solana-bankrun";
 const { BN } = anchor;
-
-import type { ComptokenIdl, ComptokenProgram, SolanaWorldIdIDL } from "@compto/comptoken.js";
-import {
-    createComptokenProgram,
-    createSolanaWorldIdProgram,
-    getComptokenIdl,
+const {
     getGlobalDataAddress,
-    getSolanaWorldIdIdl,
     getStakedMintAddress,
     getUnstakedMintAddress,
     getUserDataAddress,
     getWorldIdNullifierAddress,
-} from "@compto/comptoken.js";
+} = addresses;
+
 import { type CamelToSnakeCaseObject } from "./typeHelpers.ts";
 import { normalizeTime, saturatingSubtract, toUnixTime, today } from "./utils.ts";
 
 const projectRoot = `${import.meta.dirname}/../../..`;
 export const Idl = getComptokenIdl(`${projectRoot}/target/idl/comptoken.json`);
-export const baseProgram = createComptokenProgram(Idl, anchor.AnchorProvider.local());
+export const baseProgram = createComptokenProgram(Idl, createDummyProvider());
 export const coder = new BorshCoder(Idl);
 
 export const solanaWorldIdIdl = getSolanaWorldIdIdl(`${projectRoot}/target/idl/solana_world_id_program.json`);
-export const solanaWorldIdProgram = createSolanaWorldIdProgram(solanaWorldIdIdl, anchor.AnchorProvider.local());
+export const solanaWorldIdProgram = createSolanaWorldIdProgram(solanaWorldIdIdl, createDummyProvider());
 export const solanaWorldIdCoder = new BorshCoder(solanaWorldIdIdl);
 
 type userDataAccountData = IdlAccounts<ComptokenIdl>["userData"];
@@ -469,7 +473,7 @@ export async function createWorldIdRootAddedAccount({
 }): Promise<AddedAccount> {
     const [address, bump] = getWorldIdRootPdaAndBump(rootHash);
 
-    const accountData: CamelToSnakeCaseObject<IdlTypes<SolanaWorldIdIDL>["root"]> = {
+    const accountData: CamelToSnakeCaseObject<IdlTypes<SolanaWorldIdIdl>["root"]> = {
         bump,
         read_block_number: new BN(readBlockNumber),
         read_block_hash: Array.from(readBlockHash),
@@ -507,7 +511,7 @@ export async function createWorldIdLatestRootAddedAccount({
 }): Promise<AddedAccount> {
     const [address, bump] = getWorldIdLatestRootPdaAndBump();
 
-    const accountData: CamelToSnakeCaseObject<IdlTypes<SolanaWorldIdIDL>["latestRoot"]> = {
+    const accountData: CamelToSnakeCaseObject<IdlTypes<SolanaWorldIdIdl>["latestRoot"]> = {
         bump,
         read_block_number: new BN(readBlockNumber),
         read_block_hash: Array.from(readBlockHash),
@@ -542,7 +546,7 @@ export async function createWorldIdConfigAddedAccount({
 }): Promise<AddedAccount> {
     const [address, bump] = getWorldIdConfigPdaAndBump();
 
-    const accountData: CamelToSnakeCaseObject<IdlTypes<SolanaWorldIdIDL>["config"]> = {
+    const accountData: CamelToSnakeCaseObject<IdlTypes<SolanaWorldIdIdl>["config"]> = {
         bump,
         owner,
         pending_owner: null,
@@ -587,7 +591,6 @@ export async function createWorldIdNullifierAddedAccount({
         "Nullifier",
         data,
     );
-    console.log("Decoded nullifier:", decoded);
     decoded.user_wallet = new PublicKey(decoded.user_wallet);
     expect(BNtoBigIntRecursive(decoded)).to.deep.equal(BNtoBigIntRecursive(accountData));
 

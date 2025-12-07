@@ -1,7 +1,7 @@
-import { resizeUserDataAccount } from "@compto/comptoken.js";
-import { default as anchor } from "@coral-xyz/anchor";
+import { transactions } from "@compto/comptoken.js";
 import { Keypair } from "@solana/web3.js";
 import { expect } from "chai";
+const { resizeUserDataAccount } = transactions;
 
 import {
     baseProgram,
@@ -10,8 +10,6 @@ import {
 } from "./utils/accountPreinitHelpers.ts";
 import { fetchUserData, fetchUserDataInfo, fetchUserDataSize, getUserDataPda } from "./utils/stateHelpers.ts";
 import { prepareTest } from "./utils/utils.ts";
-
-const { BN } = anchor;
 
 function userDataSize(capacity: number): number {
     return Number(baseProgram.constants.userDataSizeWithoutProofs) + capacity * 32;

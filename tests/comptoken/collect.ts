@@ -1,13 +1,14 @@
-import {
-    collect,
+import { addresses, transactions } from "@compto/comptoken.js";
+import { Keypair } from "@solana/web3.js";
+import { expect } from "chai";
+const {
     getStakedMintAddress,
     getUnstakedMintAddress,
     getUserDataAddress,
     getUserStakedTokensAddress,
     getUserUnstakedAssociatedTokenAddress,
-} from "@compto/comptoken.js";
-import { Keypair } from "@solana/web3.js";
-import { expect } from "chai";
+} = addresses;
+const { collect } = transactions;
 
 import {
     baseProgram,
@@ -139,7 +140,6 @@ describe("collect:", () => {
     });
 
     it("claims rewards when staked, but unverified", async function () {
-        console.log("starting ", this.currentTest?.title);
         const user = Keypair.generate();
 
         const userDataPda = getUserDataAddress(baseProgram, user.publicKey);
@@ -148,8 +148,6 @@ describe("collect:", () => {
 
         const userStakedAta = getUserStakedTokensAddress(baseProgram, user.publicKey);
         const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
-
-        console.log("Preparing accounts for test...");
 
         const accounts = await Promise.all([
             createUserDataAddedAccount({ userPubkey: user.publicKey, lastClaimed: weekAgo }),
@@ -167,8 +165,6 @@ describe("collect:", () => {
 
         const { provider, program } = await prepareTest(accounts);
 
-        console.log("getting before state...");
-
         const [beforeUnstaked, beforeStaked, beforeUnstakedMint, beforeStakedMint, beforeUserData] = await Promise.all([
             getAccount(provider.connection, userUnstakedAta),
             getAccount(provider.connection, userStakedAta),
@@ -177,11 +173,7 @@ describe("collect:", () => {
             program.account.userData.fetch(userDataPda),
         ]);
 
-        console.log("invoking collect...");
-
         await collect({ program, accounts: { userWallet: user } });
-
-        console.log("getting after state...");
 
         // Verify no error and state remains consistent
         const [afterUnstaked, afterStaked, afterUnstakedMint, afterStakedMint, afterUserData] = await Promise.all([
@@ -191,8 +183,6 @@ describe("collect:", () => {
             getMint(provider.connection, stakedMintPda),
             program.account.userData.fetch(userDataPda),
         ]);
-
-        console.log("verifying results...");
 
         // With zero staked principal and no verification UBI, collect should mint 0
         expect(afterUnstaked.amount).to.equal(
@@ -207,7 +197,6 @@ describe("collect:", () => {
             afterUserData.lastClaimedTimestamp.toNumber(),
         );
         expect(afterUserData.lastClaimedTimestamp.toNumber()).to.equal(normalizeTime(new Date()).getTime() / 1000);
-        console.log("✓ collect with staked but unverified user works as expected");
     });
 
     it("claims rewards when unstaked but verified", async () => {

@@ -1,13 +1,8 @@
-import crypto from "crypto";
-
-import {
-    ComptokenProof,
-    getUnstakedMintAddress,
-    getUserUnstakedAssociatedTokenAddress,
-    submitMiningProof,
-} from "@compto/comptoken.js";
+import { ComptokenProof, addresses, transactions } from "@compto/comptoken.js";
 import { Keypair } from "@solana/web3.js";
 import { expect } from "chai";
+const { getUnstakedMintAddress, getUserUnstakedAssociatedTokenAddress } = addresses;
+const { submitMiningProof } = transactions;
 
 import {
     baseProgram,
@@ -97,8 +92,6 @@ describe("submit_mining_proof", () => {
 
         it("stores parsed proof hash and recent blockhash in user_data", async function () {
             const expectedFinal = proof.hash;
-
-            console.log("Expected final hash:", Buffer.from(expectedFinal).toString("hex"));
 
             const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 

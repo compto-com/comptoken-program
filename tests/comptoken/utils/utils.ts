@@ -1,6 +1,8 @@
+import path from "path";
+
 import { createComptokenProgram, createSolanaWorldIdProgram } from "@compto/comptoken.js";
 import { BankrunProvider, startAnchor } from "anchor-bankrun";
-import { type AddedAccount } from "solana-bankrun";
+import type { AddedAccount } from "solana-bankrun";
 
 import { Idl, solanaWorldIdIdl } from "./accountPreinitHelpers.ts";
 
@@ -27,7 +29,8 @@ export function toUnixTime(date: Date): number {
 }
 
 export async function prepareTest(accounts: AddedAccount[] = []) {
-    const workspaceRoot = process.cwd();
+    // Resolve to the repository root so anchor-bankrun can find Anchor.toml and IDLs
+    const workspaceRoot = path.resolve(import.meta.dirname, "../../..");
     const context = await startAnchor(workspaceRoot, [], accounts);
     const provider = new BankrunProvider(context);
     const program = createComptokenProgram(Idl, provider);

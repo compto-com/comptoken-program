@@ -1,13 +1,8 @@
-import {
-    getUnstakedMintAddress,
-    getUserUnstakedAssociatedTokenAddress,
-    reverify,
-    unverify,
-    unverify2,
-    verify,
-} from "@compto/comptoken.js";
+import { addresses, transactions } from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
+const { getUnstakedMintAddress, getUserUnstakedAssociatedTokenAddress } = addresses;
+const { reverify, unverify, unverify2, verify } = transactions;
 
 import type { AddedAccount } from "solana-bankrun";
 import {

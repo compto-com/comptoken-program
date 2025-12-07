@@ -1,14 +1,13 @@
-import {
+import { addresses, transactions } from "@compto/comptoken.js";
+import { Keypair } from "@solana/web3.js";
+import { expect } from "chai";
+const {
     getStakedMintAddress,
     getUnstakedMintAddress,
     getUserStakedTokensAddress,
     getUserUnstakedAssociatedTokenAddress,
-    stake,
-    unstake,
-} from "@compto/comptoken.js";
-import { default as anchor } from "@coral-xyz/anchor";
-import { Keypair } from "@solana/web3.js";
-import { expect } from "chai";
+} = addresses;
+const { stake, unstake } = transactions;
 
 import {
     baseProgram,

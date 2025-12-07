@@ -1,8 +1,9 @@
-import { type IdlTypes } from "@coral-xyz/anchor";
+import { utils } from "@compto/comptoken.js";
 import { SYSVAR_SLOT_HASHES_PUBKEY, Transaction } from "@solana/web3.js";
 import { expect } from "chai";
 import { Clock } from "solana-bankrun";
-import { type Comptoken } from "../../target/types/comptoken.ts";
+const { decodeValidBlockhashesReturn } = utils;
+
 import {
     baseProgram,
     createGlobalDataAddedAccount,
@@ -36,15 +37,15 @@ describe("get_valid_blockhashes", () => {
             const tx = new Transaction().add(ix);
             const resp = await provider.simulate(tx, [context.payer]);
             const ret = getReturnLog(resp.logs);
-            const decoded = decodeValidBlockhashesReturn(ret.buffer);
+            const decoded = decodeValidBlockhashesReturn(program, ret.buffer);
 
             // Assert: valid is a 32-byte hash and matches account state
-            expect(Array.isArray(decoded.valid[0]) && decoded.valid[0].length === 32).to.be.true;
-            expect(Array.isArray(decoded.announced[0]) && decoded.announced[0].length === 32).to.be.true;
+            expect(Buffer.isBuffer(decoded.valid) && decoded.valid.length === 32).to.be.true;
+            expect(Buffer.isBuffer(decoded.announced) && decoded.announced.length === 32).to.be.true;
 
             const after = await fetchGlobalData(program);
-            expect(decoded.valid[0]).to.deep.equal(after.validBlockhashes.validBlockhash[0]);
-            expect(decoded.announced[0]).to.deep.equal(after.validBlockhashes.announcedBlockhash[0]);
+            expect(decoded.valid).to.deep.equal(Buffer.from(after.validBlockhashes.validBlockhash[0]));
+            expect(decoded.announced).to.deep.equal(Buffer.from(after.validBlockhashes.announcedBlockhash[0]));
         });
 
         it("updates validBlockhash to announcedBlockhash when both are stale (> 24h)", async () => {
@@ -63,17 +64,16 @@ describe("get_valid_blockhashes", () => {
             const tx = new Transaction().add(ix);
             const resp = await provider.simulate(tx, [context.payer]);
             const ret = getReturnLog(resp.logs);
-            const decoded = decodeValidBlockhashesReturn(ret.buffer);
+            const decoded = decodeValidBlockhashesReturn(program, ret.buffer);
             const _sig = await builder.rpc();
 
             // Assert: returned values equal and non-zero-like
-            expect(decoded.valid[0]).to.deep.equal(decoded.announced[0], "valid should equal announced after refresh");
-            const allZero = (a: number[]) => a.every((b) => b === 0);
-            expect(allZero(decoded.valid[0])).to.be.false;
+            expect(decoded.valid).to.deep.equal(decoded.announced, "valid should equal announced after refresh");
+            expect(allZero(decoded.valid)).to.be.false;
 
             const after = await fetchGlobalData(program);
-            expect(after.validBlockhashes.validBlockhash[0]).to.deep.equal(decoded.valid[0]);
-            expect(after.validBlockhashes.announcedBlockhash[0]).to.deep.equal(decoded.announced[0]);
+            expect(Buffer.from(after.validBlockhashes.validBlockhash[0])).to.deep.equal(decoded.valid);
+            expect(Buffer.from(after.validBlockhashes.announcedBlockhash[0])).to.deep.equal(decoded.announced);
         });
 
         it("does not override an existing validBlockhash before new announcement becomes active", async () => {
@@ -100,16 +100,15 @@ describe("get_valid_blockhashes", () => {
             const tx = new Transaction().add(ix);
             const resp = await provider.simulate(tx, [context.payer]);
             const retLog = getReturnLog(resp.logs);
-            const decoded = decodeValidBlockhashesReturn(retLog.buffer);
+            const decoded = decodeValidBlockhashesReturn(program, retLog.buffer);
 
             const _sig = await builder.rpc();
 
             const after = await fetchGlobalData(program);
+            const afterValid = after.validBlockhashes.validBlockhash[0];
 
-            // Assert: announced updated to a non-zero recent blockhash, valid left unchanged
-            const allZero = (a: number[]) => a.every((b) => b === 0);
-            expect(allZero(decoded.announced[0])).to.be.false;
-            expect(after.validBlockhashes.validBlockhash[0]).to.deep.equal(beforeValid);
+            expect(allZero(decoded.announced)).to.be.false;
+            expect(afterValid).to.deep.equal(beforeValid);
         });
     });
 
@@ -141,11 +140,6 @@ function getReturnLog(logs: string[]) {
     return { key, data, buffer };
 }
 
-function decodeValidBlockhashesReturn(buffer: Buffer) {
-    return baseProgram.coder.types.decode(
-        "comptoken::instructions::getValidBlockhashes::validBlockhashes",
-        buffer,
-    ) as ValidBlockhashesReturn;
+function allZero(a: number[] | Buffer): boolean {
+    return a.every((b) => b === 0);
 }
-
-type ValidBlockhashesReturn = IdlTypes<Comptoken>["comptoken::instructions::get_valid_blockhashes::ValidBlockhashes"];

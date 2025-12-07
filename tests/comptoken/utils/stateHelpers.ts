@@ -1,7 +1,8 @@
 import { PublicKey } from "@solana/web3.js";
 
 import type { ComptokenProgram } from "@compto/comptoken.js";
-import { getGlobalDataAddress, getUserDataAddress } from "@compto/comptoken.js";
+import { addresses } from "@compto/comptoken.js";
+const { getGlobalDataAddress, getUserDataAddress } = addresses;
 
 import type { GlobalDataAccountData, HistoricDistribution } from "./accountPreinitHelpers.ts";
 

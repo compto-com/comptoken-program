@@ -162,6 +162,7 @@ pub fn verify(ctx: Context<Verify>, args: WorldIdVerificationData) -> Result<()>
     let mut global_data = ctx.accounts.global_data.load_mut()?;
 
     // 4. update global data
+    // if we reach here, the nullifier was not in use (if it existed, the user unverified earlier)
     global_data.daily_distribution.verified_accounts_count += 1;
 
     // 5. mint early adopter UBI if applicable (nullifier reuse means a re-verification)

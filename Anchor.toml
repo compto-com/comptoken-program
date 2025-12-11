@@ -8,8 +8,8 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-comptoken = "F9SW7dcgDHV6QGYcFHyqKtykAdsHvL4BJYA2YP4YkEJX"
-solana_world_id_program = "9TMVfMJs6qyu8jnc7TJfAWhn81Ju2uSRj4uYqLHyKXnh"
+comptoken = "DECEXSu551ynxGEkEc3VNSdc1jQ3XDK6dJx7G2G1M1PR"
+solana_world_id_program = "xKR13mh99ahnVnA7JRzmWv3eAi1ZYRyDva7VSRFca3G"
 
 [registry]
 url = "https://api.apr.dev"
@@ -23,6 +23,7 @@ test = "npm run test"
 test-with-logs = "npm run test-with-logs"
 test-ci = "bash ./tests/test.sh"
 fix-idl-address = "npm run fix-idl-address"
+initialize = "npm run initialize"
 
 [test]
 upgradeable = true

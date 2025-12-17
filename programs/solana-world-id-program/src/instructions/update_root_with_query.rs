@@ -76,7 +76,7 @@ pub struct UpdateRootWithQuery<'info> {
         seeds = [
             Root::SEED_PREFIX,
             &root_hash,
-            Root::VERIFICATION_TYPE_QUERY,
+            &[Root::VERIFICATION_TYPE_QUERY],
         ],
         bump
     )]
@@ -86,7 +86,7 @@ pub struct UpdateRootWithQuery<'info> {
         mut,
         seeds = [
             LatestRoot::SEED_PREFIX,
-            Root::VERIFICATION_TYPE_QUERY,
+            &[Root::VERIFICATION_TYPE_QUERY],
         ],
         bump = latest_root.bump
     )]
@@ -213,7 +213,7 @@ pub fn update_root_with_query(
         read_block_time_us: chain_response.block_time,
         refund_recipient: ctx.accounts.payer.key(),
         root: root_hash,
-        verification_type: *Root::VERIFICATION_TYPE_QUERY,
+        verification_type: Root::VERIFICATION_TYPE_QUERY,
     });
 
     ctx.accounts.latest_root.read_block_number = chain_response.block_number;

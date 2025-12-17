@@ -62,7 +62,7 @@ pub mod solana_world_id_program {
     }
 
     pub fn verify_groth16_proof(
-        ctx: Context<VerifyGroth16Proof>, root_hash: [u8; 32], verification_type: [u8; 1], signal_hash: [u8; 32],
+        ctx: Context<VerifyGroth16Proof>, root_hash: [u8; 32], verification_type: u8, signal_hash: [u8; 32],
         nullifier_hash: [u8; 32], external_nullifier_hash: [u8; 32], proof: [u8; 256],
     ) -> Result<()> {
         instructions::verify_groth16_proof(

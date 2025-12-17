@@ -33,7 +33,7 @@ pub struct Initialize<'info> {
         space = 8 + LatestRoot::INIT_SPACE,
         seeds = [
             LatestRoot::SEED_PREFIX,
-            Root::VERIFICATION_TYPE_QUERY,
+            &[Root::VERIFICATION_TYPE_QUERY],
         ],
         bump
     )]
@@ -58,7 +58,7 @@ pub fn initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> 
     });
 
     ctx.accounts.latest_root.bump = ctx.bumps.latest_root;
-    ctx.accounts.latest_root.verification_type = *Root::VERIFICATION_TYPE_QUERY;
+    ctx.accounts.latest_root.verification_type = Root::VERIFICATION_TYPE_QUERY;
 
     Ok(())
 }

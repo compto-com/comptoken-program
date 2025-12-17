@@ -74,13 +74,13 @@ pub const VERIFYING_KEY: Groth16Verifyingkey = Groth16Verifyingkey {
 };
 
 #[derive(Accounts)]
-#[instruction(root_hash: [u8; 32], verification_type: [u8; 1], signal_hash: [u8; 32], nullifier_hash: [u8; 32], external_nullifier_hash: [u8; 32], proof: [u8; 256])]
+#[instruction(root_hash: [u8; 32], verification_type: u8, signal_hash: [u8; 32], nullifier_hash: [u8; 32], external_nullifier_hash: [u8; 32], proof: [u8; 256])]
 pub struct VerifyGroth16Proof<'info> {
     #[account(
         seeds = [
             Root::SEED_PREFIX,
             &root_hash,
-            &verification_type,
+            &[verification_type],
         ],
         bump = root.bump
     )]
@@ -89,7 +89,7 @@ pub struct VerifyGroth16Proof<'info> {
     #[account(
         seeds = [
             LatestRoot::SEED_PREFIX,
-            &verification_type,
+            &[verification_type],
         ],
         bump = latest_root.bump
     )]
@@ -104,7 +104,7 @@ pub struct VerifyGroth16Proof<'info> {
 
 impl<'info> VerifyGroth16Proof<'info> {
     pub fn constraints(
-        ctx: &Context<Self>, root_hash: [u8; 32], _verification_type: [u8; 1], signal_hash: [u8; 32],
+        ctx: &Context<Self>, root_hash: [u8; 32], _verification_type: u8, signal_hash: [u8; 32],
         nullifier_hash: [u8; 32], external_nullifier_hash: [u8; 32], proof: [u8; 256],
     ) -> Result<()> {
         let root = &ctx.accounts.root;
@@ -142,7 +142,7 @@ impl<'info> VerifyGroth16Proof<'info> {
     external_nullifier_hash,
     proof))]
 pub fn verify_groth16_proof(
-    ctx: Context<VerifyGroth16Proof>, root_hash: [u8; 32], verification_type: [u8; 1], signal_hash: [u8; 32],
+    ctx: Context<VerifyGroth16Proof>, root_hash: [u8; 32], verification_type: u8, signal_hash: [u8; 32],
     nullifier_hash: [u8; 32], external_nullifier_hash: [u8; 32], proof: [u8; 256],
 ) -> Result<()> {
     Ok(())

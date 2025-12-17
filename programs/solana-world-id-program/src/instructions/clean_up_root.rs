@@ -20,7 +20,7 @@ pub struct CleanUpRoot<'info> {
     #[account(
         seeds = [
             LatestRoot::SEED_PREFIX,
-            &root.verification_type,
+            &[root.verification_type],
         ],
         bump = latest_root.bump
     )]

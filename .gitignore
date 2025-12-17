@@ -13,7 +13,4 @@ test-ledger
 .DS_Store
 .vscode
 
-# old files TODO: remove once fully migrated
-**/generated/*
-/test-old/.cache
-test-old/compto-test-client/tsconfig.json
+.env

@@ -1,5 +1,7 @@
-import type { ComptokenIdl, ComptokenProgram, SolanaWorldIdIdl } from "@compto/comptoken.js";
 import {
+    type ComptokenIdl,
+    type ComptokenProgram,
+    type SolanaWorldIdIdl,
     addresses,
     createComptokenProgram,
     createDummyProvider,

@@ -14,6 +14,7 @@ import { Logger } from "winston";
 import { getWormholeBridgeData } from "../../tests/solana-world-id-program/helpers/config";
 import { deriveGuardianSetKey } from "../../tests/solana-world-id-program/helpers/guardianSet";
 import { deriveLatestRootKey } from "../../tests/solana-world-id-program/helpers/latestRoot";
+import { deriveRootKey } from "../../tests/solana-world-id-program/helpers/root";
 import { cleanUpRoots } from "./cleanup";
 import { getEnv } from "./env";
 
@@ -44,6 +45,13 @@ type RootHashAndBlockNumber = {
     hash: string;
     blockNumber: bigint;
 };
+
+function getGuardianSignatureAddress(user: anchor.web3.Keypair): anchor.web3.Keypair {
+    // no official "correct" guardian signatures address, but this ensures it's deterministic per payer
+    // theres probably a better way to do this, but this is mostly for testing/example purposes
+    const hash = Buffer.from(anchor.utils.sha256.hash(`guardian_signatures${user.publicKey.toString()}`));
+    return anchor.web3.Keypair.fromSeed(hash.slice(0, 32));
+}
 
 async function getLatestEthereumRoot(): Promise<RootHashAndBlockNumber> {
     const response = await axios.post(ETH_RPC_URL, [
@@ -135,12 +143,29 @@ async function syncRoot(logger: Logger) {
         if (newRootHash === ethRoot.hash) {
             logger.debug("Query successful! Updating...");
             const guardianSetIndex = await getGuardianSetIndex();
-            const signatureSet = wallet.payer;
+            const guardianSignaturesAddress = getGuardianSignatureAddress(wallet.payer);
+
+            if ((await program.account.guardianSignatures.fetchNullable(guardianSignaturesAddress.publicKey)) != null) {
+                logger.debug(
+                    `Guardian signatures account ${guardianSignaturesAddress.publicKey.toString()} already exists, deleting...`,
+                );
+
+                const tx = await program.methods
+                    .closeSignatures()
+                    .accounts({
+                        guardianSignatures: guardianSignaturesAddress.publicKey,
+                    })
+                    .rpc();
+                logger.info(
+                    `Closed guardian signatures account ${guardianSignaturesAddress.publicKey.toString()} in tx ${tx}`,
+                );
+            }
+
             const signatureData = signaturesToSolanaArray(queryResponse.signatures);
             await program.methods
                 .postSignatures(signatureData, signatureData.length)
-                .accounts({ guardianSignatures: signatureSet.publicKey })
-                .signers([signatureSet])
+                .accounts({ guardianSignatures: guardianSignaturesAddress.publicKey })
+                .signers([wallet.payer, guardianSignaturesAddress])
                 .rpc();
 
             const tx = await program.methods
@@ -149,9 +174,11 @@ async function syncRoot(logger: Logger) {
                     [...Buffer.from(newRootHash, "hex")],
                     guardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, guardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignatures: guardianSignaturesAddress.publicKey,
+                    latestRoot: deriveLatestRootKey(program.programId, 1),
+                    root: deriveRootKey(program.programId, Buffer.from(newRootHash, "hex"), 1),
                 })
                 .preInstructions(
                     NETWORK === "mainnet"
@@ -189,7 +216,7 @@ async function runWithRetry(fn: (logger: Logger) => Promise<void>, timeout: numb
     }
 }
 
-if (typeof require !== "undefined" && require.main === module) {
+if ((typeof require !== "undefined" && require.main === module) || import.meta.main) {
     if (SLEEP) {
         logger.info("Sleep is set. Running as a service.");
         runWithRetry(syncRoot, SLEEP, logger.child({ source: "sync" }));

@@ -60,7 +60,12 @@ pub const WORLD_ID_PROOF_SIZE: usize = 256;
 pub const WORLD_VERIFICATION_TYPE: u8 = 1; // Orb based verification (I think?)
 
 #[constant]
-pub const WORLD_APP_ID: &[u8] = b"self_hosted";
+#[cfg(feature = "mainnet")]
+pub const WORLD_APP_ID: &[u8] = b""; // TODO:;
 
 #[constant]
-pub const WORLD_ACTION: &[u8] = b"COMPTO-verifyHuman";
+#[cfg(feature = "devnet")]
+pub const WORLD_APP_ID: &[u8] = b"app_staging_651f58cce60b3e824a4206cdcf3d4025"; // staging app id that allows cloud verifications (i.e. not orb based)
+
+#[constant]
+pub const WORLD_ACTION: &[u8] = b"verifyHuman";

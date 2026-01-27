@@ -1,7 +1,9 @@
 pub use anchor_lang::prelude::*;
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "mainnet")] {
+    if #[cfg(all(feature = "mainnet", feature = "testnet"))] {
+        compile_error!("Features 'mainnet' and 'testnet' cannot be enabled at the same time.");
+    } else if #[cfg(feature = "mainnet")] {
         pub const CORE_BRIDGE_PROGRAM_ID: Pubkey = pubkey!("worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth");
     } else if #[cfg(feature = "testnet")] {
         pub const CORE_BRIDGE_PROGRAM_ID: Pubkey = pubkey!("3u8hJUVTA4jH1wYAyUur7FFZVQ8H635K3tSHHF4ssjQ5");
@@ -10,6 +12,8 @@ cfg_if::cfg_if! {
     }
 }
 
+// definition taken from Wormhole's core bridge program
+// https://github.com/wormholelabs-xyz/wormhole/blob/main/solana/bridge/program/src/accounts/guardian_set.rs
 #[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct WormholeGuardianSet {
     /// Index representing an incrementing version number for this guardian set.

@@ -1,18 +1,19 @@
+import * as anchor from "@coral-xyz/anchor";
 import {
     EthCallQueryRequest,
     EthCallQueryResponse,
     PerChainQueryRequest,
     QueryProxyMock,
-    QueryProxyQueryResponse,
+    type QueryProxyQueryResponse,
     QueryRequest,
     QueryResponse,
     signaturesToSolanaArray,
 } from "@wormhole-foundation/wormhole-query-sdk";
 import axios from "axios";
 import { Logger } from "winston";
-import { getWormholeBridgeData } from "../tests/helpers/config";
-import { deriveGuardianSetKey } from "../tests/helpers/guardianSet";
-import { deriveLatestRootKey } from "../tests/helpers/latestRoot";
+import { getWormholeBridgeData } from "../../tests/solana-world-id-program/helpers/config";
+import { deriveGuardianSetKey } from "../../tests/solana-world-id-program/helpers/guardianSet";
+import { deriveLatestRootKey } from "../../tests/solana-world-id-program/helpers/latestRoot";
 import { cleanUpRoots } from "./cleanup";
 import { getEnv } from "./env";
 
@@ -68,10 +69,8 @@ async function getLatestEthereumRoot(): Promise<RootHashAndBlockNumber> {
     if (!response?.data?.[0]?.result || !response?.data?.[1]?.result) {
         throw new Error(
             `Failed to read root from Ethereum: ${
-                response?.data?.[0]?.error?.message ||
-                response?.data?.[1]?.error?.message ||
-                "unknown error"
-            }`
+                response?.data?.[0]?.error?.message || response?.data?.[1]?.error?.message || "unknown error"
+            }`,
         );
     }
     const hash = response.data[0].result.substring(2);
@@ -80,9 +79,7 @@ async function getLatestEthereumRoot(): Promise<RootHashAndBlockNumber> {
 }
 
 async function getLatestSolanaRoot(): Promise<RootHashAndBlockNumber> {
-    const latestRoot = await program.account.latestRoot.fetch(
-        deriveLatestRootKey(program.programId, 0)
-    );
+    const latestRoot = await program.account.latestRoot.fetch(deriveLatestRootKey(program.programId, 0));
     const hash = Buffer.from(latestRoot.root).toString("hex");
     const blockNumber = BigInt(latestRoot.readBlockNumber.toString());
     return { hash, blockNumber };
@@ -92,16 +89,11 @@ async function getGuardianSetIndex(): Promise<number> {
     if (mockGuardianSetIndex !== undefined) {
         return mockGuardianSetIndex;
     }
-    const info = await getWormholeBridgeData(
-        provider.connection,
-        coreBridgeAddress
-    );
+    const info = await getWormholeBridgeData(provider.connection, coreBridgeAddress);
     return info.guardianSetIndex;
 }
 
-async function queryEthLatestRoot(
-    blockNumber: bigint
-): Promise<QueryProxyQueryResponse> {
+async function queryEthLatestRoot(blockNumber: bigint): Promise<QueryProxyQueryResponse> {
     const query = new QueryRequest(42, [
         new PerChainQueryRequest(
             ETH_CHAIN_ID,
@@ -110,7 +102,7 @@ async function queryEthLatestRoot(
                     to: ETH_WORLD_ID_IDENTITY_MANAGER,
                     data: LATEST_ROOT_SIGNATURE,
                 },
-            ])
+            ]),
         ),
     ]);
     if (MOCK) {
@@ -124,7 +116,7 @@ async function queryEthLatestRoot(
         await axios.post<QueryProxyQueryResponse>(
             QUERY_URL,
             { bytes: serialized },
-            { headers: { "X-API-Key": QUERY_API_KEY } }
+            { headers: { "X-API-Key": QUERY_API_KEY } },
         )
     ).data;
 }
@@ -134,22 +126,17 @@ async function syncRoot(logger: Logger) {
     const solRoot = await getLatestSolanaRoot();
     logger.info(`Eth root: ${ethRoot.blockNumber.toString()} ${ethRoot.hash}`);
     logger.info(`Sol root: ${solRoot.blockNumber.toString()} ${solRoot.hash}`);
-    if (
-        ethRoot.hash !== solRoot.hash &&
-        ethRoot.blockNumber > solRoot.blockNumber
-    ) {
+    if (ethRoot.hash !== solRoot.hash && ethRoot.blockNumber > solRoot.blockNumber) {
         logger.debug("Eth root is newer, querying...");
         const queryResponse = await queryEthLatestRoot(ethRoot.blockNumber);
-        const mockEthCallQueryResponse = QueryResponse.from(queryResponse.bytes)
-            .responses[0].response as EthCallQueryResponse;
+        const mockEthCallQueryResponse = QueryResponse.from(queryResponse.bytes).responses[0]
+            .response as EthCallQueryResponse;
         const newRootHash = mockEthCallQueryResponse.results[0].substring(2);
         if (newRootHash === ethRoot.hash) {
             logger.debug("Query successful! Updating...");
             const guardianSetIndex = await getGuardianSetIndex();
             const signatureSet = wallet.payer;
-            const signatureData = signaturesToSolanaArray(
-                queryResponse.signatures
-            );
+            const signatureData = signaturesToSolanaArray(queryResponse.signatures);
             await program.methods
                 .postSignatures(signatureData, signatureData.length)
                 .accounts({ guardianSignatures: signatureSet.publicKey })
@@ -160,43 +147,32 @@ async function syncRoot(logger: Logger) {
                 .updateRootWithQuery(
                     Buffer.from(queryResponse.bytes, "hex"),
                     [...Buffer.from(newRootHash, "hex")],
-                    guardianSetIndex
+                    guardianSetIndex,
                 )
                 .accountsPartial({
-                    guardianSet: deriveGuardianSetKey(
-                        coreBridgeAddress,
-                        guardianSetIndex
-                    ),
+                    guardianSet: deriveGuardianSetKey(coreBridgeAddress, guardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
                 .preInstructions(
                     NETWORK === "mainnet"
                         ? [
-                              anchor.web3.ComputeBudgetProgram.setComputeUnitLimit(
-                                  {
-                                      units: 420_000,
-                                  }
-                              ),
+                              anchor.web3.ComputeBudgetProgram.setComputeUnitLimit({
+                                  units: 420_000,
+                              }),
                           ]
-                        : []
+                        : [],
                 )
                 .rpc();
             logger.info(`Successfully updated root on Solana: ${tx}`);
         } else {
-            logger.warn(
-                `Queried root mismatch! Ours: ${ethRoot.hash}, Theirs: ${newRootHash}`
-            );
+            logger.warn(`Queried root mismatch! Ours: ${ethRoot.hash}, Theirs: ${newRootHash}`);
         }
     } else {
         logger.debug("Roots match, nothing to update.");
     }
 }
 
-async function runWithRetry(
-    fn: (logger: Logger) => Promise<void>,
-    timeout: number,
-    logger: Logger
-) {
+async function runWithRetry(fn: (logger: Logger) => Promise<void>, timeout: number, logger: Logger) {
     let retry = 0;
     while (true) {
         try {
@@ -224,7 +200,7 @@ if (typeof require !== "undefined" && require.main === module) {
                     await cleanUpRoots(program, logger);
                 },
                 CLEANUP,
-                logger.child({ source: "cleanup" })
+                logger.child({ source: "cleanup" }),
             );
         }
     } else {

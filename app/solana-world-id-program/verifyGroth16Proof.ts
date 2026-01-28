@@ -1,7 +1,7 @@
 import {
     appIdActionToExternalNullifierHash,
     hashToField,
-} from "../tests/helpers/utils/hashing";
+} from "../../tests/solana-world-id-program/helpers/utils/hashing";
 import { getEnv } from "./env";
 
 const { program } = getEnv();

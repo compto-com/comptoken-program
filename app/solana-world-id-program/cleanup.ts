@@ -3,9 +3,9 @@
 import { Program } from "@coral-xyz/anchor";
 import BN from "bn.js";
 import { Logger } from "winston";
-import { SolanaWorldIdProgram } from "../target/types/solana_world_id_program";
-import { deriveConfigKey } from "../tests/helpers/config";
-import { deriveLatestRootKey } from "../tests/helpers/latestRoot";
+import type { SolanaWorldIdProgram } from "../../target/types/solana_world_id_program";
+import { deriveConfigKey } from "../../tests/solana-world-id-program/helpers/config";
+import { deriveLatestRootKey } from "../../tests/solana-world-id-program/helpers/latestRoot";
 
 export async function cleanUpRoots(
     program: Program<SolanaWorldIdProgram>,

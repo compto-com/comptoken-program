@@ -1,15 +1,10 @@
-import {
-    AnchorProvider,
-    Program,
-    Wallet,
-    setProvider,
-    web3,
-} from "@coral-xyz/anchor";
+import { AnchorProvider, Program, Wallet, setProvider, web3 } from "@coral-xyz/anchor";
 import "dotenv/config";
 import fs from "fs";
 import { createLogger, format, transports } from "winston";
-import idl from "../target/idl/solana_world_id_program.json";
-import { SolanaWorldIdProgram } from "../target/types/solana_world_id_program";
+import type { SolanaWorldIdProgram } from "../../target/types/solana_world_id_program";
+
+const idl: SolanaWorldIdProgram = JSON.parse(fs.readFileSync("../../target/idl/solana_world_id_program.json", "utf8"));
 
 //const envFile = import.meta.dirname;
 const envFile = `${__dirname}/.env`;
@@ -35,17 +30,12 @@ function fetchEnvSettings() {
         LOG_LEVEL: process.env.LOG_LEVEL || envVar.LOG_LEVEL || "info",
         NETWORK: process.env.NETWORK || envVar.NETWORK || "mainnet",
         MOCK: process.env.MOCK || envVar.MOCK || "false",
-        QUERY_API_KEY:
-            process.env.QUERY_API_KEY || envVar.QUERY_API_KEY || undefined,
+        QUERY_API_KEY: process.env.QUERY_API_KEY || envVar.QUERY_API_KEY || undefined,
         SLEEP: process.env.SLEEP || envVar.SLEEP || "0",
         CLEANUP: process.env.CLEANUP || envVar.CLEANUP || "0",
         ETH_RPC_URL: process.env.ETH_RPC_URL || envVar.ETH_RPC_URL || undefined,
-        SOLANA_RPC_URL:
-            process.env.SOLANA_RPC_URL || envVar.SOLANA_RPC_URL || undefined,
-        WALLET:
-            process.env.WALLET ||
-            envVar.WALLET ||
-            "../tests/keys/pFCBP4bhqdSsrWUVTgqhPsLrfEdChBK17vgFM7TxjxQ.json",
+        SOLANA_RPC_URL: process.env.SOLANA_RPC_URL || envVar.SOLANA_RPC_URL || undefined,
+        WALLET: process.env.WALLET || envVar.WALLET || "../tests/keys/pFCBP4bhqdSsrWUVTgqhPsLrfEdChBK17vgFM7TxjxQ.json",
     };
 }
 
@@ -64,24 +54,17 @@ export function getEnv(needsQueryApiKeyOrMock: boolean = false) {
                 // log format: [YYYY-MM-DD HH:mm:ss.SSS A ZZ] [level] [source] message
                 const source = info.source || "main";
                 return `[${info.timestamp}] [${info.level}] [${source}] ${info.message}`;
-            })
+            }),
         ),
         transports: [new transports.Console()],
     });
     const envLogger = logger.child({ source: "env" });
 
-    const NETWORK =
-        env.NETWORK === "localnet"
-            ? "localnet"
-            : env.NETWORK === "testnet"
-            ? "testnet"
-            : "mainnet";
+    const NETWORK = env.NETWORK === "localnet" ? "localnet" : env.NETWORK === "testnet" ? "testnet" : "mainnet";
     envLogger.info(`Network:          ${NETWORK}`);
     const MOCK = NETWORK === "localnet" || env.MOCK === "true";
     const QUERY_URL =
-        NETWORK === "testnet"
-            ? "https://testnet.query.wormhole.com/v1/query"
-            : "https://query.wormhole.com/v1/query";
+        NETWORK === "testnet" ? "https://testnet.query.wormhole.com/v1/query" : "https://query.wormhole.com/v1/query";
     const QUERY_API_KEY = env.QUERY_API_KEY;
     if (needsQueryApiKeyOrMock && !MOCK && !QUERY_API_KEY) {
         throw new Error("QUERY_API_KEY is required when MOCK is not set");
@@ -91,9 +74,7 @@ export function getEnv(needsQueryApiKeyOrMock: boolean = false) {
 
     const ETH_RPC_URL =
         env.ETH_RPC_URL ??
-        (NETWORK === "testnet"
-            ? "https://ethereum-sepolia-rpc.publicnode.com"
-            : "https://ethereum-rpc.publicnode.com");
+        (NETWORK === "testnet" ? "https://ethereum-sepolia-rpc.publicnode.com" : "https://ethereum-rpc.publicnode.com");
     // https://docs.wormhole.com/wormhole/reference/constants
     const ETH_CHAIN_ID = NETWORK === "testnet" ? 10002 : 2;
     // https://docs.worldcoin.org/reference/address-book

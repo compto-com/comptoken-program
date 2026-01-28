@@ -43,8 +43,14 @@ export class GuardianSetData {
     }
 
     static deserialize(data: Buffer): GuardianSetData {
+        if (data.length < 8) {
+            throw new Error("Data too short to be a valid GuardianSet");
+        }
         const index = data.readUInt32LE(0);
         const keysLen = data.readUInt32LE(4);
+        if (data.length < 8 + keysLen * ETHEREUM_KEY_LENGTH + 8) {
+            throw new Error("Data too short to be a valid GuardianSet");
+        }
         const keysEnd = 8 + keysLen * ETHEREUM_KEY_LENGTH;
         const creationTime = data.readUInt32LE(keysEnd);
         const expirationTime = data.readUInt32LE(4 + keysEnd);

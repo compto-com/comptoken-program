@@ -7,9 +7,10 @@ function getAnchorTomlAddress(): string | null {
         const toml = fs.readFileSync(anchorTomlPath, "utf8");
         // Simple parse: look for [programs.localnet] then the line starting with comptoken = "..."
         const localnetIdx = toml.indexOf("[programs.localnet]");
+        const endLocalnetIdx = toml.indexOf("[", localnetIdx + 1);
         if (localnetIdx === -1) return null;
-        const section = toml.slice(localnetIdx);
-        const match = section.match(/\bcomptoken\s*=\s*"([^"]+)"/);
+        const section = toml.slice(localnetIdx, endLocalnetIdx === -1 ? undefined : endLocalnetIdx);
+        const match = section.match(/\bcomptoken\s*=\s*["']([^"]+)["']/);
         return match ? match[1] : null;
     } catch {
         return null;

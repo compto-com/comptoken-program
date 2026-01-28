@@ -34,8 +34,9 @@ impl<'info> PostSignatures<'info> {
 /// and 13 guardian signatures (a quorum of the current 19 mainnet guardians, 66 bytes each)
 /// alongside the required accounts is larger than the transaction size limit on Solana (1232 bytes).
 ///
-/// This instruction allows for the initial payer to append additional signatures to the account by calling the instruction again.
-/// This may be necessary if a quorum of signatures from the current guardian set grows larger than can fit into a single transaction.
+/// This instruction allows for the initial payer to append additional signatures to the account by calling the instruction again. If
+/// the quorum of signatures from the current guardian set grows larger than can fit into a single transaction, multiple calls to this
+/// instruction can be made to store all signatures needed for verification in the GuardianSignatures account.
 ///
 /// The GuardianSignatures account can be closed by anyone with a successful update_root_with_query instruction
 /// or by the initial payer via close_signatures, either of which will refund the initial payer.

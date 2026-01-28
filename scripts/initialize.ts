@@ -7,7 +7,7 @@ import type { Comptoken } from "../target/types/comptoken";
 import type { SolanaWorldIdProgram } from "../target/types/solana_world_id_program";
 
 const ROOT_EXPIRY_SECONDS = 86400; // 1 day
-const ALLOWED_UPDATE_STALENESS_SECONDS = 604800; // 7 days
+const ALLOWED_UPDATE_STALENESS_SECONDS = 5 * 60; // 5 minutes
 
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 const wallet = Wallet.local();
@@ -42,8 +42,8 @@ logs?.meta?.logMessages?.forEach((log) => console.log(log));
 
 const solanaWorldIdProgramResult = await solanaWorldIdProgram.methods
     .initialize({
-        rootExpiry: new BN(ROOT_EXPIRY_SECONDS), // 1 day
-        allowedUpdateStaleness: new BN(ALLOWED_UPDATE_STALENESS_SECONDS), // 7 days
+        rootExpirySec: new BN(ROOT_EXPIRY_SECONDS),
+        allowedUpdateStalenessSec: new BN(ALLOWED_UPDATE_STALENESS_SECONDS),
     })
     .accounts({})
     .rpc();

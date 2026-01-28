@@ -22,7 +22,6 @@ wallet = "~/.config/solana/id.json"
 test = "npm run test"
 test-with-logs = "npm run test-with-logs"
 test-ci = "bash ./tests/test.sh"
-fix-idl-address = "npm run fix-idl-address"
 initialize = "npm run initialize"
 
 [test]

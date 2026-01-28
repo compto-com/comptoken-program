@@ -189,6 +189,66 @@ describe("verification", () => {
                 expect(after.dailyDistribution.remainingEarlyAdopterCount).to.equal(initialRemaining - 1);
             });
 
+            it("does not mint early adopter UBI when remaining_early_adopter_count = 0", async () => {
+                const perCapita = 12345; // arbitrary test value
+
+                const unstakedMintPda = getUnstakedMintAddress(baseProgram);
+                const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
+
+                const accounts = [
+                    await createWalletAddedAccount(user.publicKey),
+                    await createUserDataAddedAccount({ userPubkey: user.publicKey, proofs: [] }),
+                    await createGlobalDataAddedAccount({
+                        perCapitaEarlyAdopterUbiAmount: perCapita,
+                        verifiedAccountsCount: 7,
+                        remainingEarlyAdopterCount: 0,
+                    }),
+                    await createUnstakedMintAddedAccount(),
+                    await createUnstakedTokenAccountAddedAccount({
+                        address: userUnstakedAta,
+                        owner: user.publicKey,
+                        amount: 0,
+                    }),
+                    ...(await buildWorldIdAccountsForVerify({
+                        userWallet: user.publicKey,
+                        rootHash: worldIdFixture.rootHash,
+                    })),
+                ];
+
+                const { provider, program, solanaWorldIdProgram } = await prepareTest(accounts);
+
+                const [beforeUserUnstaked, beforeMint] = await Promise.all([
+                    getAccount(provider.connection, userUnstakedAta),
+                    getMint(provider.connection, unstakedMintPda),
+                ]);
+
+                const before = await fetchGlobalData(program);
+                const initialVerified = before.dailyDistribution.verifiedAccountsCount;
+
+                await verify({
+                    program,
+                    solanaWorldIdProgram,
+                    rootHash: worldIdFixture.rootHash,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    proof: worldIdFixture.proof,
+                    accounts: {
+                        userWallet: user,
+                    },
+                });
+
+                const [afterUserUnstaked, afterMint] = await Promise.all([
+                    getAccount(provider.connection, userUnstakedAta),
+                    getMint(provider.connection, unstakedMintPda),
+                ]);
+
+                expect(afterUserUnstaked.amount).to.equal(beforeUserUnstaked.amount);
+                expect(afterMint.supply).to.equal(beforeMint.supply);
+
+                const after = await fetchGlobalData(program);
+                expect(after.dailyDistribution.verifiedAccountsCount).to.equal(initialVerified + 1);
+                expect(after.dailyDistribution.remainingEarlyAdopterCount).to.equal(0);
+            });
+
             it("sets nullifier owner to user_wallet on success", async () => {
                 const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
                 const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);

@@ -9,9 +9,9 @@ pub struct Config {
     /// Pending next owner (before claiming ownership).
     pub pending_owner: Option<Pubkey>,
     /// Time (in seconds) after which a root should be considered expired.
-    pub root_expiry: u64,
+    pub root_expiry_sec: u64,
     /// Time (in seconds) after which an attempted update should be rejected.
-    pub allowed_update_staleness: u64,
+    pub allowed_update_staleness_sec: u64,
 }
 
 impl Config {

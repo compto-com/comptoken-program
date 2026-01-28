@@ -463,13 +463,13 @@ export async function createWorldIdRootAddedAccount({
     refundRecipient,
     readBlockNumber = 1n,
     readBlockHash = Uint8Array.from({ length: 32 }, (_, i) => (i * 3) & 0xff),
-    readBlockTime = BigInt(toUnixTime(today)),
+    readBlockTimeUs = BigInt(toUnixTime(today) * 1_000_000),
 }: {
     rootHash: Uint8Array;
     refundRecipient: PublicKey;
     readBlockNumber?: bigint;
     readBlockHash?: Uint8Array;
-    readBlockTime?: bigint;
+    readBlockTimeUs?: bigint;
 }): Promise<AddedAccount> {
     const [address, bump] = getWorldIdRootPdaAndBump(rootHash);
 
@@ -477,7 +477,7 @@ export async function createWorldIdRootAddedAccount({
         bump,
         read_block_number: new BN(readBlockNumber),
         read_block_hash: Array.from(readBlockHash),
-        read_block_time: new BN(readBlockTime),
+        read_block_time_us: new BN(readBlockTimeUs),
         refund_recipient: refundRecipient,
         root: Array.from(rootHash),
         verification_type: [WORLD_VERIFICATION_TYPE],
@@ -502,12 +502,12 @@ export async function createWorldIdLatestRootAddedAccount({
     rootHash,
     readBlockNumber = 1n,
     readBlockHash = Uint8Array.from({ length: 32 }, (_, i) => (i * 3) & 0xff),
-    readBlockTime = BigInt(toUnixTime(today)),
+    readBlockTimeUs = BigInt(toUnixTime(today)),
 }: {
     rootHash: Uint8Array;
     readBlockNumber?: bigint;
     readBlockHash?: Uint8Array;
-    readBlockTime?: bigint;
+    readBlockTimeUs?: bigint;
 }): Promise<AddedAccount> {
     const [address, bump] = getWorldIdLatestRootPdaAndBump();
 
@@ -515,7 +515,7 @@ export async function createWorldIdLatestRootAddedAccount({
         bump,
         read_block_number: new BN(readBlockNumber),
         read_block_hash: Array.from(readBlockHash),
-        read_block_time: new BN(readBlockTime),
+        read_block_time_us: new BN(readBlockTimeUs),
         root: Array.from(rootHash),
         verification_type: [WORLD_VERIFICATION_TYPE],
     };
@@ -550,8 +550,8 @@ export async function createWorldIdConfigAddedAccount({
         bump,
         owner,
         pending_owner: null,
-        root_expiry: new BN(rootExpirySeconds),
-        allowed_update_staleness: new BN(allowedUpdateStalenessSeconds),
+        root_expiry_sec: new BN(rootExpirySeconds),
+        allowed_update_staleness_sec: new BN(allowedUpdateStalenessSeconds),
     };
 
     const data = await solanaWorldIdCoder.accounts.encode("Config", accountData);

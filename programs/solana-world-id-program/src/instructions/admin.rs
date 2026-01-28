@@ -143,8 +143,8 @@ pub struct SetRootExpiry<'info> {
     pub config: Account<'info, Config>,
 }
 
-pub fn set_root_expiry(ctx: Context<SetRootExpiry>, root_expiry: u64) -> Result<()> {
-    ctx.accounts.config.root_expiry = root_expiry;
+pub fn set_root_expiry(ctx: Context<SetRootExpiry>, root_expiry_sec: u64) -> Result<()> {
+    ctx.accounts.config.root_expiry_sec = root_expiry_sec;
     Ok(())
 }
 
@@ -163,8 +163,8 @@ pub struct SetAllowedUpdateStaleness<'info> {
 }
 
 pub fn set_allowed_update_staleness(
-    ctx: Context<SetAllowedUpdateStaleness>, allowed_update_staleness: u64,
+    ctx: Context<SetAllowedUpdateStaleness>, allowed_update_staleness_sec: u64,
 ) -> Result<()> {
-    ctx.accounts.config.allowed_update_staleness = allowed_update_staleness;
+    ctx.accounts.config.allowed_update_staleness_sec = allowed_update_staleness_sec;
     Ok(())
 }

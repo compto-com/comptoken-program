@@ -192,11 +192,11 @@ pub fn update_root_with_query(
     require!(chain_response.block_number > latest_root.read_block_number, SolanaWorldIDProgramError::StaleBlockNum);
     // Only accept blocks within the allowed update staleness.
     // This, along with the above check, ensures that Queries cannot be stored for an extended period of time without being submitted.
-    let current_timestamp: u64 = Clock::get()?.unix_timestamp.try_into().expect("timestamp underflow");
+    let current_timestamp_sec: u64 = Clock::get()?.unix_timestamp.try_into().expect("timestamp underflow");
     let config = &ctx.accounts.config;
-    let min_block_time = current_timestamp.saturating_sub(config.allowed_update_staleness);
-    let read_block_time_in_secs = chain_response.block_time / 1_000_000;
-    require!(read_block_time_in_secs >= min_block_time, SolanaWorldIDProgramError::StaleBlockTime);
+    let min_block_time_sec = current_timestamp_sec.saturating_sub(config.allowed_update_staleness_sec);
+    let read_block_time_sec = chain_response.block_time / 1_000_000;
+    require!(read_block_time_sec >= min_block_time_sec, SolanaWorldIDProgramError::StaleBlockTime);
     // Ensure one result matching the root hash used to derive the root account.
     require!(chain_response.results.len() == 1, SolanaWorldIDProgramError::InvalidResponseResultsLength);
     let result = &chain_response.results[0];
@@ -210,7 +210,7 @@ pub fn update_root_with_query(
         bump: ctx.bumps.root,
         read_block_number: chain_response.block_number,
         read_block_hash: chain_response.block_hash,
-        read_block_time: chain_response.block_time,
+        read_block_time_us: chain_response.block_time,
         refund_recipient: ctx.accounts.payer.key(),
         root: root_hash,
         verification_type: *Root::VERIFICATION_TYPE_QUERY,
@@ -218,7 +218,7 @@ pub fn update_root_with_query(
 
     ctx.accounts.latest_root.read_block_number = chain_response.block_number;
     ctx.accounts.latest_root.read_block_hash = chain_response.block_hash;
-    ctx.accounts.latest_root.read_block_time = chain_response.block_time;
+    ctx.accounts.latest_root.read_block_time_us = chain_response.block_time;
     ctx.accounts.latest_root.root = root_hash;
 
     Ok(())

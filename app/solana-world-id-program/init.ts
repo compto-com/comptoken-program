@@ -12,16 +12,16 @@ const programData = web3.PublicKey.findProgramAddressSync(
 )[0];
 
 async function initialize({
-    rootExpiry,
-    allowedUpdateStaleness,
+    rootExpirySec,
+    allowedUpdateStalenessSec,
 }: {
-    rootExpiry: BN;
-    allowedUpdateStaleness: BN;
+    rootExpirySec: BN;
+    allowedUpdateStalenessSec: BN;
 }) {
     const tx = await program.methods
         .initialize({
-            rootExpiry,
-            allowedUpdateStaleness,
+            rootExpirySec,
+            allowedUpdateStalenessSec,
         })
         .accountsPartial({
             programData,
@@ -35,8 +35,8 @@ if (typeof require !== "undefined" && require.main === module) {
     const fiveMinutes = new BN(5 * 60);
 
     initialize({
-        rootExpiry: twentyFourHours,
-        allowedUpdateStaleness: fiveMinutes,
+        rootExpirySec: twentyFourHours,
+        allowedUpdateStalenessSec: fiveMinutes,
     }).catch((err) => {
         console.error("Error initializing:", err);
         process.exit(1);

@@ -99,7 +99,7 @@ export function getEnv(needsQueryApiKeyOrMock: boolean = false) {
     const coreBridgeAddress = new web3.PublicKey(
         NETWORK === "testnet"
             ? "3u8hJUVTA4jH1wYAyUur7FFZVQ8H635K3tSHHF4ssjQ5"
-            : "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth"
+            : "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth",
     );
     const mockGuardianSetIndex = NETWORK === "localnet" ? 5 : undefined;
 
@@ -114,9 +114,7 @@ export function getEnv(needsQueryApiKeyOrMock: boolean = false) {
     const provider = new AnchorProvider(connection, wallet);
     setProvider(provider);
 
-    const program = new Program<SolanaWorldIdProgram>(
-        idl as SolanaWorldIdProgram
-    );
+    const program = new Program<SolanaWorldIdProgram>(idl);
 
     return {
         NETWORK,

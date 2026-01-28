@@ -44,8 +44,8 @@ pub struct Initialize<'info> {
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializeArgs {
-    pub root_expiry: u64,
-    pub allowed_update_staleness: u64,
+    pub root_expiry_sec: u64,
+    pub allowed_update_staleness_sec: u64,
 }
 
 pub fn initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
@@ -53,8 +53,8 @@ pub fn initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> 
         bump: ctx.bumps.config,
         owner: ctx.accounts.deployer.key(),
         pending_owner: None,
-        root_expiry: args.root_expiry,
-        allowed_update_staleness: args.allowed_update_staleness,
+        root_expiry_sec: args.root_expiry_sec,
+        allowed_update_staleness_sec: args.allowed_update_staleness_sec,
     });
 
     ctx.accounts.latest_root.bump = ctx.bumps.latest_root;

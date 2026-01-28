@@ -24,10 +24,10 @@ export async function cleanUpRoots(
     logger.debug(`Found ${roots.length} root(s)`);
     for (const root of roots) {
         // programs/solana-world-id-program/src/state/root.rs
-        const readTimeInSeconds = root.account.readBlockTime.div(
+        const readTimeInSeconds = root.account.readBlockTimeUs.div(
             new BN(1_000_000)
         );
-        const expiry = readTimeInSeconds.add(config.rootExpiry);
+        const expiry = readTimeInSeconds.add(config.rootExpirySec);
         const isActive = expiry.gte(blockTime);
         const rootHex = Buffer.from(root.account.root).toString("hex");
         if (isActive) {

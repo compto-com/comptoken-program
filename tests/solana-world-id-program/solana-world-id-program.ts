@@ -116,8 +116,8 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .initialize({
-                    rootExpiry: twentyFourHours,
-                    allowedUpdateStaleness: fiveMinutes,
+                    rootExpirySec: twentyFourHours,
+                    allowedUpdateStalenessSec: fiveMinutes,
                 })
                 .accountsPartial({
                     programData,
@@ -137,8 +137,8 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .initialize({
-                    rootExpiry: twentyFourHours,
-                    allowedUpdateStaleness: fiveMinutes,
+                    rootExpirySec: twentyFourHours,
+                    allowedUpdateStalenessSec: fiveMinutes,
                 })
                 .accountsPartial({
                     programData,
@@ -158,8 +158,8 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .initialize({
-                    rootExpiry: twentyFourHours,
-                    allowedUpdateStaleness: fiveMinutes,
+                    rootExpirySec: twentyFourHours,
+                    allowedUpdateStalenessSec: fiveMinutes,
                 })
                 .accountsPartial({
                     programData,
@@ -178,8 +178,8 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .initialize({
-                    rootExpiry: twentyFourHours,
-                    allowedUpdateStaleness: fiveMinutes,
+                    rootExpirySec: twentyFourHours,
+                    allowedUpdateStalenessSec: fiveMinutes,
                 })
                 .accountsPartial({
                     programData,
@@ -187,10 +187,10 @@ describe("solana-world-id-program", () => {
                 .rpc(),
         ).to.be.fulfilled;
         const config = await program.account.config.fetch(deriveConfigKey(program.programId));
-        assert(config.allowedUpdateStaleness.eq(fiveMinutes), "allowed update staleness does not match");
+        assert(config.allowedUpdateStalenessSec.eq(fiveMinutes), "allowed update staleness does not match");
         assert(config.owner.equals(anchor.getProvider().publicKey), "owner does not match");
         assert(config.pendingOwner === null, "pending owner is set");
-        assert(config.rootExpiry.eq(twentyFourHours), "root expiry does not match");
+        assert(config.rootExpirySec.eq(twentyFourHours), "root expiry does not match");
     });
 
     it(fmtTest("initialize", "Rejects duplicate initialization"), async () => {
@@ -203,8 +203,8 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .initialize({
-                    rootExpiry: twentyFourHours,
-                    allowedUpdateStaleness: fiveMinutes,
+                    rootExpirySec: twentyFourHours,
+                    allowedUpdateStalenessSec: fiveMinutes,
                 })
                 .accountsPartial({
                     programData,
@@ -812,7 +812,7 @@ describe("solana-world-id-program", () => {
         const zeroSeconds = new BN(0);
         await expect(program.methods.setAllowedUpdateStaleness(zeroSeconds).rpc()).to.be.fulfilled;
         const config = await program.account.config.fetch(deriveConfigKey(program.programId));
-        assert(config.allowedUpdateStaleness.eq(zeroSeconds), "config does not match");
+        assert(config.allowedUpdateStalenessSec.eq(zeroSeconds), "config does not match");
     });
 
     it(fmtTest("update_root_with_query", "Rejects stale block time"), async () => {
@@ -835,7 +835,7 @@ describe("solana-world-id-program", () => {
         const fiveMinutes = new BN(5 * 60);
         await expect(program.methods.setAllowedUpdateStaleness(fiveMinutes).rpc()).to.be.fulfilled;
         const config = await program.account.config.fetch(deriveConfigKey(program.programId));
-        assert(config.allowedUpdateStaleness.eq(fiveMinutes), "config does not match");
+        assert(config.allowedUpdateStalenessSec.eq(fiveMinutes), "config does not match");
     });
 
     it(fmtTest("update_root_with_query", "Successfully verifies a mainnet quorum amount of signatures"), async () => {
@@ -902,7 +902,7 @@ describe("solana-world-id-program", () => {
             "readBlockNumber does not match",
         );
         assert(
-            root.readBlockTime.eq(new BN(mockEthCallQueryResponse.blockTime.toString())),
+            root.readBlockTimeUs.eq(new BN(mockEthCallQueryResponse.blockTime.toString())),
             "readBlockNumber does not match",
         );
         assert(root.refundRecipient.equals(anchor.getProvider().publicKey), "refundRecipient does not match");
@@ -918,7 +918,7 @@ describe("solana-world-id-program", () => {
             "readBlockNumber does not match",
         );
         assert(
-            latestRoot.readBlockTime.eq(new BN(mockEthCallQueryResponse.blockTime.toString())),
+            latestRoot.readBlockTimeUs.eq(new BN(mockEthCallQueryResponse.blockTime.toString())),
             "readBlockNumber does not match",
         );
         assert(Buffer.from(latestRoot.root).equals(Buffer.from(rootHash, "hex")), "root does not match");
@@ -1030,7 +1030,7 @@ describe("solana-world-id-program", () => {
         const oneSecond = new BN(1);
         await expect(program.methods.setRootExpiry(oneSecond).rpc()).to.be.fulfilled;
         const config = await program.account.config.fetch(deriveConfigKey(program.programId));
-        assert(config.rootExpiry.eq(oneSecond), "config does not match");
+        assert(config.rootExpirySec.eq(oneSecond), "config does not match");
     });
 
     it(fmtTest("clean_up_root", "Rejects non root account"), async () => {
@@ -1060,7 +1060,7 @@ describe("solana-world-id-program", () => {
     });
 
     it(fmtTest("clean_up_root", "Successfully cleans up an expired root"), async () => {
-        await sleep(1000);
+        await sleep(2000);
         await expect(
             program.methods
                 .cleanUpRoot()
@@ -1112,7 +1112,7 @@ describe("solana-world-id-program", () => {
             "readBlockNumber does not match",
         );
         assert(
-            root.readBlockTime.eq(new BN(mockEthCallQueryResponse.blockTime.toString())),
+            root.readBlockTimeUs.eq(new BN(mockEthCallQueryResponse.blockTime.toString())),
             "readBlockNumber does not match",
         );
         assert(root.refundRecipient.equals(anchor.getProvider().publicKey), "refundRecipient does not match");
@@ -1128,7 +1128,7 @@ describe("solana-world-id-program", () => {
             "readBlockNumber does not match",
         );
         assert(
-            latestRoot.readBlockTime.eq(new BN(mockEthCallQueryResponse.blockTime.toString())),
+            latestRoot.readBlockTimeUs.eq(new BN(mockEthCallQueryResponse.blockTime.toString())),
             "readBlockNumber does not match",
         );
         assert(Buffer.from(latestRoot.root).equals(Buffer.from(rootHash, "hex")), "root does not match");
@@ -1139,7 +1139,7 @@ describe("solana-world-id-program", () => {
     });
 
     it(fmtTest("clean_up_root", "Successfully cleans up with non-payer refund recipient"), async () => {
-        await sleep(1000);
+        await sleep(2000);
         // clean it up with a different account than it was posted with (in "Rejects active root clean up")
         const otherPayerProgram = programPaidBy(next_owner);
         await expect(
@@ -1157,7 +1157,7 @@ describe("solana-world-id-program", () => {
         const twentyFourHours = new BN(24 * 60 * 60);
         await expect(program.methods.setRootExpiry(twentyFourHours).rpc()).to.be.fulfilled;
         const config = await program.account.config.fetch(deriveConfigKey(program.programId));
-        assert(config.rootExpiry.eq(twentyFourHours), "config does not match");
+        assert(config.rootExpirySec.eq(twentyFourHours), "config does not match");
     });
 
     it(fmtTest("set_root_expiry", "Rejects owner account mismatch"), async () => {
@@ -1495,7 +1495,7 @@ describe("solana-world-id-program", () => {
         // update the expiry config
         const oneSecond = new BN(1);
         await expect(program.methods.setRootExpiry(oneSecond).rpc()).to.be.fulfilled;
-        await sleep(1000);
+        await sleep(2000);
         await expect(
             program.methods
                 .verifyGroth16Proof(rootHash, [0], signalHash, nullifierHash, externalNullifierHash, proof)
@@ -1541,7 +1541,7 @@ describe("solana-world-id-program", () => {
         // update the expiry config
         const oneSecond = new BN(1);
         await expect(program.methods.setRootExpiry(oneSecond).rpc()).to.be.fulfilled;
-        await sleep(1000);
+        await sleep(2000);
         await expect(
             program.methods
                 .verifyGroth16Proof(merkleRootHash, [0], signalHash, nullifierHash, externalNullifierHash, proof)

@@ -51,14 +51,14 @@ pub mod solana_world_id_program {
         instructions::claim_ownership(ctx)
     }
 
-    pub fn set_root_expiry(ctx: Context<SetRootExpiry>, root_expiry: u64) -> Result<()> {
-        instructions::set_root_expiry(ctx, root_expiry)
+    pub fn set_root_expiry(ctx: Context<SetRootExpiry>, root_expiry_sec: u64) -> Result<()> {
+        instructions::set_root_expiry(ctx, root_expiry_sec)
     }
 
     pub fn set_allowed_update_staleness(
-        ctx: Context<SetAllowedUpdateStaleness>, allowed_update_staleness: u64,
+        ctx: Context<SetAllowedUpdateStaleness>, allowed_update_staleness_sec: u64,
     ) -> Result<()> {
-        instructions::set_allowed_update_staleness(ctx, allowed_update_staleness)
+        instructions::set_allowed_update_staleness(ctx, allowed_update_staleness_sec)
     }
 
     pub fn verify_groth16_proof(

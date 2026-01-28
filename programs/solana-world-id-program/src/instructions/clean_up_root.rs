@@ -47,8 +47,11 @@ impl<'info> CleanUpRoot<'info> {
         require!(root.root != latest_root.root, SolanaWorldIDProgramError::RootIsLatest);
 
         // Check that the root has expired.
-        let current_timestamp = Clock::get()?.unix_timestamp.try_into().expect("timestamp underflow");
-        require!(!root.is_active(&current_timestamp, &config.root_expiry), SolanaWorldIDProgramError::RootUnexpired);
+        let current_timestamp_sec = Clock::get()?.unix_timestamp.try_into().expect("timestamp underflow");
+        require!(
+            !root.is_active(&current_timestamp_sec, &config.root_expiry_sec),
+            SolanaWorldIDProgramError::RootUnexpired
+        );
 
         Ok(())
     }

@@ -11,7 +11,7 @@ use instructions::*;
 use state::*;
 use utils::*;
 
-declare_id!("DECEXSu551ynxGEkEc3VNSdc1jQ3XDK6dJx7G2G1M1PR");
+declare_id!("7j8p5AoS4z1LCPaDujSae6CXLRLKNThFbK5qqniGw9Nf");
 
 #[cfg(all(feature = "mainnet", feature = "devnet"))]
 compile_error!("Features 'mainnet' and 'devnet' cannot be enabled at the same time.");

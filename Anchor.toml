@@ -8,8 +8,8 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-comptoken = "DECEXSu551ynxGEkEc3VNSdc1jQ3XDK6dJx7G2G1M1PR"
-solana_world_id_program = "xKR13mh99ahnVnA7JRzmWv3eAi1ZYRyDva7VSRFca3G"
+comptoken = "7j8p5AoS4z1LCPaDujSae6CXLRLKNThFbK5qqniGw9Nf"
+solana_world_id_program = "5a3BkvmSEWSkWnBaFZGAUiywmjoqBqzspje9UmxcwG6L"
 
 [registry]
 url = "https://api.apr.dev"

@@ -15,12 +15,12 @@ pub struct Root {
     /// SEED: Root hash.
     pub root: [u8; 32],
     /// SEED: Verification type.
-    pub verification_type: u8,
+    pub verification_type: [u8; 1],
 }
 
 impl Root {
     pub const SEED_PREFIX: &'static [u8] = b"Root";
-    pub const VERIFICATION_TYPE_QUERY: u8 = 0x00;
+    pub const VERIFICATION_TYPE_QUERY: &[u8; 1] = &[0x00]; // [u8; 1] works automatically as a seed for anchor, unlike u8
 
     pub fn is_active(&self, timestamp_sec: &u64, root_expiry_sec: &u64) -> bool {
         let read_block_time_sec = self.read_block_time_us / 1_000_000;

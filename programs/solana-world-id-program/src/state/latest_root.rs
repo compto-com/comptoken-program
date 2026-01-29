@@ -13,7 +13,7 @@ pub struct LatestRoot {
     /// Root hash of the last posted root account.
     pub root: [u8; 32],
     /// SEED: Verification type.
-    pub verification_type: u8,
+    pub verification_type: [u8; 1],
 }
 
 impl LatestRoot {

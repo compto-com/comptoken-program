@@ -1,60 +1,107 @@
 import fs from "fs";
 
-import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
+import { createComptokenProgram, createSolanaWorldIdProgram } from "@compto/comptoken.js";
+import { AnchorProvider, Wallet } from "@coral-xyz/anchor";
 import { clusterApiUrl, Connection, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/web3.js";
 import { BN } from "bn.js";
-import type { Comptoken } from "../target/types/comptoken";
-import type { SolanaWorldIdProgram } from "../target/types/solana_world_id_program";
+import type { Comptoken as ComptokenIdl } from "../target/types/comptoken";
+import type { SolanaWorldIdProgram as SolanaWorldIdIdl } from "../target/types/solana_world_id_program";
 
-const ROOT_EXPIRY_SECONDS = 86400; // 1 day
-const ALLOWED_UPDATE_STALENESS_SECONDS = 5 * 60; // 5 minutes
+const ROOT_EXPIRY_SECONDS = 60 * 60 * 24; // 1 day
+const ALLOWED_UPDATE_STALENESS_SECONDS = 60 * 5; // 5 minutes
 
-const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+//const url = clusterApiUrl("devnet");
+const url = "http://localhost:8899";
+const connection = new Connection(url, "confirmed");
 const wallet = Wallet.local();
 const provider = new AnchorProvider(connection, wallet);
 
 const comptokenIdlJson = fs.readFileSync("./target/idl/comptoken.json", "utf8");
-const comptokenIdl = JSON.parse(comptokenIdlJson) as Comptoken;
-const comptokenProgram = new Program<Comptoken>(comptokenIdl, provider);
+const comptokenIdl: ComptokenIdl = JSON.parse(comptokenIdlJson);
+const comptokenProgram = createComptokenProgram(comptokenIdl, provider);
 
-const solanaWorldIdProgramIdlJson = fs.readFileSync("./target/idl/solana_world_id_program.json", "utf8");
-const solanaWorldIdProgramIdl = JSON.parse(solanaWorldIdProgramIdlJson) as SolanaWorldIdProgram;
-const solanaWorldIdProgram = new Program<SolanaWorldIdProgram>(solanaWorldIdProgramIdl, provider);
+const solanaWorldIdIdlJson = fs.readFileSync("./target/idl/solana_world_id_program.json", "utf8");
+const solanaWorldIdIdl: SolanaWorldIdIdl = JSON.parse(solanaWorldIdIdlJson);
+const solanaWorldIdProgram = createSolanaWorldIdProgram(solanaWorldIdIdl, provider);
 
-console.log(`Comptoken Program ID: ${comptokenProgram.programId.toString()}`);
+console.log(`Comptoken program ID: ${comptokenProgram.programId.toBase58()}`);
+console.log(`Solana World ID program ID: ${solanaWorldIdProgram.programId.toBase58()}`);
 
-const result = await comptokenProgram.methods
-    .initialize()
-    .accounts({
-        slotHashes: SYSVAR_SLOT_HASHES_PUBKEY,
-    })
-    .rpc();
+async function makeIdempotent(rpc: () => Promise<string>): Promise<string> {
+    try {
+        return await rpc();
+    } catch (e) {
+        const msg = (e as Error).message ?? String(e);
+        if (/already|exists|in use|initialized|duplicate/i.test(msg)) {
+            try {
+                // try to find the original transaction
+                const sigInfos = await connection.getSignaturesForAddress(comptokenProgram.programId, { limit: 50 });
 
-//const result = await comptokenProgram.provider.sendAndConfirm(tx, [comptokenProgram.provider.wallet.payer]);
+                for (const sigInfo of sigInfos) {
+                    const tx = await connection.getTransaction(sigInfo.signature, {
+                        commitment: "confirmed",
+                        maxSupportedTransactionVersion: 0,
+                    });
+                    const logs = tx?.meta?.logMessages;
+                    if (logs?.some((log) => /Initialized/.test(log))) {
+                        return sigInfo.signature;
+                    }
+                }
+            } catch (e) {
+                // ignore errors while searching for the original transaction
+            }
+            // could not find the original transaction
+            return null;
+        }
 
-const logs = await comptokenProgram.provider.connection.getTransaction(result, {
-    commitment: "confirmed",
-    maxSupportedTransactionVersion: 0,
-});
+        // rethrow original error if not idempotent case
+        throw e;
+    }
+}
 
-console.log("Transaction logs:");
-logs?.meta?.logMessages?.forEach((log) => console.log(log));
-
-const solanaWorldIdProgramResult = await solanaWorldIdProgram.methods
-    .initialize({
-        rootExpirySec: new BN(ROOT_EXPIRY_SECONDS),
-        allowedUpdateStalenessSec: new BN(ALLOWED_UPDATE_STALENESS_SECONDS),
-    })
-    .accounts({})
-    .rpc();
-
-const solanaWorldIdProgramLogs = await solanaWorldIdProgram.provider.connection.getTransaction(
-    solanaWorldIdProgramResult,
-    {
+async function getLogsForSignature(signature: string): Promise<string[]> {
+    const tx = await connection.getTransaction(signature, {
         commitment: "confirmed",
         maxSupportedTransactionVersion: 0,
-    },
-);
+    });
+    return tx?.meta?.logMessages ?? [];
+}
 
-console.log("Solana World ID Program Transaction logs:");
-solanaWorldIdProgramLogs?.meta?.logMessages?.forEach((log) => console.log(log));
+async function initializeComptoken() {
+    const builder = comptokenProgram.methods.initialize().accounts({
+        slotHashes: SYSVAR_SLOT_HASHES_PUBKEY,
+    });
+    const signature = await makeIdempotent(() => builder.rpc());
+    // threw if failed, string if succeeded/found original, null if could not find original
+    if (signature !== null) {
+        return getLogsForSignature(signature);
+    }
+    // could not find original transaction
+    return ["Already initialized, but could not find original transaction."];
+}
+
+async function initializeSolanaWorldId() {
+    const builder = solanaWorldIdProgram.methods.initialize({
+        rootExpirySec: new BN(ROOT_EXPIRY_SECONDS),
+        allowedUpdateStalenessSec: new BN(ALLOWED_UPDATE_STALENESS_SECONDS),
+    });
+    const signature = await makeIdempotent(() => builder.rpc());
+    // threw if failed, string if succeeded/found original, null if could not find original
+    if (signature !== null) {
+        return getLogsForSignature(signature);
+    }
+    // could not find original transaction
+    return ["Already initialized, but could not find original transaction."];
+}
+
+async function main() {
+    const comptokenLogs = await initializeComptoken();
+    console.log("Comptoken Initialization Logs:");
+    comptokenLogs.forEach((log) => console.log(log));
+
+    const solanaWorldIdLogs = await initializeSolanaWorldId();
+    console.log("Solana World ID Initialization Logs:");
+    solanaWorldIdLogs.forEach((log) => console.log(log));
+}
+
+await main();

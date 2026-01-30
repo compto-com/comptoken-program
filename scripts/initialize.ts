@@ -10,8 +10,8 @@ import type { SolanaWorldIdProgram as SolanaWorldIdIdl } from "../target/types/s
 const ROOT_EXPIRY_SECONDS = 60 * 60 * 24; // 1 day
 const ALLOWED_UPDATE_STALENESS_SECONDS = 60 * 5; // 5 minutes
 
-//const url = clusterApiUrl("devnet");
-const url = "http://localhost:8899";
+const url = clusterApiUrl("devnet");
+//const url = "http://localhost:8899";
 const connection = new Connection(url, "confirmed");
 const wallet = Wallet.local();
 const provider = new AnchorProvider(connection, wallet);

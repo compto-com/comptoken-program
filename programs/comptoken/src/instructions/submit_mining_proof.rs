@@ -74,7 +74,7 @@ impl SubmitMiningProofArgs {
 
         let merkleroot_hash = double_sha256(&[extra_data_bytes, pubkey_bytes]);
 
-        let nbits: &[u8; 4] = &[0xd8, 0xad, 0x0e, 0x18];
+        let nbits: &[u8; 4] = &(0x180eadd8_u32).to_le_bytes();
 
         let header = &[
             version_bytes,
@@ -84,6 +84,8 @@ impl SubmitMiningProofArgs {
             nbits,
             nonce_bytes,
         ];
+
+        msg!("header: {:?}", hex::encode(header.concat()));
 
         // sanity check
         assert_eq!(header.iter().map(|slice| slice.len()).sum::<usize>(), 80);

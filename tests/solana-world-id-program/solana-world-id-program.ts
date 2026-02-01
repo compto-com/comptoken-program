@@ -39,7 +39,7 @@ const sleep = (ms: number): Promise<void> => {
 
 const fmtTest = (instruction: string, name: string) => `${instruction.padEnd(30)} ${name}`;
 
-describe.only("solana-world-id-program", () => {
+describe("solana-world-id-program", () => {
     // Configure the client to use the local cluster.
     anchor.setProvider(anchor.AnchorProvider.env());
 

@@ -61,10 +61,9 @@ impl UserData {
         }
     }
 
-    pub fn insert_proof(&mut self, recent_blockhash: Hash, proof: Hash) -> Result<()> {
+    pub fn insert_proof(&mut self, recent_blockhash: Hash, proof: Hash, max_capacity: usize) -> Result<()> {
         self.update_recent_blockhash(recent_blockhash);
-
-        require_gt!(self.proofs.capacity(), self.proofs.len(), ComptokenError::UserDataProofsCapacityExceeded);
+        require_gt!(max_capacity, self.proofs.len(), ComptokenError::UserDataProofsCapacityExceeded);
         require!(!self.proofs.contains(&proof), ComptokenError::DuplicateMiningProof);
 
         self.proofs.push(proof);

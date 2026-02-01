@@ -1,11 +1,14 @@
 import fs from "fs";
 
-import { createComptokenProgram, createSolanaWorldIdProgram } from "@compto/comptoken.js";
+import {
+    createComptokenProgram,
+    createSolanaWorldIdProgram,
+    type ComptokenIdl,
+    type SolanaWorldIdIdl,
+} from "@compto/comptoken.js";
 import { AnchorProvider, Wallet } from "@coral-xyz/anchor";
-import { clusterApiUrl, Connection, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/web3.js";
+import { clusterApiUrl, Connection, PublicKey, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/web3.js";
 import { BN } from "bn.js";
-import type { Comptoken as ComptokenIdl } from "../target/types/comptoken";
-import type { SolanaWorldIdProgram as SolanaWorldIdIdl } from "../target/types/solana_world_id_program";
 
 const ROOT_EXPIRY_SECONDS = 60 * 60 * 24; // 1 day
 const ALLOWED_UPDATE_STALENESS_SECONDS = 60 * 5; // 5 minutes
@@ -27,7 +30,7 @@ const solanaWorldIdProgram = createSolanaWorldIdProgram(solanaWorldIdIdl, provid
 console.log(`Comptoken program ID: ${comptokenProgram.programId.toBase58()}`);
 console.log(`Solana World ID program ID: ${solanaWorldIdProgram.programId.toBase58()}`);
 
-async function makeIdempotent(rpc: () => Promise<string>): Promise<string> {
+async function makeIdempotent(rpc: () => Promise<string>, programId: PublicKey): Promise<string | null> {
     try {
         return await rpc();
     } catch (e) {
@@ -35,7 +38,7 @@ async function makeIdempotent(rpc: () => Promise<string>): Promise<string> {
         if (/already|exists|in use|initialized|duplicate/i.test(msg)) {
             try {
                 // try to find the original transaction
-                const sigInfos = await connection.getSignaturesForAddress(comptokenProgram.programId, { limit: 50 });
+                const sigInfos = await connection.getSignaturesForAddress(programId, { limit: 50 });
 
                 for (const sigInfo of sigInfos) {
                     const tx = await connection.getTransaction(sigInfo.signature, {
@@ -71,7 +74,7 @@ async function initializeComptoken() {
     const builder = comptokenProgram.methods.initialize().accounts({
         slotHashes: SYSVAR_SLOT_HASHES_PUBKEY,
     });
-    const signature = await makeIdempotent(() => builder.rpc());
+    const signature = await makeIdempotent(() => builder.rpc(), comptokenProgram.programId);
     // threw if failed, string if succeeded/found original, null if could not find original
     if (signature !== null) {
         return getLogsForSignature(signature);
@@ -85,7 +88,7 @@ async function initializeSolanaWorldId() {
         rootExpirySec: new BN(ROOT_EXPIRY_SECONDS),
         allowedUpdateStalenessSec: new BN(ALLOWED_UPDATE_STALENESS_SECONDS),
     });
-    const signature = await makeIdempotent(() => builder.rpc());
+    const signature = await makeIdempotent(() => builder.rpc(), solanaWorldIdProgram.programId);
     // threw if failed, string if succeeded/found original, null if could not find original
     if (signature !== null) {
         return getLogsForSignature(signature);

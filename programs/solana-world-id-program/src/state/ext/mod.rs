@@ -2,7 +2,7 @@ pub use anchor_lang::prelude::*;
 
 cfg_if::cfg_if! {
     if #[cfg(all(feature = "mainnet", feature = "testnet"))] {
-        compile_error!("Features 'mainnet' and 'testnet' cannot be enabled at the same time.");
+        compile_error!("Features 'mainnet' and 'testnet' are mutually exclusive.");
     } else if #[cfg(feature = "mainnet")] {
         pub const CORE_BRIDGE_PROGRAM_ID: Pubkey = pubkey!("worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth");
     } else if #[cfg(feature = "testnet")] {

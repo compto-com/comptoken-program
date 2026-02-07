@@ -14,7 +14,6 @@ import { Logger } from "winston";
 import { getWormholeBridgeData } from "../../tests/solana-world-id-program/helpers/config";
 import { deriveGuardianSetKey } from "../../tests/solana-world-id-program/helpers/guardianSet";
 import { deriveLatestRootKey } from "../../tests/solana-world-id-program/helpers/latestRoot";
-import { deriveRootKey } from "../../tests/solana-world-id-program/helpers/root";
 import { cleanUpRoots } from "./cleanup";
 import { getEnv } from "./env";
 
@@ -131,8 +130,8 @@ async function queryEthLatestRoot(blockNumber: bigint): Promise<QueryProxyQueryR
 
 async function syncRoot(logger: Logger) {
     const ethRoot = await getLatestEthereumRoot();
-    const solRoot = await getLatestSolanaRoot();
     logger.info(`Eth root: ${ethRoot.blockNumber.toString()} ${ethRoot.hash}`);
+    const solRoot = await getLatestSolanaRoot();
     logger.info(`Sol root: ${solRoot.blockNumber.toString()} ${solRoot.hash}`);
     if (ethRoot.hash !== solRoot.hash && ethRoot.blockNumber > solRoot.blockNumber) {
         logger.debug("Eth root is newer, querying...");
@@ -177,8 +176,6 @@ async function syncRoot(logger: Logger) {
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, guardianSetIndex),
                     guardianSignatures: guardianSignaturesAddress.publicKey,
-                    latestRoot: deriveLatestRootKey(program.programId, 1),
-                    root: deriveRootKey(program.programId, Buffer.from(newRootHash, "hex"), 1),
                 })
                 .preInstructions(
                     NETWORK === "mainnet"

@@ -108,7 +108,7 @@ impl ComptokenMiningProof {
     const TARGET_DIFFICULTY_MAINNET: usize = 24;
     #[cfg(feature = "devnet")]
     pub const TARGET_DIFFICULTY: usize = Self::TARGET_DIFFICULTY_DEVNET;
-    #[cfg(not(feature = "devnet"))]
+    #[cfg(feature = "mainnet")]
     pub const TARGET_DIFFICULTY: usize = Self::TARGET_DIFFICULTY_MAINNET;
 
     // The target is 0x0e_ad_d8 followed by <difficulty> zero bytes

@@ -1,0 +1,87 @@
+# TypeScript Anchor Tests
+
+The goal of these tests is to provide positive and negative cases for account annotations and custom errors in the Solana World ID program.
+
+- [x] [initialize](/programs/solana-world-id-program/src/instructions/initialize.rs)
+  - [x] Successfully initializes
+  - [x] Rejects deployer account mismatch
+  - [x] Rejects without deployer as signer
+  - [x] Rejects incorrect program_data
+  - [x] Rejects duplicate initialization
+- [x] [post_signatures](/programs/solana-world-id-program/src/instructions/post_signatures.rs)
+  - [x] Successfully posts signatures
+  - [x] Successfully appends signatures
+  - [x] Rejects append by non-initial payer
+  - [x] Rejects empty signatures
+- [x] [update_root_with_query](/programs/solana-world-id-program/src/instructions/update_root_with_query.rs)
+  - [x] Successfully verifies mock queries and updates root
+  - [x] Successfully closed the signature set
+  - [x] Successfully verifies a mainnet quorum amount of signatures
+  - [x] Successfully verifies and updates subsequent root
+  - [x] Rejects valid root which already exists
+  - [x] Rejects guardian set account not owned by the core bridge
+  - [x] Rejects guardian set account mismatch
+  - [x] Rejects refund recipient account mismatch
+  - [x] Rejects root hash instruction argument mismatch
+  - [x] Rejects expired guardian set
+  - [x] Rejects no quorum
+  - [x] Rejects out of order guardian signatures (InvalidGuardianIndex)
+  - [x] Rejects duplicate guardian signatures (InvalidGuardianIndex)
+  - [x] Rejects guardian index out of bounds (InvalidGuardianIndex)
+  - [x] Rejects invalid signature (InvalidSignature)
+  - [x] Rejects invalid message hash (InvalidGuardianKeyRecovery)
+  - [x] Rejects un-parse-able response
+  - [x] Rejects invalid number of requests
+  - [x] Rejects invalid request chain id
+  - [x] Rejects invalid request type
+  - [x] Rejects invalid request call data length
+  - [x] Rejects invalid request contract
+  - [x] Rejects invalid request signature
+  - [x] Rejects invalid number of responses (defense-in-depth)
+  - [x] Rejects invalid response chain id (defense-in-depth)
+  - [x] Rejects invalid response type (defense-in-depth)
+  - [x] Rejects stale block number
+  - [x] Rejects stale block time
+  - [x] Rejects invalid response results length
+  - [x] Rejects invalid response result length
+- [x] [clean_up_root](/programs/solana-world-id-program/src/instructions/clean_up_root.rs)
+  - [x] Successfully cleans up an expired root
+  - [x] Successfully cleans up with non-payer refund recipient
+  - [x] Rejects non root account
+  - [x] Rejects refund recipient account mismatch
+  - [x] Rejects latest root clean up
+  - [x] Rejects active root clean up
+- [x] [close_signatures](/programs/solana-world-id-program/src/instructions/close_signatures.rs)
+  - [x] Successfully closes signature accounts
+  - [x] Rejects refund recipient account mismatch
+  - [x] Rejects without refund recipient as signer
+- [x] [transfer_ownership](/programs/solana-world-id-program/src/instructions/admin.rs)
+  - [x] Successfully initiates ownership transfer (tested in devnet [tx](https://explorer.solana.com/tx/326xwyUDtMGVXiTb4GTG8kTSbamcQkyGeArCqLmB3A7B9n8YqgTThHrAcneBRYpuLvWvfF4VzPXHKgkQAqaNNezj?cluster=devnet))
+  - [x] Rejects owner account mismatch
+  - [x] Rejects without owner as signer
+  - [x] Rejects incorrect program_data
+  - [x] Rejects when authority is already upgrade lock (tested in devnet [tx](https://explorer.solana.com/tx/4oNUTMbWEk2ZgPMDESLjwTpDyvHP9Gd7JmZ4kkzLVHrrX4BV4FzGjQNQy7JJdJogGoa5q3rohJmB3FVeHEoxXnoo?cluster=devnet))
+- [x] [claim_ownership](/programs/solana-world-id-program/src/instructions/admin.rs)
+  - [x] Successfully completes ownership transfer (tested in devnet [tx](https://explorer.solana.com/tx/5gxvcw7R4oZ9ThKUGts3QkW2QW4PNwjoYJFqfxXTV1vtaNBUbxz8wnX7YVHghoPtHUCErUNhT95nu9Pw1fbUTxyZ?cluster=devnet))
+  - [x] Successfully cancels ownership transfer (tested in devnet [tx](https://explorer.solana.com/tx/3wkymUcYBcR8yw5xtmcu1hdSiZCq7cXdSyG7usTgUckag99FirU57H8Kf7Nd5P7zjsdkef48vJRfnyj2ieSQpEJx?cluster=devnet))
+  - [x] Rejects when upgrade_lock is not upgrade_authority_address
+  - [x] Rejects owner or pending owner account mismatch
+  - [x] Rejects without owner or pending owner as signer
+  - [x] Rejects incorrect program_data
+- [x] [set_root_expiry](/programs/solana-world-id-program/src/instructions/admin.rs)
+  - [x] Successfully updates expiry config
+  - [x] Rejects owner account mismatch
+  - [x] Rejects without owner as signer
+- [x] [set_allowed_update_staleness](/programs/solana-world-id-program/src/instructions/admin.rs)
+  - [x] Successfully updates staleness config
+  - [x] Rejects owner account mismatch
+  - [x] Rejects without owner as signer
+- [x] [verify_groth16_proof](/programs/solana-world-id-program/src/instructions/admin.rs)
+  - [x] Successfully verifies a valid groth16 proof
+  - [x] Successfully verifies against an expired, but latest root
+  - [x] Successfully verifies when is_active would overflow
+  - [x] Rejects root hash without a corresponding PDA
+  - [x] Rejects root hash instruction argument mismatch
+  - [x] Rejects verification type instruction argument mismatch
+  - [x] Rejects an expired, non-latest root
+  - [x] Rejects an invalid proof

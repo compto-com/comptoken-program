@@ -35,11 +35,13 @@ pub const MIN_SUPPLY_LIMIT_AMT: u64 = 1_000_000;
 // TODO: is there a better name for this?
 // this value was chosen by roughly simulating the distribution and choosing a value that reasonably
 // paces the distribution towards the end goal without being too aggressive
+// TODO: consider moving from floating point to integer arithmetic
 pub const ADJUST_FACTOR: f64 = 0.3;
 
 #[constant]
 // the target end daily max increase. this value achieves ~25% max increase over the course of a year. this value was chosen by taking
 // the USD supply increase per year (~7%), and quadrupling it to allow for periods of larger growth, then rounding to a nicer number.
+// TODO: consider moving from floating point to integer arithmetic
 pub const END_GOAL_PERCENT_INCREASE: f64 = 0.00061;
 
 pub const SECONDS_IN_A_DAY: i64 = 86400;

@@ -6,10 +6,17 @@ inputs:
         description: "Version of Solana CLI to use"
         required: false
         default: "stable"
+    anchor-version:
+        description: "Version of Anchor to install"
+        required: false
+        default: "latest"
 outputs:
     installed-solana-cli-version:
         description: "The version of Solana CLI that was installed"
         value: ${{ steps.solana-release.outputs.install_version }}
+    installed-anchor-version:
+        description: "The version of Anchor that was installed"
+        value: ${{ steps.anchor-version.outputs.installed_anchor_version }}
 runs:
     using: "composite"
     steps:
@@ -66,6 +73,16 @@ runs:
           run: echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
           shell: bash
 
+        - name: Install Anchor
+          run: |
+              cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+              avm install ${{ inputs.anchor-version }}
+              avm use ${{ inputs.anchor-version }}
+              echo "installed_anchor_version=$(anchor --version | awk '{print $3}')" >> $GITHUB_OUTPUT
+          shell: bash
+
         - name: Test install
-          run: solana --version
+          run: |
+              solana --version
+              anchor --version
           shell: bash

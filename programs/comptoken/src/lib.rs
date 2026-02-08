@@ -13,6 +13,12 @@ use utils::*;
 
 declare_id!("F9SW7dcgDHV6QGYcFHyqKtykAdsHvL4BJYA2YP4YkEJX");
 
+#[cfg(all(feature = "mainnet", feature = "devnet"))]
+compile_error!("Features 'mainnet' and 'devnet' cannot be enabled at the same time.");
+
+#[cfg(all(not(feature = "mainnet"), not(feature = "devnet")))]
+compile_error!("Either feature 'mainnet' or 'devnet' must be enabled.");
+
 // TODO: go through files and remove/combine msg! calls where appropriate
 
 #[program]

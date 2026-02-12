@@ -57,7 +57,8 @@ pub const WORLD_ID_PROOF_LENGTH: u64 = 256;
 
 pub const WORLD_ID_PROOF_SIZE: usize = 256;
 
-pub const VERIFICATION_TYPE: &[u8; 1] = &[0]; // Query type verification (unsure what this actually means)
+#[constant]
+pub const VERIFICATION_TYPE: &[u8; 1] = &[1]; // Query type verification (unsure what this actually means)
 
 #[constant]
 #[cfg(feature = "mainnet")]

@@ -6,6 +6,7 @@ import {
     createComptokenProgram,
     createDummyProvider,
     createSolanaWorldIdProgram,
+    getComptokenConstants,
     getComptokenIdl,
     getSolanaWorldIdIdl,
 } from "@compto/comptoken.js";
@@ -433,19 +434,19 @@ export async function createStakedTokenAccountAddedAccount({
     };
 }
 
-const VERIFICATION_TYPE = 0;
+const VERIFICATION_TYPE = getComptokenConstants().verificationType;
 
 // PDA helpers (use program address from current IDL)
 export function getWorldIdRootPdaAndBump(rootHash: Uint8Array) {
     return PublicKey.findProgramAddressSync(
-        [Buffer.from("Root"), Buffer.from(rootHash), Buffer.from([VERIFICATION_TYPE])],
+        [Buffer.from("Root"), Buffer.from(rootHash), Buffer.from(VERIFICATION_TYPE)],
         solanaWorldIdProgram.programId,
     );
 }
 
 export function getWorldIdLatestRootPdaAndBump() {
     return PublicKey.findProgramAddressSync(
-        [Buffer.from("LatestRoot"), Buffer.from([VERIFICATION_TYPE])],
+        [Buffer.from("LatestRoot"), Buffer.from(VERIFICATION_TYPE)],
         solanaWorldIdProgram.programId,
     );
 }

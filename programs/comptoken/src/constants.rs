@@ -69,4 +69,4 @@ pub const WORLD_APP_ID: &[u8] = b""; // TODO:;
 pub const WORLD_APP_ID: &[u8] = b"app_staging_651f58cce60b3e824a4206cdcf3d4025"; // staging app id that allows cloud verifications (i.e. not orb based)
 
 #[constant]
-pub const WORLD_ACTION: &[u8] = b"verifyHuman";
+pub const WORLD_ACTION: &[u8] = b"verifyhuman";

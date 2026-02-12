@@ -135,12 +135,15 @@ impl<'info> VerifyGroth16Proof<'info> {
     }
 }
 
-#[access_control(VerifyGroth16Proof::constraints(&ctx, root_hash,
+#[access_control(VerifyGroth16Proof::constraints(
+    &ctx,
+    root_hash,
     verification_type,
     signal_hash,
     nullifier_hash,
     external_nullifier_hash,
-    proof))]
+    proof
+))]
 pub fn verify_groth16_proof(
     ctx: Context<VerifyGroth16Proof>, root_hash: [u8; 32], verification_type: [u8; 1], signal_hash: [u8; 32],
     nullifier_hash: [u8; 32], external_nullifier_hash: [u8; 32], proof: [u8; 256],

@@ -24,26 +24,27 @@ import { prepareTest } from "./utils/utils.ts";
 
 describe("verification", () => {
     const worldIdFixture = (() => {
-        // appId:  "self_hosted"
-        // action: "COMPTO-VerifyHuman"
+        // appId:  "app_staging_651f58cce60b3e824a4206cdcf3d4025"
+        // action: "verifyhuman"
         // signal: user wallet address hex
         const proofHex =
-            "2b51a7d604a61ac24b6a1999b71e1990d20c6d7f1c66067ff510c42814535301" +
-            "1173e5129b2570d156384a05640161f59ca720a32fdbd52c06215823f12ca93e" +
-            "14eeb39f03c8da6f0d169e13b944b14b4b24185d5d12c4b200bc9c13f4893f89" +
-            "2359405b9a367182927ad6c0aebd475dbc86176c584ae89e003abab45199842c" +
-            "14714401354f3c1b05c95997dfe9d2813cfea3c889db138be0b2d4f90053a60e" +
-            "244b97d17c7bb6953790b1a23a9755cff48c8f8449bd74960d44a119282b1f6f" +
-            "176825121ef2377c41ad9b56acf56c61dfde353e658aa08254aa0f3ae367f6c7" +
-            "069cb422d80e4e586f1961552b2b6c0694569c1f815e6b907a03549698c6382a";
+            "0x" +
+            "2012d6598f18f54eb6321dbd3601d4fb17280715535e34bba519e3b1753f249a" +
+            "15431db76b5f9742225d5571221218669def38d04b7c4095bcd9fd7134ea67d5" +
+            "146f0336508cbbc5f390b7180ddc1f88db45cea4c666e8bf19c2fb5d96b43224" +
+            "0fe5798ab62b7510a04859388819396588fbd4526cbef92b93f73a8680b2f774" +
+            "2c8b2f0717489de42c965734108a7cb61b662d122313eac8ba7a9224726067cd" +
+            "03c3512a5b5d5954141034c9992ccd080c9c0e70d39de437b15f06050e884940" +
+            "032b19a95f0b60b3ab245a01407f31d6310e46a98664903024f5c20f34a0afc0" +
+            "0b04c9a57a2ff613324fd7bc2d58d10fc667601671bb97937ebcc7a281f86d94";
 
-        const rootHex = "28836d5b43240ca2763eb0997dcd346b6e3225bfc32fb881e880b5bd116a117c";
-        const nullifierHex = "06e05b30363654d2be77b7b16091735f139f31bc097bb2a1aa9450b96f7df677";
+        const rootHex = "0x07d06889b612bfa4012421ebe6374ad65da74ef76a6040c8e1f74631dd4fef29";
+        const nullifierHex = "0x1ac54fa5387f177af3887514acc3643c1c041e959207b62a647375cba83ccfa6";
 
         return {
-            proof: Buffer.from(proofHex, "hex"),
-            rootHash: Buffer.from(rootHex, "hex"),
-            nullifierHash: Buffer.from(nullifierHex, "hex"),
+            proof: Buffer.from(proofHex.replace("0x", ""), "hex"),
+            rootHash: Buffer.from(rootHex.replace("0x", ""), "hex"),
+            nullifierHash: Buffer.from(nullifierHex.replace("0x", ""), "hex"),
         } as const;
     })();
 

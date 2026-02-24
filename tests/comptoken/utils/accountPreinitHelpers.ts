@@ -1,9 +1,12 @@
-import type { ComptokenIdl, ComptokenProgram, SolanaWorldIdIdl } from "@compto/comptoken.js";
 import {
+    type ComptokenIdl,
+    type ComptokenProgram,
+    type SolanaWorldIdIdl,
     addresses,
     createComptokenProgram,
     createDummyProvider,
     createSolanaWorldIdProgram,
+    getComptokenConstants,
     getComptokenIdl,
     getSolanaWorldIdIdl,
 } from "@compto/comptoken.js";
@@ -431,19 +434,19 @@ export async function createStakedTokenAccountAddedAccount({
     };
 }
 
-const WORLD_VERIFICATION_TYPE = 1;
+const VERIFICATION_TYPE = getComptokenConstants().verificationType;
 
 // PDA helpers (use program address from current IDL)
 export function getWorldIdRootPdaAndBump(rootHash: Uint8Array) {
     return PublicKey.findProgramAddressSync(
-        [Buffer.from("Root"), Buffer.from(rootHash), Buffer.from([WORLD_VERIFICATION_TYPE])],
+        [Buffer.from("Root"), Buffer.from(rootHash), Buffer.from(VERIFICATION_TYPE)],
         solanaWorldIdProgram.programId,
     );
 }
 
 export function getWorldIdLatestRootPdaAndBump() {
     return PublicKey.findProgramAddressSync(
-        [Buffer.from("LatestRoot"), Buffer.from([WORLD_VERIFICATION_TYPE])],
+        [Buffer.from("LatestRoot"), Buffer.from(VERIFICATION_TYPE)],
         solanaWorldIdProgram.programId,
     );
 }
@@ -480,7 +483,7 @@ export async function createWorldIdRootAddedAccount({
         read_block_time_us: new BN(readBlockTimeUs),
         refund_recipient: refundRecipient,
         root: Array.from(rootHash),
-        verification_type: [WORLD_VERIFICATION_TYPE],
+        verification_type: VERIFICATION_TYPE,
     };
 
     const data = await solanaWorldIdCoder.accounts.encode("Root", accountData);
@@ -517,7 +520,7 @@ export async function createWorldIdLatestRootAddedAccount({
         read_block_hash: Array.from(readBlockHash),
         read_block_time_us: new BN(readBlockTimeUs),
         root: Array.from(rootHash),
-        verification_type: [WORLD_VERIFICATION_TYPE],
+        verification_type: VERIFICATION_TYPE,
     };
 
     const data = await solanaWorldIdCoder.accounts.encode("LatestRoot", accountData);

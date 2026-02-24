@@ -14,8 +14,10 @@ pub struct GuardianSignatures {
 
 impl GuardianSignatures {
     pub(crate) fn compute_size(num_guardians: usize) -> usize {
+        // no discriminator, added in the creation instruction
         32 // refund_recipient
-        + 4 + num_guardians * 66 // signatures
+        + 4 // vec length
+        + num_guardians * 66 // signatures
     }
 
     pub fn is_initialized(&self) -> bool {

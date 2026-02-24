@@ -6,8 +6,8 @@ use anchor_lang::prelude::error_code;
 /// * \>= 0x200  -- Proof Verification.
 /// * \>= 0x1000 -- Admin Instructions.
 ///
-/// NOTE: All of these error codes when triggered are offset by `ERROR_CODE_OFFSET` (6000). So for
-/// example, `WriteAuthorityMismatch` will return as 6256.
+/// NOTE: All of these error codes when triggered are offset by anchor's `ERROR_CODE_OFFSET` (6000).
+/// So for example, `WriteAuthorityMismatch` will return as 6256.
 #[error_code]
 pub enum SolanaWorldIDProgramError {
     #[msg("WriteAuthorityMismatch")]

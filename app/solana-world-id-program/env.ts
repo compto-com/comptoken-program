@@ -1,13 +1,21 @@
 import { AnchorProvider, Program, Wallet, setProvider, web3 } from "@coral-xyz/anchor";
 import "dotenv/config";
 import fs from "fs";
+import path from "path";
 import { createLogger, format, transports } from "winston";
-import type { SolanaWorldIdProgram } from "../../target/types/solana_world_id_program";
+import type { SolanaWorldIdProgram } from "../../target/types/solana_world_id_program.ts";
 
-const idl: SolanaWorldIdProgram = JSON.parse(fs.readFileSync("../../target/idl/solana_world_id_program.json", "utf8"));
+const dirname = (() => {
+    if (typeof require !== "undefined") {
+        return __dirname;
+    }
+    return import.meta.dirname;
+})();
 
-//const envFile = import.meta.dirname;
-const envFile = `${__dirname}/.env`;
+const idl: SolanaWorldIdProgram = JSON.parse(
+    fs.readFileSync(path.join(dirname, "../../target/idl/solana_world_id_program.json"), "utf8"),
+);
+const envFile = `${dirname}/.env`;
 
 function fetchEnvSettings() {
     const envVar: Record<string, string | undefined> = {};
@@ -19,7 +27,14 @@ function fetchEnvSettings() {
             .reduce((acc, line) => {
                 const [key, value] = line.split("=");
                 if (key && value) {
-                    acc[key.trim()] = value.trim();
+                    if (
+                        (value.startsWith('"') && value.endsWith('"')) ||
+                        (value.startsWith("'") && value.endsWith("'"))
+                    ) {
+                        acc[key.trim()] = value.slice(1, -1).trim();
+                    } else {
+                        acc[key.trim()] = value.trim();
+                    }
                 }
                 return acc;
             }, envVar);
@@ -35,7 +50,8 @@ function fetchEnvSettings() {
         CLEANUP: process.env.CLEANUP || envVar.CLEANUP || "0",
         ETH_RPC_URL: process.env.ETH_RPC_URL || envVar.ETH_RPC_URL || undefined,
         SOLANA_RPC_URL: process.env.SOLANA_RPC_URL || envVar.SOLANA_RPC_URL || undefined,
-        WALLET: process.env.WALLET || envVar.WALLET || "../tests/keys/pFCBP4bhqdSsrWUVTgqhPsLrfEdChBK17vgFM7TxjxQ.json",
+        WALLET:
+            process.env.WALLET || envVar.WALLET || "../../tests/keys/pFCBP4bhqdSsrWUVTgqhPsLrfEdChBK17vgFM7TxjxQ.json",
     };
 }
 
@@ -107,7 +123,7 @@ export function getEnv(needsQueryApiKeyOrMock: boolean = false) {
     if (NETWORK !== "localnet" && !env.WALLET) {
         throw new Error("WALLET is required when NETWORK !== 'localnet'");
     }
-    const PAYER_PRIVATE_KEY = Buffer.from(require(env.WALLET));
+    const PAYER_PRIVATE_KEY = Buffer.from(JSON.parse(fs.readFileSync(path.join(dirname, env.WALLET), "utf-8")));
     const wallet = new Wallet(web3.Keypair.fromSecretKey(PAYER_PRIVATE_KEY));
     envLogger.info(`Wallet:           ${wallet.publicKey.toString()}`);
 

@@ -8,8 +8,8 @@ use ethnum::u256;
 
 use crate::{
     constants::{
-        GLOBAL_DATA_SEED, MINT_DECIMALS, NULLIFIER_SEED, UNSTAKED_MINT_SEED, USER_DATA_SEED, WORLD_ACTION,
-        WORLD_APP_ID, WORLD_ID_PROOF_SIZE, WORLD_VERIFICATION_TYPE,
+        GLOBAL_DATA_SEED, MINT_DECIMALS, NULLIFIER_SEED, UNSTAKED_MINT_SEED, USER_DATA_SEED, VERIFICATION_TYPE,
+        WORLD_ACTION, WORLD_APP_ID, WORLD_ID_PROOF_SIZE,
     },
     state::{
         error::ComptokenError,
@@ -53,14 +53,14 @@ pub struct Verify<'info> {
     pub world_id_program: Program<'info, WorldIdProgram>,
 
     #[account(
-        seeds = [WorldIdRoot::SEED_PREFIX, args.root_hash.as_ref(), &[WORLD_VERIFICATION_TYPE]],
+        seeds = [WorldIdRoot::SEED_PREFIX, args.root_hash.as_ref(), VERIFICATION_TYPE],
         seeds::program = world_id_program.key(),
         bump,
     )]
     pub world_id_root: Account<'info, WorldIdRoot>,
 
     #[account(
-        seeds = [WorldIdLatestRoot::SEED_PREFIX, &[WORLD_VERIFICATION_TYPE]],
+        seeds = [WorldIdLatestRoot::SEED_PREFIX, VERIFICATION_TYPE],
         seeds::program = world_id_program.key(),
         bump,
     )]
@@ -210,14 +210,14 @@ pub struct Reverify<'info> {
     pub world_id_program: Program<'info, WorldIdProgram>,
 
     #[account(
-        seeds = [WorldIdRoot::SEED_PREFIX, args.root_hash.as_ref(), &[WORLD_VERIFICATION_TYPE]],
+        seeds = [WorldIdRoot::SEED_PREFIX, args.root_hash.as_ref(), VERIFICATION_TYPE],
         seeds::program = world_id_program.key(),
         bump,
     )]
     pub world_id_root: Account<'info, WorldIdRoot>,
 
     #[account(
-        seeds = [WorldIdLatestRoot::SEED_PREFIX, &[WORLD_VERIFICATION_TYPE]],
+        seeds = [WorldIdLatestRoot::SEED_PREFIX, VERIFICATION_TYPE],
         seeds::program = world_id_program.key(),
         bump,
     )]
@@ -288,14 +288,14 @@ pub struct Unverify<'info> {
     pub world_id_program: Program<'info, WorldIdProgram>,
 
     #[account(
-        seeds = [WorldIdRoot::SEED_PREFIX, args.root_hash.as_ref(), &[WORLD_VERIFICATION_TYPE]],
+        seeds = [WorldIdRoot::SEED_PREFIX, args.root_hash.as_ref(), VERIFICATION_TYPE],
         seeds::program = world_id_program.key(),
         bump,
     )]
     pub world_id_root: Account<'info, WorldIdRoot>,
 
     #[account(
-        seeds = [WorldIdLatestRoot::SEED_PREFIX, &[WORLD_VERIFICATION_TYPE]],
+        seeds = [WorldIdLatestRoot::SEED_PREFIX, VERIFICATION_TYPE],
         seeds::program = world_id_program.key(),
         bump,
     )]
@@ -417,7 +417,7 @@ pub fn world_id_verify<'info>(
     world_id_program::cpi::verify_groth16_proof(
         ctx,
         root.to_bytes(),
-        [WORLD_VERIFICATION_TYPE],
+        *VERIFICATION_TYPE,
         hash_to_field(user_wallet_key.as_ref()),
         nullifier_hash.to_bytes(),
         get_external_nullifier_hash(),

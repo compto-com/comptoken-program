@@ -54,7 +54,6 @@ jobs:
                   export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
                   anchor build -p comptoken -- --features=devnet --no-default-features
                   anchor build -p solana_world_id_program
-                  anchor run fix-idl-address # comptoken idl is generated with wrong address, fix it
 
             - name: Upload build artifacts
               uses: actions/upload-artifact@v4

@@ -107,10 +107,6 @@ describe("solana-world-id-program", () => {
             });
         }
         const program = programPaidBy(next_owner);
-        const programData = anchor.web3.PublicKey.findProgramAddressSync(
-            [program.programId.toBuffer()],
-            new anchor.web3.PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
-        )[0];
         const twentyFourHours = new BN(24 * 60 * 60);
         const fiveMinutes = new BN(5 * 60);
         await expect(
@@ -119,19 +115,13 @@ describe("solana-world-id-program", () => {
                     rootExpirySec: twentyFourHours,
                     allowedUpdateStalenessSec: fiveMinutes,
                 })
-                .accountsPartial({
-                    programData,
-                })
+                .accounts({})
                 .rpc(),
         ).to.be.rejectedWith("AnchorError caused by account: deployer. Error Code: ConstraintRaw.");
     });
 
     it(fmtTest("initialize", "Rejects without deployer as signer"), async () => {
         const program = programPaidBy(next_owner);
-        const programData = anchor.web3.PublicKey.findProgramAddressSync(
-            [program.programId.toBuffer()],
-            new anchor.web3.PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
-        )[0];
         const twentyFourHours = new BN(24 * 60 * 60);
         const fiveMinutes = new BN(5 * 60);
         await expect(
@@ -140,8 +130,7 @@ describe("solana-world-id-program", () => {
                     rootExpirySec: twentyFourHours,
                     allowedUpdateStalenessSec: fiveMinutes,
                 })
-                .accountsPartial({
-                    programData,
+                .accounts({
                     deployer: anchor.getProvider().publicKey,
                 })
                 .rpc(),
@@ -181,9 +170,7 @@ describe("solana-world-id-program", () => {
                     rootExpirySec: twentyFourHours,
                     allowedUpdateStalenessSec: fiveMinutes,
                 })
-                .accountsPartial({
-                    programData,
-                })
+                .accounts({})
                 .rpc(),
         ).to.be.fulfilled;
         const config = await program.account.config.fetch(deriveConfigKey(program.programId));
@@ -194,25 +181,25 @@ describe("solana-world-id-program", () => {
     });
 
     it(fmtTest("initialize", "Rejects duplicate initialization"), async () => {
-        const programData = anchor.web3.PublicKey.findProgramAddressSync(
-            [program.programId.toBuffer()],
-            new anchor.web3.PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
-        )[0];
         const twentyFourHours = new BN(24 * 60 * 60);
         const fiveMinutes = new BN(5 * 60);
-        await expect(
-            program.methods
+        try {
+            await program.methods
                 .initialize({
                     rootExpirySec: twentyFourHours,
                     allowedUpdateStalenessSec: fiveMinutes,
                 })
-                .accountsPartial({
-                    programData,
-                })
-                .rpc(),
-        ).to.be.rejectedWith(
-            "Allocate: account Address { address: 93ZPxK6GUEdyWXhAxERe1QBuRQjxrZrRb16xieNGNEed, base: None } already in use",
-        );
+                .accounts({})
+                .rpc();
+            assert.fail("Expected duplicate initialization to fail");
+        } catch (e: any) {
+            // Anchor throws SendTransactionError; inspect logs for the root cause
+            const err = e as anchor.web3.SendTransactionError;
+            const logs = err.logs;
+            const output = Array.isArray(logs) && logs.length > 0 ? logs.join("\n") : String(e?.message ?? e);
+            expect(output).to.include("Allocate: account Address");
+            expect(output).to.include("already in use");
+        }
     });
 
     it(fmtTest("helper", "Mocks query"), async () => {
@@ -288,7 +275,7 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .updateRootWithQuery(Buffer.from(mockQueryResponse.bytes, "hex"), [...Buffer.from(rootHash, "hex")], 0)
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(devnetCoreBridgeAddress, 0),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -304,7 +291,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, 2),
                     guardianSignatures: validMockSignatureSet.publicKey,
                 })
@@ -337,7 +324,7 @@ describe("solana-world-id-program", () => {
                     new Array(32).fill(0),
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: validMockSignatureSet.publicKey,
                 })
@@ -353,7 +340,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: validMockSignatureSet.publicKey,
                 })
@@ -369,7 +356,7 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .updateRootWithQuery(badBytes, [...Buffer.from(rootHash, "hex")], mockGuardianSetIndex)
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -387,7 +374,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     expiredMockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, expiredMockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -405,7 +392,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     noQuorumMockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, noQuorumMockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -429,7 +416,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     twoMockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, twoMockGuardianSetIndex),
                     guardianSignatures: validSignatureSet.publicKey,
                 })
@@ -445,7 +432,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     twoMockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, twoMockGuardianSetIndex),
                     guardianSignatures: invalidSignatureSet.publicKey,
                 })
@@ -463,7 +450,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     noQuorumMockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, noQuorumMockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -481,7 +468,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -508,7 +495,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -530,7 +517,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -552,7 +539,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -596,7 +583,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -619,7 +606,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -642,7 +629,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -665,7 +652,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -687,7 +674,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -709,7 +696,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -754,7 +741,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -777,7 +764,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -800,7 +787,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -823,7 +810,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: validMockSignatureSet.publicKey,
                 })
@@ -864,7 +851,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     nineteenMockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, nineteenMockGuardianSetIndex),
                     guardianSignatures: validSignatureSet.publicKey,
                 })
@@ -886,7 +873,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: validMockSignatureSet.publicKey,
                 })
@@ -907,7 +894,7 @@ describe("solana-world-id-program", () => {
         );
         assert(root.refundRecipient.equals(anchor.getProvider().publicKey), "refundRecipient does not match");
         assert(Buffer.from(root.root).equals(Buffer.from(rootHash, "hex")), "root does not match");
-        assert(Buffer.from(root.verificationType).equals(Buffer.from("00", "hex")), "verificationType does not match");
+        assert(Buffer.from(root.verificationType).equals(Buffer.from([0])), "verificationType does not match");
         const latestRoot = await program.account.latestRoot.fetch(latestRootKey);
         assert(
             Buffer.from(latestRoot.readBlockHash).toString("hex") === mockEthCallQueryResponse.blockHash.substring(2),
@@ -922,10 +909,7 @@ describe("solana-world-id-program", () => {
             "readBlockNumber does not match",
         );
         assert(Buffer.from(latestRoot.root).equals(Buffer.from(rootHash, "hex")), "root does not match");
-        assert(
-            Buffer.from(latestRoot.verificationType).equals(Buffer.from("00", "hex")),
-            "verificationType does not match",
-        );
+        assert(Buffer.from(latestRoot.verificationType).equals(Buffer.from([0])), "verificationType does not match");
     });
 
     it(fmtTest("update_root_with_query", "Successfully closed the signature set"), async () => {
@@ -944,7 +928,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -971,7 +955,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash.substring(2), "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -1008,7 +992,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(dummyRootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -1064,9 +1048,10 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .cleanUpRoot()
-                .accounts({
+                .accountsPartial({
                     root: deriveRootKey(program.programId, Buffer.from(rootHash, "hex"), 0),
                     latestRoot: deriveLatestRootKey(program.programId, 0),
+                    refundRecipient: anchor.getProvider().publicKey,
                 })
                 .rpc(),
         ).to.be.fulfilled;
@@ -1096,7 +1081,7 @@ describe("solana-world-id-program", () => {
                 [...Buffer.from(rootHash, "hex")],
                 mockGuardianSetIndex,
             )
-            .accountsPartial({
+            .accounts({
                 guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                 guardianSignatures: signatureSet.publicKey,
             })
@@ -1117,7 +1102,7 @@ describe("solana-world-id-program", () => {
         );
         assert(root.refundRecipient.equals(anchor.getProvider().publicKey), "refundRecipient does not match");
         assert(Buffer.from(root.root).equals(Buffer.from(rootHash, "hex")), "root does not match");
-        assert(Buffer.from(root.verificationType).equals(Buffer.from("00", "hex")), "verificationType does not match");
+        assert(Buffer.from(root.verificationType).equals(Buffer.from([0])), "verificationType does not match");
         const latestRoot = await program.account.latestRoot.fetch(latestRootKey);
         assert(
             Buffer.from(latestRoot.readBlockHash).toString("hex") === mockEthCallQueryResponse.blockHash.substring(2),
@@ -1132,10 +1117,7 @@ describe("solana-world-id-program", () => {
             "readBlockNumber does not match",
         );
         assert(Buffer.from(latestRoot.root).equals(Buffer.from(rootHash, "hex")), "root does not match");
-        assert(
-            Buffer.from(latestRoot.verificationType).equals(Buffer.from("00", "hex")),
-            "verificationType does not match",
-        );
+        assert(Buffer.from(latestRoot.verificationType).equals(Buffer.from([0])), "verificationType does not match");
     });
 
     it(fmtTest("clean_up_root", "Successfully cleans up with non-payer refund recipient"), async () => {
@@ -1172,7 +1154,7 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .setRootExpiry(new BN(1))
-                .accountsPartial({
+                .accounts({
                     owner: anchor.getProvider().publicKey,
                 })
                 .rpc(),
@@ -1191,7 +1173,7 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .setAllowedUpdateStaleness(new BN(1))
-                .accountsPartial({
+                .accounts({
                     owner: anchor.getProvider().publicKey,
                 })
                 .rpc(),
@@ -1207,9 +1189,8 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .transferOwnership()
-                .accountsPartial({
+                .accounts({
                     newOwner: next_owner.publicKey,
-                    programData,
                 })
                 .rpc(),
         ).to.be.rejectedWith("AnchorError caused by account: config. Error Code: ConstraintHasOne.");
@@ -1242,9 +1223,8 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .claimOwnership()
-                .accountsPartial({
+                .accounts({
                     newOwner: next_owner.publicKey,
-                    programData,
                 })
                 .rpc(),
         ).to.be.rejectedWith("AnchorError caused by account: config. Error Code: InvalidPendingOwner.");
@@ -1259,9 +1239,8 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .claimOwnership()
-                .accountsPartial({
+                .accounts({
                     newOwner: anchor.getProvider().publicKey,
-                    programData,
                 })
                 .rpc(),
         ).to.be.rejectedWith(`Missing signature for public key [\`${anchor.getProvider().publicKey.toString()}\`].`);
@@ -1314,13 +1293,8 @@ describe("solana-world-id-program", () => {
             program.methods
                 .claimOwnership()
                 .accountsPartial({
-                    config: deriveConfigKey(program.programId),
-                    upgradeLock,
                     newOwner: anchor.getProvider().publicKey,
-                    programData,
-                    bpfLoaderUpgradeableProgram: new anchor.web3.PublicKey(
-                        "BPFLoaderUpgradeab1e11111111111111111111111",
-                    ),
+                    upgradeLock,
                 })
                 .rpc(),
         ).to.be.rejectedWith(
@@ -1338,9 +1312,8 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .transferOwnership()
-                .accountsPartial({
+                .accounts({
                     newOwner: next_owner.publicKey,
-                    programData,
                 })
                 .rpc(),
         ).to.be.fulfilled;
@@ -1357,9 +1330,8 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .claimOwnership()
-                .accountsPartial({
+                .accounts({
                     newOwner: anchor.getProvider().publicKey,
-                    programData,
                 })
                 .rpc(),
         ).to.be.fulfilled;
@@ -1377,9 +1349,8 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .transferOwnership()
-                .accountsPartial({
+                .accounts({
                     newOwner: next_owner.publicKey,
-                    programData,
                 })
                 .rpc(),
         ).to.be.fulfilled;
@@ -1387,9 +1358,8 @@ describe("solana-world-id-program", () => {
         await expect(
             programNextOwner.methods
                 .claimOwnership()
-                .accountsPartial({
+                .accounts({
                     newOwner: next_owner.publicKey,
-                    programData,
                 })
                 .rpc(),
         ).to.be.fulfilled;
@@ -1412,6 +1382,14 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .verifyGroth16Proof(rootHash, [0], signalHash, nullifierHash, externalNullifierHash, proof)
+                .accounts({
+                    root: deriveRootKey(
+                        program.programId,
+                        Buffer.from(idkitSuccessResult.merkle_root.substring(2), "hex"),
+                        0,
+                    ),
+                    latestRoot: deriveLatestRootKey(program.programId, 0),
+                })
                 .rpc(),
         ).to.be.fulfilled;
     });
@@ -1430,6 +1408,14 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .verifyGroth16Proof(rootHash, [0], signalHash, nullifierHash, externalNullifierHash, proof)
+                .accounts({
+                    root: deriveRootKey(
+                        program.programId,
+                        Buffer.from("00" + idkitSuccessResult.merkle_root.substring(4), "hex"),
+                        0,
+                    ),
+                    latestRoot: deriveLatestRootKey(program.programId, 0),
+                })
                 .rpc(),
         ).to.be.rejectedWith("AccountNotInitialized.");
     });
@@ -1448,12 +1434,13 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .verifyGroth16Proof(badRootHash, [0], signalHash, nullifierHash, externalNullifierHash, proof)
-                .accountsPartial({
+                .accounts({
                     root: deriveRootKey(
                         program.programId,
                         Buffer.from(idkitSuccessResult.merkle_root.substring(2), "hex"),
                         0,
                     ),
+                    latestRoot: deriveLatestRootKey(program.programId, 0),
                 })
                 .rpc(),
         ).to.be.rejectedWith("AnchorError caused by account: root. Error Code: ConstraintSeeds.");
@@ -1473,7 +1460,7 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .verifyGroth16Proof(rootHash, [1], signalHash, nullifierHash, externalNullifierHash, proof)
-                .accountsPartial({
+                .accounts({
                     root: deriveRootKey(program.programId, Buffer.from(rootHash), 0),
                     latestRoot: deriveLatestRootKey(program.programId, 0),
                 })
@@ -1499,6 +1486,10 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .verifyGroth16Proof(rootHash, [0], signalHash, nullifierHash, externalNullifierHash, proof)
+                .accounts({
+                    root: deriveRootKey(program.programId, Buffer.from(rootHash), 0),
+                    latestRoot: deriveLatestRootKey(program.programId, 0),
+                })
                 .rpc(),
         ).to.be.fulfilled;
         // put things back the way they were
@@ -1522,7 +1513,7 @@ describe("solana-world-id-program", () => {
                     [...Buffer.from(rootHash, "hex")],
                     mockGuardianSetIndex,
                 )
-                .accountsPartial({
+                .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
                     guardianSignatures: signatureSet.publicKey,
                 })
@@ -1545,6 +1536,10 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .verifyGroth16Proof(merkleRootHash, [0], signalHash, nullifierHash, externalNullifierHash, proof)
+                .accounts({
+                    root: deriveRootKey(program.programId, Buffer.from(merkleRootHash), 0),
+                    latestRoot: deriveLatestRootKey(program.programId, 0),
+                })
                 .rpc(),
         ).to.be.rejectedWith("RootExpired.");
         // put things back the way they were
@@ -1571,6 +1566,10 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .verifyGroth16Proof(rootHash, [0], signalHash, nullifierHash, externalNullifierHash, proof)
+                .accounts({
+                    root: deriveRootKey(program.programId, Buffer.from(rootHash), 0),
+                    latestRoot: deriveLatestRootKey(program.programId, 0),
+                })
                 .rpc(),
         ).to.be.fulfilled;
         // put things back the way they were
@@ -1597,21 +1596,37 @@ describe("solana-world-id-program", () => {
         await expect(
             program.methods
                 .verifyGroth16Proof(rootHash, [0], badSignalHash, nullifierHash, externalNullifierHash, proof)
+                .accounts({
+                    root: deriveRootKey(program.programId, Buffer.from(rootHash), 0),
+                    latestRoot: deriveLatestRootKey(program.programId, 0),
+                })
                 .rpc(),
         ).to.be.rejectedWith("Groth16ProofVerificationFailed.");
         await expect(
             program.methods
                 .verifyGroth16Proof(rootHash, [0], signalHash, badNullifierHash, externalNullifierHash, proof)
+                .accounts({
+                    root: deriveRootKey(program.programId, Buffer.from(rootHash), 0),
+                    latestRoot: deriveLatestRootKey(program.programId, 0),
+                })
                 .rpc(),
         ).to.be.rejectedWith("Groth16ProofVerificationFailed.");
         await expect(
             program.methods
                 .verifyGroth16Proof(rootHash, [0], signalHash, nullifierHash, badExternalNullifierHash, proof)
+                .accounts({
+                    root: deriveRootKey(program.programId, Buffer.from(rootHash), 0),
+                    latestRoot: deriveLatestRootKey(program.programId, 0),
+                })
                 .rpc(),
         ).to.be.rejectedWith("Groth16ProofVerificationFailed.");
         await expect(
             program.methods
                 .verifyGroth16Proof(rootHash, [0], signalHash, nullifierHash, externalNullifierHash, badProof)
+                .accounts({
+                    root: deriveRootKey(program.programId, Buffer.from(rootHash), 0),
+                    latestRoot: deriveLatestRootKey(program.programId, 0),
+                })
                 .rpc(),
         ).to.be.rejectedWith("Groth16ProofVerificationFailed.");
     });

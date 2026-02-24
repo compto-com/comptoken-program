@@ -13,6 +13,12 @@ pub enum UserDataVerificationStatus {
     VerificationExpired,
 }
 
+// UserData has a limit on the number of proofs it can store (just over 300)
+// due to size limits on Solana. In practice, no single user should need
+// anywhere near that many proofs (current miners should only get 1
+// proof/month/asic), so this should only be an issue for stratum servers or
+// other large-scale miners that share a single user_data account. (though even
+// then, they can just use multiple user accounts if needed)
 #[account]
 pub struct UserData {
     pub last_claimed_timestamp: i64,
@@ -61,10 +67,9 @@ impl UserData {
         }
     }
 
-    pub fn insert_proof(&mut self, recent_blockhash: Hash, proof: Hash) -> Result<()> {
+    pub fn insert_proof(&mut self, recent_blockhash: Hash, proof: Hash, max_capacity: usize) -> Result<()> {
         self.update_recent_blockhash(recent_blockhash);
-
-        require_gt!(self.proofs.capacity(), self.proofs.len(), ComptokenError::UserDataProofsCapacityExceeded);
+        require_gt!(max_capacity, self.proofs.len(), ComptokenError::UserDataProofsCapacityExceeded);
         require!(!self.proofs.contains(&proof), ComptokenError::DuplicateMiningProof);
 
         self.proofs.push(proof);

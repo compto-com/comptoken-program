@@ -29,7 +29,7 @@ pub struct WormholeGuardianSet {
     pub expiration_time: u32,
 }
 
-// TODO: does there need to be some sort of seed check as well?
+// this account is a pda owned by the core bridge program, so the address must be derived accordingly
 impl Owner for WormholeGuardianSet {
     fn owner() -> Pubkey {
         Pubkey::new_from_array(CORE_BRIDGE_PROGRAM_ID.to_bytes())

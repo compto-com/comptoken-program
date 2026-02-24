@@ -111,7 +111,7 @@ describe("submit_mining_proof", () => {
             expect(Uint8Array.from(userData.recentBlockhash[0])).to.deep.equal(Uint8Array.from(validBlockhash));
             // proofs should contain our mined final hash as first element
             const storedProof0: Uint8Array = Uint8Array.from(userData.proofs[0][0]);
-            expect(Buffer.from(storedProof0).equals(Buffer.from(expectedFinal))).to.equal(true);
+            expect(Buffer.from(storedProof0).toString("hex")).to.equal(Buffer.from(expectedFinal).toString("hex"));
         });
 
         it("accepts consecutive valid proofs under the same recent blockhash until capacity is reached", async function () {

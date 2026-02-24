@@ -74,7 +74,7 @@ impl SubmitMiningProofArgs {
 
         let merkleroot_hash = double_sha256(&[extra_data_bytes, pubkey_bytes]);
 
-        let nbits: &[u8; 4] = &[0xd8, 0xad, 0x0e, 0x18];
+        let nbits: &[u8; 4] = &(0x180eadd8_u32).to_le_bytes();
 
         let header = &[
             version_bytes,
@@ -84,6 +84,8 @@ impl SubmitMiningProofArgs {
             nbits,
             nonce_bytes,
         ];
+
+        msg!("header: {:?}", hex::encode(header.concat()));
 
         // sanity check
         assert_eq!(header.iter().map(|slice| slice.len()).sum::<usize>(), 80);
@@ -150,9 +152,6 @@ pub fn submit_mining_proof(ctx: Context<SubmitMiningProof>, args: SubmitMiningPr
     if !user_data.is_current() {
         return err!(ComptokenError::UserDataNotCurrent);
     }
-    // ensure capacity matches account size
-    let len = user_data.proofs.len();
-    user_data.proofs.reserve_exact(user_data_capacity - len);
 
     let valid_blockhashes = ctx.accounts.global_data.load()?.valid_blockhashes;
     if valid_blockhashes.is_valid_blockhash_stale() {
@@ -162,7 +161,7 @@ pub fn submit_mining_proof(ctx: Context<SubmitMiningProof>, args: SubmitMiningPr
 
     require_keys_eq!(ctx.accounts.user_wallet.key(), mining_proof.pubkey, ComptokenError::InvalidMiningProof);
     require!(mining_proof.is_valid(), ComptokenError::InvalidMiningProof);
-    user_data.insert_proof(valid_blockhashes.valid_blockhash, mining_proof.hash)?;
+    user_data.insert_proof(valid_blockhashes.valid_blockhash, mining_proof.hash, user_data_capacity)?;
 
     msg!("Mining proof stored successfully");
 

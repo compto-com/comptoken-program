@@ -14,7 +14,7 @@ async function verifyGroth16Proof(
     proof: number[],
 ) {
     const tx = await program.methods
-        .verifyGroth16Proof(rootHash, 0, signalHash, nullifierHash, externalNullifierHash, proof)
+        .verifyGroth16Proof(rootHash, [0], signalHash, nullifierHash, externalNullifierHash, proof)
         .rpc();
     console.log("Successfully verified:", tx);
 }

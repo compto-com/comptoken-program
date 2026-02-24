@@ -6,7 +6,10 @@ use anchor_spl::{
 };
 
 use crate::{
-    constants::{GLOBAL_DATA_SEED, MINING_REWARD_AMOUNT, MINT_DECIMALS, UNSTAKED_MINT_SEED, USER_DATA_SEED},
+    constants::{
+        GLOBAL_DATA_SEED, MINING_REWARD_AMOUNT, MINT_DECIMALS, PROOF_DIFFICULTY_NBITS, PROOF_DIFFICULTY_NBITS_DEVNET,
+        UNSTAKED_MINT_SEED, USER_DATA_SEED,
+    },
     state::{
         error::ComptokenError,
         global_data::{GlobalData, ValidBlockhashes},
@@ -74,7 +77,7 @@ impl SubmitMiningProofArgs {
 
         let merkleroot_hash = double_sha256(&[extra_data_bytes, pubkey_bytes]);
 
-        let nbits: &[u8; 4] = &(0x180eadd8_u32).to_le_bytes();
+        let nbits: &[u8; 4] = &(PROOF_DIFFICULTY_NBITS).to_le_bytes();
 
         let header = &[
             version_bytes,
@@ -106,25 +109,28 @@ struct ComptokenMiningProof {
 }
 
 impl ComptokenMiningProof {
-    const TARGET_DIFFICULTY_DEVNET: usize = 29;
-    const TARGET_DIFFICULTY_MAINNET: usize = 24;
-    #[cfg(feature = "devnet")]
-    pub const TARGET_DIFFICULTY: usize = Self::TARGET_DIFFICULTY_DEVNET;
-    #[cfg(feature = "mainnet")]
-    pub const TARGET_DIFFICULTY: usize = Self::TARGET_DIFFICULTY_MAINNET;
-
-    // The target is 0x0e_ad_d8 followed by <difficulty> zero bytes
-    const fn make_target_bytes(difficulty: usize) -> Hash {
+    const fn make_target_bytes(nbits: u32) -> Hash {
+        // bitcoin nbits format: [1 byte exponent, 3 bytes coefficient] as u32
+        // the target is then coefficient * 2^(8 * (exponent - 3))
+        // or in other words, the difficulty is a zeroed [u8; 32] with the coefficient placed so that
+        // there are exponent - 3 trailing zero bytes (or 32 - exponent leading zero bytes)
+        let exponent = ((nbits >> 24) & 0xff) as usize; // extract the top byte which encodes the number of leading zeros
         let mut target_bytes = [0; 32];
-        target_bytes[32 - (difficulty + 3)] = 0x0e;
-        target_bytes[32 - (difficulty + 2)] = 0xad;
-        target_bytes[32 - (difficulty + 1)] = 0xd8;
+        target_bytes[32 - (exponent + 3)] = ((nbits >> 16) & 0xff) as u8;
+        target_bytes[32 - (exponent + 2)] = ((nbits >> 8) & 0xff) as u8;
+        target_bytes[32 - (exponent + 1)] = (nbits & 0xff) as u8;
         Hash::new_from_array(target_bytes)
     }
 
-    pub const TARGET_BYTES_DEVNET: Hash = Self::make_target_bytes(Self::TARGET_DIFFICULTY_DEVNET);
-    pub const TARGET_BYTES_MAINNET: Hash = Self::make_target_bytes(Self::TARGET_DIFFICULTY_MAINNET);
-    pub const TARGET_BYTES: Hash = Self::make_target_bytes(Self::TARGET_DIFFICULTY);
+    #[allow(dead_code)] // used only in devnet configuration, warns in mainnet configuration
+    pub const TARGET_BYTES_DEVNET: Hash = Self::make_target_bytes(PROOF_DIFFICULTY_NBITS_DEVNET);
+    #[allow(dead_code)] // used only in mainnet configuration, warns in devnet configuration
+    pub const TARGET_BYTES_MAINNET: Hash = Self::make_target_bytes(PROOF_DIFFICULTY_NBITS);
+
+    #[cfg(feature = "devnet")]
+    pub const TARGET_BYTES: Hash = Self::TARGET_BYTES_DEVNET;
+    #[cfg(feature = "mainnet")]
+    pub const TARGET_BYTES: Hash = Self::TARGET_BYTES_MAINNET;
 
     pub fn new(pubkey: Pubkey, hash: Hash) -> Self {
         Self { pubkey, hash }
@@ -134,12 +140,6 @@ impl ComptokenMiningProof {
         self.hash < Self::TARGET_BYTES
     }
 }
-
-#[constant]
-pub const COMPTOKEN_MINING_PROOF_TARGET: Hash = ComptokenMiningProof::TARGET_BYTES_MAINNET;
-
-#[constant]
-pub const COMPTOKEN_MINING_PROOF_TARGET_DEVNET: Hash = ComptokenMiningProof::TARGET_BYTES_DEVNET;
 
 fn double_sha256(data: &[&[u8]]) -> [u8; 32] {
     hashv(&[hashv(data).as_ref()]).to_bytes()

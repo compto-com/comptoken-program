@@ -26,10 +26,16 @@ pub const NULLIFIER_SEED: &[u8] = b"nullifier";
 pub const COMPTOKEN_DISTRIBUTION_MULTIPLIER: u64 = 146_000;
 
 #[constant]
-pub const EARLY_ADOPTER_COUNT: u32 = 1_000_000_000;
+pub const EARLY_ADOPTER_COUNT: u32 = 1_000_000;
 
 #[constant]
 pub const MIN_SUPPLY_LIMIT_AMT: u64 = 1_000_000;
+
+#[constant]
+pub const PROOF_DIFFICULTY_NBITS: u32 = 0x180EADD8;
+
+#[constant]
+pub const PROOF_DIFFICULTY_NBITS_DEVNET: u32 = 0x1D0EADD8;
 
 #[constant]
 // TODO: is there a better name for this?

@@ -80,18 +80,4 @@ pub mod comptoken {
     pub fn unverify2(ctx: Context<Unverify2>, args: Unverify2Args) -> Result<()> {
         verification::unverify2(ctx, args)
     }
-
-    #[cfg(feature = "testmode")]
-    pub fn test_mint_staked_unchecked(
-        ctx: Context<TestMintStakedUnchecked>, args: TestMintStakedUncheckedArgs,
-    ) -> Result<()> {
-        test_instructions::test_mint_staked_unchecked(ctx, args)
-    }
-
-    #[cfg(feature = "testmode")]
-    pub fn test_mint_unstaked_unchecked(
-        ctx: Context<TestMintUnstakedUnchecked>, args: TestMintUnstakedUncheckedArgs,
-    ) -> Result<()> {
-        test_instructions::test_mint_unstaked_unchecked(ctx, args)
-    }
 }

@@ -28,7 +28,7 @@ pub struct Initialize<'info> {
         owner = token_program.key(),
     )]
     /// CHECK: This account will be initialized as a Token2022 mint with NonTransferable extension
-    pub mint_staked: UncheckedAccount<'info>,
+    pub staked_mint: UncheckedAccount<'info>,
 
     #[account(
         init,
@@ -39,7 +39,7 @@ pub struct Initialize<'info> {
         bump,
         mint::token_program = token_program,
     )]
-    pub mint_unstaked: InterfaceAccount<'info, Mint>,
+    pub unstaked_mint: InterfaceAccount<'info, Mint>,
 
     #[account(
         init,
@@ -64,7 +64,7 @@ pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         ctx.accounts.token_program.to_account_info(),
         NonTransferableMintInitialize {
             token_program_id: ctx.accounts.token_program.to_account_info(),
-            mint: ctx.accounts.mint_staked.to_account_info(),
+            mint: ctx.accounts.staked_mint.to_account_info(),
         },
     ))?;
 
@@ -72,7 +72,7 @@ pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
     initialize_mint2(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
-            InitializeMint2 { mint: ctx.accounts.mint_staked.to_account_info() },
+            InitializeMint2 { mint: ctx.accounts.staked_mint.to_account_info() },
         )
         .with_signer(&[&[GLOBAL_DATA_SEED]]),
         MINT_DECIMALS,

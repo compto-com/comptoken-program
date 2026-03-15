@@ -6,7 +6,6 @@ pub mod initialize;
 pub mod resize_user_data_account;
 pub mod stake;
 pub mod submit_mining_proof;
-pub mod test_instructions;
 pub mod unstake;
 pub mod verification;
 
@@ -18,6 +17,5 @@ pub use initialize::*;
 pub use resize_user_data_account::*;
 pub use stake::*;
 pub use submit_mining_proof::*;
-pub use test_instructions::*;
 pub use unstake::*;
 pub use verification::*;

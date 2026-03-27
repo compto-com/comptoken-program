@@ -5,7 +5,6 @@ import { Clock } from "solana-bankrun";
 const { decodeValidBlockhashesReturn } = utils;
 
 import {
-    baseProgram,
     createGlobalDataAddedAccount,
     createStakedMintAddedAccount,
     createUnstakedMintAddedAccount,
@@ -13,7 +12,7 @@ import {
 import { fetchGlobalData } from "./utils/stateHelpers.ts";
 import { normalizeTime, prepareTest, subtractDays, toUnixTime } from "./utils/utils.ts";
 
-describe("get_valid_blockhashes", () => {
+describe("sync_valid_blockhashes", () => {
     describe("Core success path scenarios", () => {
         it("returns the valid blockhash when announced and within the validity window", async () => {
             // Arrange: set both announced and valid within 24h window (fresh)
@@ -31,7 +30,7 @@ describe("get_valid_blockhashes", () => {
             // or get the transaction from it's signature with provider.connection.getTransaction,
             // so simulate the transaction instead
             const ix = await program.methods
-                .getValidBlockhashes()
+                .syncValidBlockhashes()
                 .accounts({ slotHashes: SYSVAR_SLOT_HASHES_PUBKEY })
                 .instruction();
             const tx = new Transaction().add(ix);
@@ -59,7 +58,7 @@ describe("get_valid_blockhashes", () => {
             const { context, program, provider } = await prepareTest(accounts);
 
             // see note above about why we simulate
-            const builder = program.methods.getValidBlockhashes().accounts({ slotHashes: SYSVAR_SLOT_HASHES_PUBKEY });
+            const builder = program.methods.syncValidBlockhashes().accounts({ slotHashes: SYSVAR_SLOT_HASHES_PUBKEY });
             const ix = await builder.instruction();
             const tx = new Transaction().add(ix);
             const resp = await provider.simulate(tx, [context.payer]);
@@ -95,7 +94,7 @@ describe("get_valid_blockhashes", () => {
             const before = await fetchGlobalData(program);
             const beforeValid = before.validBlockhashes.validBlockhash[0];
 
-            const builder = program.methods.getValidBlockhashes().accounts({ slotHashes: SYSVAR_SLOT_HASHES_PUBKEY });
+            const builder = program.methods.syncValidBlockhashes().accounts({ slotHashes: SYSVAR_SLOT_HASHES_PUBKEY });
             const ix = await builder.instruction();
             const tx = new Transaction().add(ix);
             const resp = await provider.simulate(tx, [context.payer]);

@@ -39,8 +39,8 @@ pub mod comptoken {
         daily_distribution::daily_distribution(ctx)
     }
 
-    pub fn get_valid_blockhashes(ctx: Context<GetValidBlockhashes>) -> Result<ValidBlockhashes> {
-        get_valid_blockhashes::get_valid_blockhashes(ctx)
+    pub fn sync_valid_blockhashes(ctx: Context<SyncValidBlockhashes>) -> Result<CurrentBlockhashes> {
+        sync_valid_blockhashes::sync_valid_blockhashes(ctx)
     }
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {

@@ -10,9 +10,6 @@ jobs:
             - name: Setup Solana
               id: setup-solana
               uses: ./.github/actions/setup-solana
-              with:
-                  solana-cli-version: "2.3.13"
-                  anchor-version: "0.32.1"
 
             - name: Generate keypair
               run: solana-keygen new --no-bip39-passphrase --silent
@@ -28,9 +25,6 @@ jobs:
 
             - name: Setup Solana
               uses: ./.github/actions/setup-solana
-              with:
-                  solana-cli-version: "2.3.13"
-                  anchor-version: "0.32.1"
 
             - name: Generate keypair
               run: solana-keygen new --no-bip39-passphrase --silent
@@ -62,6 +56,7 @@ jobs:
                   include-hidden-files: true
                   path: |
                       target/deploy/*
+                      target/idl/*
                       test/.cache/*
 
     component-tests:
@@ -73,8 +68,9 @@ jobs:
 
             - name: Setup Solana
               uses: ./.github/actions/setup-solana
-              with:
-                  solana-cli-version: "2.1.20"
+
+            - name: Generate keypair
+              run: solana-keygen new --no-bip39-passphrase --silent
 
             - name: Download build artifacts
               uses: actions/download-artifact@v4
@@ -104,8 +100,6 @@ jobs:
 
             - name: Setup Solana
               uses: ./.github/actions/setup-solana
-              with:
-                  solana-cli-version: "2.1.20"
 
             - name: Download build artifacts
               uses: actions/download-artifact@v4

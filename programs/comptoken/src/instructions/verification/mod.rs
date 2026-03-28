@@ -269,13 +269,14 @@ pub fn reverify(ctx: Context<Reverify>, args: WorldIdVerificationData) -> Result
 
 /// This instruction is called to unverify an account when the user does not have access to the wallet
 /// associated with the original verification (e.g. lost keys). This instruction verifies a World ID proof
-/// to ensure thee user is the same person as the original verification, then removes their verification status.
+/// to ensure the user is the same person as the original verification, then removes their verification status.
 /// (allowing them to verify again with a new wallet if desired).
 #[derive(Accounts)]
 #[instruction(args: WorldIdVerificationData)]
 pub struct Unverify<'info> {
-    /// CHECK: user_wallet is never read or written to, only used to identify ownership of nullifier
-    ///        and user data accounts.
+    /// CHECK: user_wallet is never read or written to, only used to identify ownership of nullifier and user data accounts.
+    ///
+    /// intentionally not a Signer since the user may not have access to the wallet used in the original verification
     pub user_wallet: UncheckedAccount<'info>,
 
     #[account(
@@ -359,6 +360,10 @@ pub fn unverify(ctx: Context<Unverify>, args: WorldIdVerificationData) -> Result
     Ok(())
 }
 
+/// This instruction is called to unverify an account when the user does not have access to the World Id proof
+/// associated with the original verification. This instruction signs the transaction with the wallet used in the
+/// original verification to verify ownership of the nullifier account, to ensure the user has ownership of the
+/// account, then removes their verification status. (allowing them to verify again with a new proof if desired).
 #[derive(Accounts)]
 #[instruction(args: Unverify2Args)]
 pub struct Unverify2<'info> {

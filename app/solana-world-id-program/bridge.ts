@@ -46,10 +46,10 @@ type RootHashAndBlockNumber = {
 };
 
 function getGuardianSignatureAddress(user: anchor.web3.Keypair): anchor.web3.Keypair {
-    // no official "correct" guardian signatures address, but this ensures it's deterministic per payer
-    // theres probably a better way to do this, but this is mostly for testing/example purposes
+    // no official "correct" guardian signatures address, but this ensures it's deterministic per
+    // payer theres probably a better way to do this, but this is for testing/example purposes
     const hash = Buffer.from(anchor.utils.sha256.hash(`guardian_signatures${user.publicKey.toString()}`));
-    return anchor.web3.Keypair.fromSeed(hash.slice(0, 32));
+    return anchor.web3.Keypair.fromSeed(hash.subarray(0, 32));
 }
 
 async function getLatestEthereumRoot(): Promise<RootHashAndBlockNumber> {

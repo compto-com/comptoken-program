@@ -746,12 +746,14 @@ describe("daily_distribution", () => {
                 return { unrounded, expected };
             }
 
-            const nearHalfLow = 1; // extremely small verified count -> ratio ~= 1
-            const nearHalfHigh = 50_000_000; // still << early adopter count
+            const nearHalfLow = 258_983; // chosen so unrounded fractional part is just below .5
+            const nearHalfHigh = 296_535; // chosen so unrounded fractional part is just above .5
             const caseLow = await runCase(nearHalfLow);
-            const caseHigh = await runCase(nearHalfHigh);
             expect(caseLow.expected).to.be.a("number");
+            expect(caseLow.unrounded).to.be.greaterThan(caseLow.expected, "Expected to round down near .5 boundary");
+            const caseHigh = await runCase(nearHalfHigh);
             expect(caseHigh.expected).to.be.a("number");
+            expect(caseHigh.unrounded).to.be.lessThan(caseHigh.expected, "Expected to round up near .5 boundary");
         });
 
         it("parity matches round_ties_even for high_water_mark limiter rounding (approximate)", async () => {

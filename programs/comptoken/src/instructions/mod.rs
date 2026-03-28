@@ -1,23 +1,21 @@
 pub mod collect;
 pub mod create_user_data_account;
 pub mod daily_distribution;
-pub mod get_valid_blockhashes;
 pub mod initialize;
 pub mod resize_user_data_account;
 pub mod stake;
 pub mod submit_mining_proof;
-pub mod test_instructions;
+pub mod sync_valid_blockhashes;
 pub mod unstake;
 pub mod verification;
 
 pub use collect::*;
 pub use create_user_data_account::*;
 pub use daily_distribution::*;
-pub use get_valid_blockhashes::*;
 pub use initialize::*;
 pub use resize_user_data_account::*;
 pub use stake::*;
 pub use submit_mining_proof::*;
-pub use test_instructions::*;
+pub use sync_valid_blockhashes::*;
 pub use unstake::*;
 pub use verification::*;

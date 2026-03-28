@@ -5,11 +5,11 @@ inputs:
     solana-cli-version:
         description: "Version of Solana CLI to use"
         required: false
-        default: "stable"
+        default: "from-anchor-toml"
     anchor-version:
         description: "Version of Anchor to install"
         required: false
-        default: "latest"
+        default: "from-anchor-toml"
 outputs:
     installed-solana-cli-version:
         description: "The version of Solana CLI that was installed"
@@ -27,6 +27,49 @@ runs:
               curl -sSfL https://raw.githubusercontent.com/anza-xyz/agave/master/ci/semver_bash/semver.sh -o scripts/semver_bash/semver.sh
           shell: bash
 
+        - name: Resolve toolchain versions
+          id: resolve-versions
+          run: |
+              INPUT_SOLANA_VERSION='${{ inputs.solana-cli-version }}'
+              INPUT_ANCHOR_VERSION='${{ inputs.anchor-version }}'
+
+              TOML_SOLANA_VERSION=""
+              TOML_ANCHOR_VERSION=""
+              if [ -f Anchor.toml ]; then
+                  TOML_SOLANA_VERSION=$(grep -E '^\s*solana_version\s*=' Anchor.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+                  TOML_ANCHOR_VERSION=$(grep -E '^\s*anchor_version\s*=' Anchor.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+              fi
+
+              if [ "$INPUT_SOLANA_VERSION" = "from-anchor-toml" ]; then
+                  SOLANA_VERSION="$TOML_SOLANA_VERSION"
+              else
+                  SOLANA_VERSION="$INPUT_SOLANA_VERSION"
+              fi
+
+              if [ "$INPUT_ANCHOR_VERSION" = "from-anchor-toml" ]; then
+                  ANCHOR_VERSION="$TOML_ANCHOR_VERSION"
+              else
+                  ANCHOR_VERSION="$INPUT_ANCHOR_VERSION"
+              fi
+
+              if [ -z "$SOLANA_VERSION" ]; then
+                  echo "Could not resolve Solana CLI version (input=$INPUT_SOLANA_VERSION)."
+                  echo "If using from-anchor-toml, ensure Anchor.toml has toolchain.solana_version."
+                  exit 1
+              fi
+
+              if [ -z "$ANCHOR_VERSION" ]; then
+                  echo "Could not resolve Anchor version (input=$INPUT_ANCHOR_VERSION)."
+                  echo "If using from-anchor-toml, ensure Anchor.toml has toolchain.anchor_version."
+                  exit 1
+              fi
+
+              echo "Using Solana CLI version selector: $SOLANA_VERSION"
+              echo "Using Anchor version selector: $ANCHOR_VERSION"
+              echo "solana_cli_version=$SOLANA_VERSION" >> "$GITHUB_OUTPUT"
+              echo "anchor_version=$ANCHOR_VERSION" >> "$GITHUB_OUTPUT"
+          shell: bash
+
         - name: Determine Solana CLI version
           id: solana-release
           run: |
@@ -34,25 +77,27 @@ runs:
               output=$("scripts/channel-info.sh")
               read -r BETA_CHANNEL_LATEST_TAG STABLE_CHANNEL_LATEST_TAG <<< "$output"
 
-              if [[ "${{ inputs.solana-cli-version }}" =~ ^[a-zA-Z] ]]; then
-                if [[ ${{ inputs.solana-cli-version }} =~ ^(edge|stable|beta)$ ]]; then
-                  if [[ ${{ inputs.solana-cli-version }} == "edge" ]]; then
+              SOLANA_VERSION='${{ steps.resolve-versions.outputs.solana_cli_version }}'
+
+              if [[ "$SOLANA_VERSION" =~ ^[a-zA-Z] ]]; then
+                if [[ "$SOLANA_VERSION" =~ ^(edge|stable|beta)$ ]]; then
+                  if [[ "$SOLANA_VERSION" == "edge" ]]; then
                     echo "Using Solana CLI edge channel"
                     echo "install_version=edge" >> $GITHUB_OUTPUT
-                  elif [[ ${{ inputs.solana-cli-version }} == "stable" ]]; then
+                  elif [[ "$SOLANA_VERSION" == "stable" ]]; then
                     echo "install_version=$STABLE_CHANNEL_LATEST_TAG" >> $GITHUB_OUTPUT
-                    echo "Using Solana CLI stable channel $install_version"
-                  elif [[ ${{ inputs.solana-cli-version }} == "beta" ]]; then
+                    echo "Using Solana CLI stable channel $STABLE_CHANNEL_LATEST_TAG"
+                  elif [[ "$SOLANA_VERSION" == "beta" ]]; then
                     echo "Using Solana CLI beta channel"
                     echo "install_version=$BETA_CHANNEL_LATEST_TAG" >> $GITHUB_OUTPUT
                   fi
                 else
-                  echo "Invalid Solana CLI channel: ${{ inputs.solana-cli-version }}"
+                  echo "Invalid Solana CLI channel: $SOLANA_VERSION"
                   exit 1
                 fi
               else
-                echo "Using Solana CLI ${{ inputs.solana-cli-version }}"
-                echo "install_version=v${{ inputs.solana-cli-version }}" >> $GITHUB_OUTPUT
+                echo "Using Solana CLI $SOLANA_VERSION"
+                echo "install_version=v$SOLANA_VERSION" >> $GITHUB_OUTPUT
               fi
           shell: bash
 
@@ -74,10 +119,11 @@ runs:
           shell: bash
 
         - name: Install Anchor
+          id: anchor-version
           run: |
               cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
-              avm install ${{ inputs.anchor-version }}
-              avm use ${{ inputs.anchor-version }}
+              avm install "${{ steps.resolve-versions.outputs.anchor_version }}"
+              avm use "${{ steps.resolve-versions.outputs.anchor_version }}"
               echo "installed_anchor_version=$(anchor --version | awk '{print $3}')" >> $GITHUB_OUTPUT
           shell: bash
 

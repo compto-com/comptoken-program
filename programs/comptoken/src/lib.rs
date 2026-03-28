@@ -39,8 +39,8 @@ pub mod comptoken {
         daily_distribution::daily_distribution(ctx)
     }
 
-    pub fn get_valid_blockhashes(ctx: Context<GetValidBlockhashes>) -> Result<ValidBlockhashes> {
-        get_valid_blockhashes::get_valid_blockhashes(ctx)
+    pub fn sync_valid_blockhashes(ctx: Context<SyncValidBlockhashes>) -> Result<CurrentBlockhashes> {
+        sync_valid_blockhashes::sync_valid_blockhashes(ctx)
     }
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
@@ -79,19 +79,5 @@ pub mod comptoken {
 
     pub fn unverify2(ctx: Context<Unverify2>, args: Unverify2Args) -> Result<()> {
         verification::unverify2(ctx, args)
-    }
-
-    #[cfg(feature = "testmode")]
-    pub fn test_mint_staked_unchecked(
-        ctx: Context<TestMintStakedUnchecked>, args: TestMintStakedUncheckedArgs,
-    ) -> Result<()> {
-        test_instructions::test_mint_staked_unchecked(ctx, args)
-    }
-
-    #[cfg(feature = "testmode")]
-    pub fn test_mint_unstaked_unchecked(
-        ctx: Context<TestMintUnstakedUnchecked>, args: TestMintUnstakedUncheckedArgs,
-    ) -> Result<()> {
-        test_instructions::test_mint_unstaked_unchecked(ctx, args)
     }
 }

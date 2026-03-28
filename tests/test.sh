@@ -9,19 +9,13 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 TEST_FILES=$(find "$PROJECT_DIR/tests" -name "*.ts" -not -path "*/utils/*" -not -path "*/helpers/*")
 
-TS_MOCHA_PATH="$PROJECT_DIR/node_modules/.bin/ts-mocha"
-if [ ! -f "$TS_MOCHA_PATH" ]; then
-    echo "Error: ts-mocha not found at $TS_MOCHA_PATH"
+MOCHA_PATH="$PROJECT_DIR/node_modules/mocha/bin/mocha.js"
+if [ ! -f "$MOCHA_PATH" ]; then
+    echo "Error: mocha not found at $MOCHA_PATH"
     exit 1
 fi
 
-TS_CONFIG_PATH="$PROJECT_DIR/tsconfig.json"
-if [ ! -f "$TS_CONFIG_PATH" ]; then
-    echo "Error: tsconfig.json not found at $TS_CONFIG_PATH"
-    exit 1
-fi
-
-TEST_CMD=(npx tsx "$TS_MOCHA_PATH" --require 'mocha-suppress-logs' -p "$TS_CONFIG_PATH" --timeout 1000000)
+TEST_CMD=(node --import tsx "$MOCHA_PATH" --require 'mocha-suppress-logs' --timeout 1000000)
 
 for file in $TEST_FILES; do
     if [ ! -f "$file" ]; then

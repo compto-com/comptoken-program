@@ -32,6 +32,12 @@ pub const EARLY_ADOPTER_COUNT: u32 = 1_000_000_000;
 pub const MIN_SUPPLY_LIMIT_AMT: u64 = 1_000_000;
 
 #[constant]
+pub const PROOF_DIFFICULTY_NBITS: u32 = 0x180EADD8;
+
+#[constant]
+pub const PROOF_DIFFICULTY_NBITS_DEVNET: u32 = 0x1D0EADD8;
+
+#[constant]
 // TODO: is there a better name for this?
 // this value was chosen by roughly simulating the distribution and choosing a value that reasonably
 // paces the distribution towards the end goal without being too aggressive

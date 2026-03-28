@@ -7,7 +7,7 @@ use crate::{
 
 #[derive(Accounts)]
 #[instruction()]
-pub struct GetValidBlockhashes<'info> {
+pub struct SyncValidBlockhashes<'info> {
     #[account(
         mut,
         seeds = [GLOBAL_DATA_SEED],
@@ -21,17 +21,17 @@ pub struct GetValidBlockhashes<'info> {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct ValidBlockhashes {
+pub struct CurrentBlockhashes {
     announced: Hash,
     valid: Hash,
 }
 
-pub fn get_valid_blockhashes(ctx: Context<GetValidBlockhashes>) -> Result<ValidBlockhashes> {
+pub fn sync_valid_blockhashes(ctx: Context<SyncValidBlockhashes>) -> Result<CurrentBlockhashes> {
     let mut global_data = ctx.accounts.global_data.load_mut()?;
 
     global_data.valid_blockhashes.update(&ctx.accounts.slot_hashes);
 
-    Ok(ValidBlockhashes {
+    Ok(CurrentBlockhashes {
         announced: global_data.valid_blockhashes.announced_blockhash,
         valid: global_data.valid_blockhashes.valid_blockhash,
     })

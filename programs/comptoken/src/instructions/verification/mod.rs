@@ -273,7 +273,7 @@ pub fn reverify(ctx: Context<Reverify>, args: WorldIdVerificationData) -> Result
 /// (allowing them to verify again with a new wallet if desired).
 #[derive(Accounts)]
 #[instruction(args: WorldIdVerificationData)]
-pub struct Unverify<'info> {
+pub struct UnverifyWithProofRecovery<'info> {
     /// CHECK: user_wallet is never read or written to, only used to identify ownership of nullifier and user data accounts.
     ///
     /// intentionally not a Signer since the user may not have access to the wallet used in the original verification
@@ -325,7 +325,9 @@ pub struct Unverify<'info> {
     pub global_data: AccountLoader<'info, GlobalData>,
 }
 
-pub fn unverify(ctx: Context<Unverify>, args: WorldIdVerificationData) -> Result<()> {
+pub fn unverify_with_proof_recovery(
+    ctx: Context<UnverifyWithProofRecovery>, args: WorldIdVerificationData,
+) -> Result<()> {
     let user_data = &mut ctx.accounts.user_data;
 
     require!(user_data.nullifier_hash == args.nullifier_hash, ComptokenError::InvalidNullifierHash);
@@ -365,8 +367,8 @@ pub fn unverify(ctx: Context<Unverify>, args: WorldIdVerificationData) -> Result
 /// original verification to verify ownership of the nullifier account, to ensure the user has ownership of the
 /// account, then removes their verification status. (allowing them to verify again with a new proof if desired).
 #[derive(Accounts)]
-#[instruction(args: Unverify2Args)]
-pub struct Unverify2<'info> {
+#[instruction(args: UnverifyWithWalletSignatureArgs)]
+pub struct UnverifyWithWalletSignature<'info> {
     pub user_wallet: Signer<'info>,
 
     #[account(
@@ -393,11 +395,13 @@ pub struct Unverify2<'info> {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct Unverify2Args {
+pub struct UnverifyWithWalletSignatureArgs {
     pub nullifier_hash: Hash,
 }
 
-pub fn unverify2(ctx: Context<Unverify2>, args: Unverify2Args) -> Result<()> {
+pub fn unverify_with_wallet_signature(
+    ctx: Context<UnverifyWithWalletSignature>, args: UnverifyWithWalletSignatureArgs,
+) -> Result<()> {
     let user_data = &mut ctx.accounts.user_data;
 
     require!(user_data.is_current(), ComptokenError::UserDataNotCurrent);

@@ -56,6 +56,7 @@ jobs:
                   include-hidden-files: true
                   path: |
                       target/deploy/*
+                      target/idl/*
                       test/.cache/*
 
     component-tests:
@@ -67,6 +68,9 @@ jobs:
 
             - name: Setup Solana
               uses: ./.github/actions/setup-solana
+
+            - name: Generate keypair
+              run: solana-keygen new --no-bip39-passphrase --silent
 
             - name: Download build artifacts
               uses: actions/download-artifact@v4

@@ -2,7 +2,7 @@ import { addresses, transactions } from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
 const { getUnstakedMintAddress, getUserUnstakedAssociatedTokenAddress } = addresses;
-const { reverify, unverify, unverify2, verify } = transactions;
+const { reverify, unverifyWithProofRecovery, unverifyWithWalletSignature, verify } = transactions;
 
 import type { AddedAccount } from "solana-bankrun";
 import {
@@ -433,7 +433,7 @@ describe("verification", () => {
                 const before = await fetchGlobalData(program);
                 const beforeVerified = before.dailyDistribution.verifiedAccountsCount;
 
-                await unverify({
+                await unverifyWithProofRecovery({
                     program,
                     solanaWorldIdProgram,
                     rootHash: worldIdFixture.rootHash,
@@ -454,7 +454,7 @@ describe("verification", () => {
                 const info = await conn.getAccountInfo(worldIdNullifierPda, "confirmed");
                 expect(info).to.not.equal(null);
 
-                const decoded = coder.accounts.decode("Nullifier", info.data);
+                const decoded = coder.accounts.decode("Nullifier", info!.data);
                 const ownerPk = new PublicKey(decoded.user_wallet);
                 expect(ownerPk.toBase58()).to.equal(PublicKey.default.toBase58());
 
@@ -483,7 +483,7 @@ describe("verification", () => {
                 const before = await fetchGlobalData(program);
                 const beforeVerified = before.dailyDistribution.verifiedAccountsCount;
 
-                await unverify({
+                await unverifyWithProofRecovery({
                     program,
                     solanaWorldIdProgram,
                     rootHash: worldIdFixture.rootHash,
@@ -531,8 +531,8 @@ describe("verification", () => {
 
                 const { program } = await prepareTest(accounts);
 
-                // call unverify2 as signer (no CPI to world id program)
-                await unverify2({
+                // call unverifyWithWalletSignature as signer (no CPI to world id program)
+                await unverifyWithWalletSignature({
                     program,
                     nullifierHash: worldIdFixture.nullifierHash,
                     accounts: {
@@ -575,7 +575,7 @@ describe("verification", () => {
                 const beforeTs = Number(beforeUser.lastVerifiedTimestamp);
                 expect(beforeTs).to.be.greaterThan(0);
 
-                await unverify2({
+                await unverifyWithWalletSignature({
                     program,
                     nullifierHash: worldIdFixture.nullifierHash,
                     accounts: {

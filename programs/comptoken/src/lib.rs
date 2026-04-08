@@ -73,11 +73,15 @@ pub mod comptoken {
         verification::reverify(ctx, args)
     }
 
-    pub fn unverify(ctx: Context<Unverify>, args: WorldIdVerificationData) -> Result<()> {
-        verification::unverify(ctx, args)
+    pub fn unverify_with_proof_recovery(
+        ctx: Context<UnverifyWithProofRecovery>, args: WorldIdVerificationData,
+    ) -> Result<()> {
+        verification::unverify_with_proof_recovery(ctx, args)
     }
 
-    pub fn unverify2(ctx: Context<Unverify2>, args: Unverify2Args) -> Result<()> {
-        verification::unverify2(ctx, args)
+    pub fn unverify_with_wallet_signature(
+        ctx: Context<UnverifyWithWalletSignature>, args: UnverifyWithWalletSignatureArgs,
+    ) -> Result<()> {
+        verification::unverify_with_wallet_signature(ctx, args)
     }
 }

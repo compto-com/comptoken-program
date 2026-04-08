@@ -10,7 +10,7 @@
         "initialize": "tsx ./scripts/initialize.ts"
     },
     "dependencies": {
-        "@compto/comptoken.js": "github:compto-com/comptoken.js#get-historic-distributions",
+        "@compto/comptoken.js": "github:compto-com/comptoken.js#rename-unverify",
         "@coral-xyz/anchor": "^0.32.1",
         "@ethersproject/keccak256": "^5.8.0",
         "@solana/spl-token": "^0.4.14",

@@ -35,7 +35,7 @@ describe("sync_valid_blockhashes", () => {
                 .instruction();
             const tx = new Transaction().add(ix);
             const resp = await provider.simulate(tx, [context.payer]);
-            const ret = getReturnLog(resp.logs);
+            const ret = getReturnLog(resp.logs ?? []);
             const decoded = decodeValidBlockhashesReturn(program, ret.buffer);
 
             // Assert: valid is a 32-byte hash and matches account state
@@ -62,7 +62,7 @@ describe("sync_valid_blockhashes", () => {
             const ix = await builder.instruction();
             const tx = new Transaction().add(ix);
             const resp = await provider.simulate(tx, [context.payer]);
-            const ret = getReturnLog(resp.logs);
+            const ret = getReturnLog(resp.logs ?? []);
             const decoded = decodeValidBlockhashesReturn(program, ret.buffer);
             const _sig = await builder.rpc();
 
@@ -98,7 +98,7 @@ describe("sync_valid_blockhashes", () => {
             const ix = await builder.instruction();
             const tx = new Transaction().add(ix);
             const resp = await provider.simulate(tx, [context.payer]);
-            const retLog = getReturnLog(resp.logs);
+            const retLog = getReturnLog(resp.logs ?? []);
             const decoded = decodeValidBlockhashesReturn(program, retLog.buffer);
 
             const _sig = await builder.rpc();

@@ -20,9 +20,9 @@ describe("initialize", () => {
         let stakedMintPda: PublicKey;
         let unstakedMintPda: PublicKey;
         let globalDataPda: PublicKey;
-        let globalDataInfo: AccountInfo<Buffer>;
-        let stakedMintInfo: AccountInfo<Buffer>;
-        let unstakedMintInfo: AccountInfo<Buffer>;
+        let globalDataInfo: AccountInfo<Buffer> | null;
+        let stakedMintInfo: AccountInfo<Buffer> | null;
+        let unstakedMintInfo: AccountInfo<Buffer> | null;
         let globalData: Awaited<ReturnType<ComptokenProgram["account"]["globalData"]["fetch"]>>;
         let stakedMintDecoded: Mint;
         let unstakedMintDecoded: Mint;

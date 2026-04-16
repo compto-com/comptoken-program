@@ -9,7 +9,7 @@ skip-lint = false
 
 [programs.localnet]
 comptoken = "7j8p5AoS4z1LCPaDujSae6CXLRLKNThFbK5qqniGw9Nf"
-solana_world_id_program = "5a3BkvmSEWSkWnBaFZGAUiywmjoqBqzspje9UmxcwG6L"
+solana_world_id_program = "7UyhiPLoB6zwVZMYzEcizhDQeCF5ixQgp4sFeAyu8U1g"
 
 [registry]
 url = "https://api.apr.dev"

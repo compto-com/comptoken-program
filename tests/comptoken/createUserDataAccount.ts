@@ -34,7 +34,7 @@ describe("create_user_data_account", async () => {
         );
         expect(userData.proofs.length, "Proofs array should be empty").to.equal(0);
 
-        expect(userDataInfo.data.length, "UserData account size should match allocated size").to.equal(
+        expect(userDataInfo!.data.length, "UserData account size should match allocated size").to.equal(
             8 + // discriminator
                 8 + // last_claimed_timestamp
                 8 + // last_verified_timestamp

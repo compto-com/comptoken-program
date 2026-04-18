@@ -19,9 +19,8 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "npm run test"
+test = "bash ./tests/test.sh && npm run test-solana-world-id"
 test-with-logs = "npm run test-with-logs"
-test-ci = "bash ./tests/test.sh"
 initialize = "npm run initialize"
 
 [test]

@@ -89,7 +89,7 @@ jobs:
               run: npm install -g tsx
 
             - name: run component tests
-              run: anchor run test-ci
+              run: anchor test --skip-build
 
     integration-tests:
         runs-on: ubuntu-latest

@@ -42,12 +42,14 @@ pub struct Initialize<'info> {
     system_program: Program<'info, System>,
 }
 
+/// Initial admin-controlled settings for the World ID bridge program.
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializeArgs {
     pub root_expiry_sec: u64,
     pub allowed_update_staleness_sec: u64,
 }
 
+/// Initializes the World ID bridge program.
 pub fn initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
     ctx.accounts.config.set_inner(Config {
         bump: ctx.bumps.config,

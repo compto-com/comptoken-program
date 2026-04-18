@@ -40,6 +40,7 @@ impl ResizeUserDataAccountArgs {
     }
 }
 
+/// Reallocates the user data account while preserving existing proofs and freshness checks.
 pub fn resize_user_data_account(ctx: Context<ResizeUserDataAccount>, args: ResizeUserDataAccountArgs) -> Result<()> {
     let user_data = &mut ctx.accounts.user_data;
     let global_data = ctx.accounts.global_data.load()?;

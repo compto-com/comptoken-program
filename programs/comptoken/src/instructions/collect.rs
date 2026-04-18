@@ -60,6 +60,7 @@ pub struct Collect<'info> {
     pub token_program: Program<'info, Token2022>,
 }
 
+/// Mints the caller's pending rewards into their unstaked token account and updates claim state.
 pub fn collect(ctx: Context<Collect>) -> Result<()> {
     let user_staked_token_account = &mut ctx.accounts.user_staked_token_account;
     let principal = user_staked_token_account.amount;

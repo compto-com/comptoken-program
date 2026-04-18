@@ -68,6 +68,7 @@ pub struct StakeArgs {
     amount: u64,
 }
 
+/// Stakes a user's tokens, converting unstaked tokens into non-transferable staked tokens.
 pub fn stake(ctx: Context<Stake>, args: StakeArgs) -> Result<()> {
     let user_staked_token_account = &mut ctx.accounts.user_staked_token_account;
     let user_unstaked_token_account = &mut ctx.accounts.user_unstaked_token_account;

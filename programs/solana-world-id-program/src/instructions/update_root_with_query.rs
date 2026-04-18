@@ -159,6 +159,7 @@ impl<'info> UpdateRootWithQuery<'info> {
 }
 
 #[access_control(UpdateRootWithQuery::constraints(&ctx, &bytes))]
+/// Verifies a Wormhole query response, creates a root account, and advances the latest root pointer.
 pub fn update_root_with_query(
     ctx: Context<UpdateRootWithQuery>, bytes: Vec<u8>, root_hash: [u8; 32], _guardian_set_index: u32,
 ) -> Result<()> {

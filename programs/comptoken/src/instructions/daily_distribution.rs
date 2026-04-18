@@ -30,6 +30,7 @@ pub struct DailyDistribution<'info> {
     pub unstaked_mint: InterfaceAccount<'info, Mint>,
 }
 
+/// Calculates and stores the daily distribution amounts for today.
 pub fn daily_distribution(ctx: Context<DailyDistribution>) -> Result<()> {
     let mut global_data = ctx.accounts.global_data.load_mut()?;
     let staked_mint = &ctx.accounts.staked_mint;

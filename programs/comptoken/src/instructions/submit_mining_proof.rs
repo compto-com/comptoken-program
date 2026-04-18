@@ -55,6 +55,7 @@ pub struct SubmitMiningProof<'info> {
     pub token_program: Program<'info, Token2022>,
 }
 
+/// Raw proof bytes submitted by the client for Bitcoin-style proof-of-work validation.
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct SubmitMiningProofArgs {
     pub raw_data: [u8; 76],
@@ -145,6 +146,7 @@ fn double_sha256(data: &[&[u8]]) -> [u8; 32] {
     hashv(&[hashv(data).as_ref()]).to_bytes()
 }
 
+/// Verifies a submitted mining proof, stores it on the user account, and mints the mining reward.
 pub fn submit_mining_proof(ctx: Context<SubmitMiningProof>, args: SubmitMiningProofArgs) -> Result<()> {
     let user_data_len = ctx.accounts.user_data.to_account_info().data_len();
     let user_data_capacity = (user_data_len - UserData::SIZE_WITHOUT_PROOFS) / std::mem::size_of::<Hash>();

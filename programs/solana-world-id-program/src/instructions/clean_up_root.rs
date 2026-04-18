@@ -58,6 +58,7 @@ impl<'info> CleanUpRoot<'info> {
 }
 
 #[access_control(CleanUpRoot::constraints(&ctx))]
+/// Deletes a non-latest root after it has expired.
 pub fn clean_up_root(ctx: Context<CleanUpRoot>) -> Result<()> {
     Ok(())
 }

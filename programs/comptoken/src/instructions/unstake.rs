@@ -70,6 +70,7 @@ pub struct UnstakeArgs {
     amount: u64,
 }
 
+/// Unstakes a user's tokens, converting staked tokens into transferable unstaked tokens.
 pub fn unstake(ctx: Context<Unstake>, args: UnstakeArgs) -> Result<()> {
     let user_staked_token_account = &mut ctx.accounts.user_staked_token_account;
     let user_unstaked_token_account = &mut ctx.accounts.user_unstaked_token_account;

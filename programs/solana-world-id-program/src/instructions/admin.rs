@@ -57,6 +57,7 @@ pub struct TransferOwnership<'info> {
     bpf_loader_upgradeable_program: Program<'info, BpfLoaderUpgradeable>,
 }
 
+/// Begin the 2-step ownership transfer process by setting the pending owner and giving upgrade authority to the upgrade lock.
 pub fn transfer_ownership(ctx: Context<TransferOwnership>) -> Result<()> {
     ctx.accounts.config.pending_owner = Some(ctx.accounts.new_owner.key());
 
@@ -110,6 +111,8 @@ pub struct ClaimOwnership<'info> {
     bpf_loader_upgradeable_program: Program<'info, BpfLoaderUpgradeable>,
 }
 
+/// Finalizes ownership transfer and gives upgrade authority to the pending owner or
+/// cancels the transfer and reverts upgrade authority to the original owner.
 pub fn claim_ownership(ctx: Context<ClaimOwnership>) -> Result<()> {
     ctx.accounts.config.pending_owner = None;
     ctx.accounts.config.owner = ctx.accounts.new_owner.key();
@@ -143,6 +146,7 @@ pub struct SetRootExpiry<'info> {
     pub config: Account<'info, Config>,
 }
 
+/// Updates the configured root expiry window.
 pub fn set_root_expiry(ctx: Context<SetRootExpiry>, root_expiry_sec: u64) -> Result<()> {
     ctx.accounts.config.root_expiry_sec = root_expiry_sec;
     Ok(())
@@ -162,6 +166,7 @@ pub struct SetAllowedUpdateStaleness<'info> {
     pub config: Account<'info, Config>,
 }
 
+/// Updates the configured allowed update staleness.
 pub fn set_allowed_update_staleness(
     ctx: Context<SetAllowedUpdateStaleness>, allowed_update_staleness_sec: u64,
 ) -> Result<()> {

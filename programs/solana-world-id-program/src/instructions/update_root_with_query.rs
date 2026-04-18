@@ -1,6 +1,6 @@
 use crate::{
     error::SolanaWorldIDProgramError,
-    state::{Config, GuardianSignatures, LatestRoot, Root, WormholeGuardianSet, CORE_BRIDGE_PROGRAM_ID},
+    state::{Config, GuardianSignaturesBuffer, LatestRoot, Root, WormholeGuardianSet, CORE_BRIDGE_PROGRAM_ID},
 };
 use anchor_lang::{prelude::*, solana_program::program_memory::sol_memcpy};
 use solana_keccak_hasher as keccak;
@@ -67,7 +67,7 @@ pub struct UpdateRootWithQuery<'info> {
 
     /// Stores unverified guardian signatures as they are too large to fit in the instruction data.
     #[account(mut, has_one = refund_recipient, close = refund_recipient)]
-    guardian_signatures: Account<'info, GuardianSignatures>,
+    guardian_signatures_buffer: Account<'info, GuardianSignaturesBuffer>,
 
     #[account(
         init,
@@ -99,7 +99,7 @@ pub struct UpdateRootWithQuery<'info> {
     config: Account<'info, Config>,
 
     /// CHECK: This account is the refund recipient for the above signature_set
-    #[account(mut, address = guardian_signatures.refund_recipient)]
+    #[account(mut, address = guardian_signatures_buffer.refund_recipient)]
     refund_recipient: AccountInfo<'info>,
 
     system_program: Program<'info, System>,
@@ -119,7 +119,7 @@ impl<'info> UpdateRootWithQuery<'info> {
         // SECURITY: defense-in-depth, check again that these are the expected length
         require_eq!(message_hash.len(), QUERY_MESSAGE_LEN, SolanaWorldIDProgramError::InvalidMessageHash);
 
-        let guardian_signatures = &ctx.accounts.guardian_signatures.guardian_signatures;
+        let guardian_signatures = &ctx.accounts.guardian_signatures_buffer.guardian_signatures;
 
         // This section is borrowed from https://github.com/wormhole-foundation/wormhole/blob/wen/solana-rewrite/solana/programs/core-bridge/src/processor/parse_and_verify_vaa/verify_encoded_vaa_v1.rs#L72-L103
         // Also similarly used here https://github.com/pyth-network/pyth-crosschain/blob/6771c2c6998f53effee9247347cb0ac71612b3dc/target_chains/solana/programs/pyth-solana-receiver/src/lib.rs#L121-L159
@@ -159,6 +159,7 @@ impl<'info> UpdateRootWithQuery<'info> {
 }
 
 #[access_control(UpdateRootWithQuery::constraints(&ctx, &bytes))]
+/// Verifies a Wormhole query response, creates a root account, and advances the latest root pointer.
 pub fn update_root_with_query(
     ctx: Context<UpdateRootWithQuery>, bytes: Vec<u8>, root_hash: [u8; 32], _guardian_set_index: u32,
 ) -> Result<()> {

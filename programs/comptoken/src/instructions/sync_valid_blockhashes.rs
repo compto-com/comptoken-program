@@ -20,12 +20,14 @@ pub struct SyncValidBlockhashes<'info> {
     pub slot_hashes: UncheckedAccount<'info>, // Sysvar account, but Sysvar<'_, SlotHashes> deserializes it, which fails
 }
 
+/// The announced and currently valid blockhashes after a sync operation.
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct CurrentBlockhashes {
     announced: Hash,
     valid: Hash,
 }
 
+/// Updates the program's mining blockhash window, and returns the current announced and valid blockhashes.
 pub fn sync_valid_blockhashes(ctx: Context<SyncValidBlockhashes>) -> Result<CurrentBlockhashes> {
     let mut global_data = ctx.accounts.global_data.load_mut()?;
 

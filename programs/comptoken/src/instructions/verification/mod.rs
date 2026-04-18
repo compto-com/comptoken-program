@@ -21,6 +21,7 @@ use crate::{
     },
 };
 
+/// Proof inputs needed to verify a user's World ID membership proof on-chain.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct WorldIdVerificationData {
     pub root_hash: Hash,
@@ -102,6 +103,7 @@ pub struct Verify<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// Verifies a World ID proof, records the nullifier, and marks the user as verified.
 pub fn verify(ctx: Context<Verify>, args: WorldIdVerificationData) -> Result<()> {
     let user_data = &mut ctx.accounts.user_data;
 
@@ -238,6 +240,7 @@ pub struct Reverify<'info> {
     pub world_id_nullifier: AccountLoader<'info, Nullifier>,
 }
 
+/// Refreshes a user's World ID verification by checking a proof and updating their verification timestamp.
 pub fn reverify(ctx: Context<Reverify>, args: WorldIdVerificationData) -> Result<()> {
     let user_data = &mut ctx.accounts.user_data;
 
@@ -325,6 +328,7 @@ pub struct UnverifyWithProofRecovery<'info> {
     pub global_data: AccountLoader<'info, GlobalData>,
 }
 
+/// Removes verification. Uses a World ID proof to confirm identity
 pub fn unverify_with_proof_recovery(
     ctx: Context<UnverifyWithProofRecovery>, args: WorldIdVerificationData,
 ) -> Result<()> {
@@ -399,6 +403,7 @@ pub struct UnverifyWithWalletSignatureArgs {
     pub nullifier_hash: Hash,
 }
 
+/// Removes verification. Uses the wallet signature to confirm ownership.
 pub fn unverify_with_wallet_signature(
     ctx: Context<UnverifyWithWalletSignature>, args: UnverifyWithWalletSignatureArgs,
 ) -> Result<()> {

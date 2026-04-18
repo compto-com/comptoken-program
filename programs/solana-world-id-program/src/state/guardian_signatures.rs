@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 #[account]
 #[derive(Debug)]
-pub struct GuardianSignatures {
+pub struct GuardianSignaturesBuffer {
     /// Payer of this guardian signatures account.
     /// Only they may amend signatures.
     /// Used for reimbursements upon cleanup.
@@ -12,7 +12,7 @@ pub struct GuardianSignatures {
     pub guardian_signatures: Vec<[u8; 66]>,
 }
 
-impl GuardianSignatures {
+impl GuardianSignaturesBuffer {
     pub(crate) fn compute_size(num_guardians: usize) -> usize {
         // no discriminator, added in the creation instruction
         32 // refund_recipient

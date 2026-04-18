@@ -58,6 +58,7 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// Creates the global state account and initializes the staked and unstaked token mints.
 pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
     // Initialize the non-transferable extension for the staked mint
     non_transferable_mint_initialize(CpiContext::new(

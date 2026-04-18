@@ -77,12 +77,11 @@ describe("solana-world-id-program", () => {
 
     const next_owner = anchor.web3.Keypair.generate();
     const validMockSignatureSet = anchor.web3.Keypair.generate();
-    let mockQueryResponse: QueryProxyQueryResponse = null;
-    let mockEthCallQueryResponse: EthCallQueryResponse = null;
+    let mockQueryResponse: QueryProxyQueryResponse;
+    let mockEthCallQueryResponse: EthCallQueryResponse;
     let rootHash: string = "";
     let dummyRootHash: string = "".padStart(64, "9");
-    let rootKey: anchor.web3.PublicKey = null;
-
+    let rootKey: anchor.web3.PublicKey;
     async function postQuerySigs(
         querySignatures: string[],
         signatureKeypair: anchor.web3.Keypair,
@@ -92,7 +91,7 @@ describe("solana-world-id-program", () => {
         const signatureData = signaturesToSolanaArray(querySignatures);
         await p.methods
             .postSignatures(signatureData, totalSignatures || signatureData.length)
-            .accounts({ guardianSignatures: signatureKeypair.publicKey })
+            .accounts({ guardianSignaturesBuffer: signatureKeypair.publicKey })
             .signers([signatureKeypair])
             .rpc();
     }
@@ -134,7 +133,7 @@ describe("solana-world-id-program", () => {
                     deployer: anchor.getProvider().publicKey,
                 })
                 .rpc(),
-        ).to.be.rejectedWith(`Missing signature for public key [\`${anchor.getProvider().publicKey.toString()}\`].`);
+        ).to.be.rejectedWith(`Missing signature for public key [\`${anchor.getProvider().publicKey!.toString()}\`].`);
     });
 
     it(fmtTest("initialize", "Rejects incorrect program_data"), async () => {
@@ -175,7 +174,7 @@ describe("solana-world-id-program", () => {
         ).to.be.fulfilled;
         const config = await program.account.config.fetch(deriveConfigKey(program.programId));
         assert(config.allowedUpdateStalenessSec.eq(fiveMinutes), "allowed update staleness does not match");
-        assert(config.owner.equals(anchor.getProvider().publicKey), "owner does not match");
+        assert(config.owner.equals(anchor.getProvider().publicKey!), "owner does not match");
         assert(config.pendingOwner === null, "pending owner is set");
         assert(config.rootExpirySec.eq(twentyFourHours), "root expiry does not match");
     });
@@ -235,7 +234,7 @@ describe("solana-world-id-program", () => {
     it(fmtTest("post_signatures", "Successfully posts signatures"), async () => {
         await postQuerySigs(mockQueryResponse.signatures, validMockSignatureSet);
         // this will fail if the account does not exist, match discriminator, and parse
-        await expect(program.account.guardianSignatures.fetch(validMockSignatureSet.publicKey)).to.be.fulfilled;
+        await expect(program.account.guardianSignaturesBuffer.fetch(validMockSignatureSet.publicKey)).to.be.fulfilled;
     });
 
     it(fmtTest("post_signatures", "Successfully appends signatures"), async () => {
@@ -243,7 +242,7 @@ describe("solana-world-id-program", () => {
         const expectedSigs1 = signaturesToSolanaArray(mockQueryResponse.signatures);
         await postQuerySigs(mockQueryResponse.signatures, signatureSet, 2);
         expect(
-            (await program.account.guardianSignatures.fetch(signatureSet.publicKey)).guardianSignatures,
+            (await program.account.guardianSignaturesBuffer.fetch(signatureSet.publicKey)).guardianSignatures,
         ).to.deep.equal(expectedSigs1);
 
         const diffBytes = Buffer.from("00" + mockQueryResponse.bytes, "hex");
@@ -251,7 +250,7 @@ describe("solana-world-id-program", () => {
         const expectedSigs2 = [...expectedSigs1, ...signaturesToSolanaArray(diffSigs)];
         await postQuerySigs(diffSigs, signatureSet, 2);
         expect(
-            (await program.account.guardianSignatures.fetch(signatureSet.publicKey)).guardianSignatures,
+            (await program.account.guardianSignaturesBuffer.fetch(signatureSet.publicKey)).guardianSignatures,
         ).to.deep.equal(expectedSigs2);
     });
 
@@ -277,7 +276,7 @@ describe("solana-world-id-program", () => {
                 .updateRootWithQuery(Buffer.from(mockQueryResponse.bytes, "hex"), [...Buffer.from(rootHash, "hex")], 0)
                 .accounts({
                     guardianSet: deriveGuardianSetKey(devnetCoreBridgeAddress, 0),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("AnchorError caused by account: guardian_set. Error Code: AccountOwnedByWrongProgram.");
@@ -293,7 +292,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, 2),
-                    guardianSignatures: validMockSignatureSet.publicKey,
+                    guardianSignaturesBuffer: validMockSignatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("AnchorError caused by account: guardian_set. Error Code: ConstraintSeeds.");
@@ -309,11 +308,11 @@ describe("solana-world-id-program", () => {
                 )
                 .accountsPartial({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: validMockSignatureSet.publicKey,
+                    guardianSignaturesBuffer: validMockSignatureSet.publicKey,
                     refundRecipient: next_owner.publicKey,
                 })
                 .rpc(),
-        ).to.be.rejectedWith("AnchorError caused by account: guardian_signatures. Error Code: ConstraintHasOne.");
+        ).to.be.rejectedWith("AnchorError caused by account: guardian_signatures_buffer. Error Code: ConstraintHasOne.");
     });
 
     it(fmtTest("update_root_with_query", "Rejects root hash instruction argument mismatch"), async () => {
@@ -326,7 +325,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: validMockSignatureSet.publicKey,
+                    guardianSignaturesBuffer: validMockSignatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("RootHashMismatch.");
@@ -342,7 +341,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: validMockSignatureSet.publicKey,
+                    guardianSignaturesBuffer: validMockSignatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidGuardianKeyRecovery.");
@@ -358,7 +357,7 @@ describe("solana-world-id-program", () => {
                 .updateRootWithQuery(badBytes, [...Buffer.from(rootHash, "hex")], mockGuardianSetIndex)
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("FailedToParseResponse.");
@@ -376,7 +375,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, expiredMockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("GuardianSetExpired.");
@@ -394,7 +393,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, noQuorumMockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("NoQuorum.");
@@ -402,13 +401,13 @@ describe("solana-world-id-program", () => {
 
     it(fmtTest("update_root_with_query", "Rejects out of order guardian signatures"), async () => {
         const validSignatureSet = anchor.web3.Keypair.generate();
-        const twoMockGuardianSignatures = new QueryProxyMock({}, [
+        const twoMockguardianSignaturesBuffer = new QueryProxyMock({}, [
             // https://github.com/wormhole-foundation/wormhole/blob/main/scripts/devnet-consts.json#L320
             "cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0",
             "c3b2e45c422a1602333a64078aeb42637370b0f48fe385f9cfa6ad54a8e0c47e",
         ]).sign(QueryResponse.from(mockQueryResponse.bytes).serialize());
         // first, test that the correct order would have worked
-        await postQuerySigs(twoMockGuardianSignatures, validSignatureSet);
+        await postQuerySigs(twoMockguardianSignaturesBuffer, validSignatureSet);
         await expect(
             program.methods
                 .updateRootWithQuery(
@@ -418,13 +417,16 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, twoMockGuardianSetIndex),
-                    guardianSignatures: validSignatureSet.publicKey,
+                    guardianSignaturesBuffer: validSignatureSet.publicKey,
                 })
                 .simulate(),
         ).to.be.fulfilled;
         // then, test that the incorrect order gets rejected
         const invalidSignatureSet = anchor.web3.Keypair.generate();
-        await postQuerySigs([twoMockGuardianSignatures[1], twoMockGuardianSignatures[0]], invalidSignatureSet);
+        await postQuerySigs(
+            [twoMockguardianSignaturesBuffer[1], twoMockguardianSignaturesBuffer[0]],
+            invalidSignatureSet,
+        );
         await expect(
             program.methods
                 .updateRootWithQuery(
@@ -434,7 +436,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, twoMockGuardianSetIndex),
-                    guardianSignatures: invalidSignatureSet.publicKey,
+                    guardianSignaturesBuffer: invalidSignatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidGuardianIndexNonIncreasing.");
@@ -452,7 +454,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, noQuorumMockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidGuardianIndexNonIncreasing.");
@@ -470,7 +472,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidGuardianIndexOutOfRange.");
@@ -497,7 +499,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidSignature.");
@@ -519,7 +521,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidNumberOfRequests.");
@@ -541,7 +543,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidRequestChainId.");
@@ -585,7 +587,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidRequestType.");
@@ -608,7 +610,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidRequestCallDataLength.");
@@ -631,7 +633,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidRequestContract.");
@@ -654,7 +656,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidRequestSignature.");
@@ -676,7 +678,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidNumberOfResponses.");
@@ -698,7 +700,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidResponseChainId.");
@@ -743,7 +745,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidResponseType.");
@@ -766,7 +768,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidResponseResultsLength.");
@@ -789,7 +791,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("InvalidResponseResultLength.");
@@ -812,7 +814,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: validMockSignatureSet.publicKey,
+                    guardianSignaturesBuffer: validMockSignatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("StaleBlockTime.");
@@ -827,7 +829,7 @@ describe("solana-world-id-program", () => {
 
     it(fmtTest("update_root_with_query", "Successfully verifies a mainnet quorum amount of signatures"), async () => {
         const validSignatureSet = anchor.web3.Keypair.generate();
-        const thirteenMockGuardianSignatures = new QueryProxyMock({}, [
+        const thirteenMockguardianSignaturesBuffer = new QueryProxyMock({}, [
             // https://github.com/wormhole-foundation/wormhole/blob/main/scripts/devnet-consts.json#L320
             "cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0",
             "c3b2e45c422a1602333a64078aeb42637370b0f48fe385f9cfa6ad54a8e0c47e",
@@ -843,7 +845,7 @@ describe("solana-world-id-program", () => {
             "eb94ff04accbfc8195d44b45e7c7da4c6993b2fbbfc4ef166a7675a905df9891",
             "053a6527124b309d914a47f5257a995e9b0ad17f14659f90ed42af5e6e262b6a",
         ]).sign(QueryResponse.from(mockQueryResponse.bytes).serialize());
-        await postQuerySigs(thirteenMockGuardianSignatures, validSignatureSet);
+        await postQuerySigs(thirteenMockguardianSignaturesBuffer, validSignatureSet);
         await expect(
             program.methods
                 .updateRootWithQuery(
@@ -853,7 +855,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, nineteenMockGuardianSetIndex),
-                    guardianSignatures: validSignatureSet.publicKey,
+                    guardianSignaturesBuffer: validSignatureSet.publicKey,
                 })
                 .preInstructions([
                     anchor.web3.ComputeBudgetProgram.setComputeUnitLimit({
@@ -875,7 +877,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: validMockSignatureSet.publicKey,
+                    guardianSignaturesBuffer: validMockSignatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.fulfilled;
@@ -892,7 +894,7 @@ describe("solana-world-id-program", () => {
             root.readBlockTimeUs.eq(new BN(mockEthCallQueryResponse.blockTime.toString())),
             "readBlockNumber does not match",
         );
-        assert(root.refundRecipient.equals(anchor.getProvider().publicKey), "refundRecipient does not match");
+        assert(root.refundRecipient.equals(anchor.getProvider().publicKey!), "refundRecipient does not match");
         assert(Buffer.from(root.root).equals(Buffer.from(rootHash, "hex")), "root does not match");
         assert(Buffer.from(root.verificationType).equals(Buffer.from([0])), "verificationType does not match");
         const latestRoot = await program.account.latestRoot.fetch(latestRootKey);
@@ -913,9 +915,9 @@ describe("solana-world-id-program", () => {
     });
 
     it(fmtTest("update_root_with_query", "Successfully closed the signature set"), async () => {
-        await expect(program.account.guardianSignatures.fetch(validMockSignatureSet.publicKey)).to.be.rejectedWith(
-            "Account does not exist or has no data",
-        );
+        await expect(
+            program.account.guardianSignaturesBuffer.fetch(validMockSignatureSet.publicKey),
+        ).to.be.rejectedWith("Account does not exist or has no data");
     });
 
     it(fmtTest("update_root_with_query", "Rejects valid root which already exists"), async () => {
@@ -930,7 +932,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("already in use");
@@ -957,7 +959,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.rejectedWith("StaleBlockNum.");
@@ -994,7 +996,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.fulfilled;
@@ -1083,7 +1085,7 @@ describe("solana-world-id-program", () => {
             )
             .accounts({
                 guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                guardianSignatures: signatureSet.publicKey,
+                guardianSignaturesBuffer: signatureSet.publicKey,
             })
             .rpc();
         // ).to.be.fulfilled;
@@ -1100,7 +1102,7 @@ describe("solana-world-id-program", () => {
             root.readBlockTimeUs.eq(new BN(mockEthCallQueryResponse.blockTime.toString())),
             "readBlockNumber does not match",
         );
-        assert(root.refundRecipient.equals(anchor.getProvider().publicKey), "refundRecipient does not match");
+        assert(root.refundRecipient.equals(anchor.getProvider().publicKey!), "refundRecipient does not match");
         assert(Buffer.from(root.root).equals(Buffer.from(rootHash, "hex")), "root does not match");
         assert(Buffer.from(root.verificationType).equals(Buffer.from([0])), "verificationType does not match");
         const latestRoot = await program.account.latestRoot.fetch(latestRootKey);
@@ -1158,7 +1160,7 @@ describe("solana-world-id-program", () => {
                     owner: anchor.getProvider().publicKey,
                 })
                 .rpc(),
-        ).to.be.rejectedWith(`Missing signature for public key [\`${anchor.getProvider().publicKey.toString()}\`].`);
+        ).to.be.rejectedWith(`Missing signature for public key [\`${anchor.getProvider().publicKey!.toString()}\`].`);
     });
 
     it(fmtTest("set_allowed_update_staleness", "Rejects owner account mismatch"), async () => {
@@ -1177,7 +1179,7 @@ describe("solana-world-id-program", () => {
                     owner: anchor.getProvider().publicKey,
                 })
                 .rpc(),
-        ).to.be.rejectedWith(`Missing signature for public key [\`${anchor.getProvider().publicKey.toString()}\`].`);
+        ).to.be.rejectedWith(`Missing signature for public key [\`${anchor.getProvider().publicKey!.toString()}\`].`);
     });
 
     it(fmtTest("transfer_ownership", "Rejects owner account mismatch"), async () => {
@@ -1211,7 +1213,7 @@ describe("solana-world-id-program", () => {
                     programData,
                 })
                 .rpc(),
-        ).to.be.rejectedWith(`Missing signature for public key [\`${anchor.getProvider().publicKey.toString()}\`].`);
+        ).to.be.rejectedWith(`Missing signature for public key [\`${anchor.getProvider().publicKey!.toString()}\`].`);
     });
 
     it(fmtTest("claim_ownership", "Rejects owner or pending owner account mismatch"), async () => {
@@ -1243,7 +1245,7 @@ describe("solana-world-id-program", () => {
                     newOwner: anchor.getProvider().publicKey,
                 })
                 .rpc(),
-        ).to.be.rejectedWith(`Missing signature for public key [\`${anchor.getProvider().publicKey.toString()}\`].`);
+        ).to.be.rejectedWith(`Missing signature for public key [\`${anchor.getProvider().publicKey!.toString()}\`].`);
     });
 
     it(fmtTest("transfer_ownership", "Rejects incorrect program_data"), async () => {
@@ -1318,7 +1320,7 @@ describe("solana-world-id-program", () => {
                 .rpc(),
         ).to.be.fulfilled;
         const config = await program.account.config.fetch(deriveConfigKey(program.programId));
-        assert(config.pendingOwner.equals(next_owner.publicKey), "pending owner does not match");
+        assert(config.pendingOwner?.equals(next_owner.publicKey), "pending owner does not match");
     });
 
     // This cannot complete because `transfer_ownership` cannot complete
@@ -1337,7 +1339,7 @@ describe("solana-world-id-program", () => {
         ).to.be.fulfilled;
         const config = await program.account.config.fetch(deriveConfigKey(program.programId));
         assert(config.pendingOwner === null, "pending owner does not match");
-        assert(config.owner.equals(anchor.getProvider().publicKey), "owner does not match");
+        assert(config.owner.equals(anchor.getProvider().publicKey!), "owner does not match");
     });
 
     // This cannot complete because `transfer_ownership` cannot complete
@@ -1515,7 +1517,7 @@ describe("solana-world-id-program", () => {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, mockGuardianSetIndex),
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.fulfilled;
@@ -1634,16 +1636,16 @@ describe("solana-world-id-program", () => {
     it(fmtTest("close_signatures", "Successfully closes signature accounts"), async () => {
         const signatureSet = anchor.web3.Keypair.generate();
         await postQuerySigs(mockQueryResponse.signatures, signatureSet);
-        await expect(program.account.guardianSignatures.fetch(signatureSet.publicKey)).to.be.fulfilled;
+        await expect(program.account.guardianSignaturesBuffer.fetch(signatureSet.publicKey)).to.be.fulfilled;
         await expect(
             program.methods
                 .closeSignatures()
                 .accounts({
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
         ).to.be.fulfilled;
-        await expect(program.account.guardianSignatures.fetch(signatureSet.publicKey)).to.be.rejectedWith(
+        await expect(program.account.guardianSignaturesBuffer.fetch(signatureSet.publicKey)).to.be.rejectedWith(
             "Account does not exist or has no data",
         );
     });
@@ -1656,10 +1658,10 @@ describe("solana-world-id-program", () => {
             nextOwnersProgram.methods
                 .closeSignatures()
                 .accounts({
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
-        ).to.be.rejectedWith("AnchorError caused by account: guardian_signatures. Error Code: ConstraintHasOne.");
+        ).to.be.rejectedWith("AnchorError caused by account: guardian_signatures_buffer. Error Code: ConstraintHasOne.");
     });
 
     it(fmtTest("close_signatures", "Rejects without refund recipient as signer"), async () => {
@@ -1670,10 +1672,10 @@ describe("solana-world-id-program", () => {
             nextOwnersProgram.methods
                 .closeSignatures()
                 .accountsPartial({
-                    guardianSignatures: signatureSet.publicKey,
+                    guardianSignaturesBuffer: signatureSet.publicKey,
                     refundRecipient: anchor.getProvider().publicKey,
                 })
                 .rpc(),
-        ).to.be.rejectedWith(`Missing signature for public key [\`${anchor.getProvider().publicKey.toString()}\`].`);
+        ).to.be.rejectedWith(`Missing signature for public key [\`${anchor.getProvider().publicKey!.toString()}\`].`);
     });
 });

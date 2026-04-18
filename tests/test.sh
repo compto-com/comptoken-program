@@ -7,7 +7,12 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-TEST_FILES=$(find "$PROJECT_DIR/tests" -name "*.ts" -not -path "*/utils/*" -not -path "*/helpers/*")
+readarray -d '' -t TEST_FILES < <(
+    find "$PROJECT_DIR/tests/comptoken" \
+        -path "$PROJECT_DIR/tests/comptoken/utils" -prune -o \
+        -path "$PROJECT_DIR/tests/comptoken/utils/*" -prune -o \
+        -name "*.ts" -print0
+)
 
 MOCHA_PATH="$PROJECT_DIR/node_modules/mocha/bin/mocha.js"
 if [ ! -f "$MOCHA_PATH" ]; then
@@ -17,7 +22,7 @@ fi
 
 TEST_CMD=(node --import tsx "$MOCHA_PATH" --require 'mocha-suppress-logs' --timeout 1000000)
 
-for file in $TEST_FILES; do
+for file in "${TEST_FILES[@]}"; do
     if [ ! -f "$file" ]; then
         echo "Warning: Test file $file not found, skipping."
         continue

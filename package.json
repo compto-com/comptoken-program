@@ -6,9 +6,9 @@
         "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
         "test": "RUST_LOG= npm run test:raw",
         "test-with-logs": "npm run test:raw",
-        "test:raw": "ts-mocha --require 'mocha-suppress-logs' -p './tsconfig.json' --timeout 1000000 'tests/**/*.ts' --exclude 'tests/**/utils/**/*.ts' ",
+        "test:raw": "node --import tsx ./node_modules/mocha/bin/mocha.js --require mocha-suppress-logs --timeout 1000000 \"tests/**/*.ts\" --exclude \"tests/**/utils/**/*.ts\"",
         "test-solana-world-id": "RUST_LOG= npm run test-solana-world-id:raw",
-        "test-solana-world-id:raw": "ts-mocha --require 'mocha-suppress-logs' -p './tsconfig.json' --timeout 1000000 'tests/solana-world-id-program/**/*.ts' --exclude 'tests/solana-world-id-program/**/utils/**/*.ts' ",
+        "test-solana-world-id:raw": "node --import tsx ./node_modules/mocha/bin/mocha.js --require mocha-suppress-logs --timeout 1000000 \"tests/solana-world-id-program/**/*.ts\" --exclude \"tests/solana-world-id-program/**/utils/**/*.ts\"",
         "initialize": "tsx ./scripts/initialize.ts"
     },
     "dependencies": {

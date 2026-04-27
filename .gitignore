@@ -1,7 +1,16 @@
-**/target
+# anchor/solana files
+.anchor
+target
+test-ledger
+
+# language specific
+**/*.rs.bk
 **/node_modules
+**/.yarn
 **/__pycache__
-/test/.cache
-**/generated/*
+
+# macOS
+.DS_Store
 .vscode
-test/compto-test-client/tsconfig.json
+
+.env

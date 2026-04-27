@@ -1,0 +1,23 @@
+import type { ComptokenProgram } from "@compto/comptoken.js";
+import { expect } from "chai";
+
+import type { GlobalDataAccountData } from "./accountPreinitHelpers.ts";
+import { getHistoryLength, getHistoryPosition } from "./stateHelpers.ts";
+
+export function expectHistoryAdvancedBy(
+    beforeGlobal: GlobalDataAccountData,
+    afterGlobal: GlobalDataAccountData,
+    program: ComptokenProgram,
+    delta: number,
+) {
+    const historyLen = getHistoryLength(program);
+    const before = getHistoryPosition(beforeGlobal);
+    const after = getHistoryPosition(afterGlobal);
+    expect(after).to.equal((before + delta) % historyLen);
+}
+
+export function expectAlmostEqual(actual: number, expected: number, tol = 3, message?: string) {
+    expect(Math.abs(actual - expected), message ?? `Expected ${actual} ~= ${expected} ±${tol}`).to.be.lessThanOrEqual(
+        tol,
+    );
+}

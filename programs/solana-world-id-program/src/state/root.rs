@@ -1,0 +1,30 @@
+use anchor_lang::prelude::*;
+
+#[account]
+#[derive(Debug, InitSpace)]
+pub struct Root {
+    pub bump: u8,
+    /// Block number from which the root was read.
+    pub read_block_number: u64,
+    /// Block hash from which the root was read.
+    pub read_block_hash: [u8; 32],
+    /// Block time (in microseconds) from which the root was read.
+    pub read_block_time_us: u64,
+    /// Payer of this root account, used for reimbursements upon cleanup.
+    pub refund_recipient: Pubkey,
+    /// SEED: Root hash.
+    pub root: [u8; 32],
+    /// SEED: Verification type.
+    pub verification_type: [u8; 1],
+}
+
+impl Root {
+    pub const SEED_PREFIX: &'static [u8] = b"Root";
+    pub const VERIFICATION_TYPE_QUERY: &[u8; 1] = &[0x00]; // [u8; 1] works automatically as a seed for anchor, unlike u8
+
+    pub fn is_active(&self, timestamp_sec: &u64, root_expiry_sec: &u64) -> bool {
+        let read_block_time_sec = self.read_block_time_us / 1_000_000;
+        let expiry_time_sec = read_block_time_sec.saturating_add(*root_expiry_sec);
+        expiry_time_sec >= *timestamp_sec
+    }
+}

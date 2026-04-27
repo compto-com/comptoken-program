@@ -1,8 +1,13 @@
 [workspace]
+members = ["programs/*"]
 resolver = "2"
-members = ["comptoken", "comptoken-utils", "comptoken-transfer-hook"]
 
-[workspace.dependencies]
-solana-program = "*"
-spl-token-2022 = { version = "9.0.0", features = ["no-entrypoint"] }
-spl-transfer-hook-interface = "0.7.0"
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+
+[profile.release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1

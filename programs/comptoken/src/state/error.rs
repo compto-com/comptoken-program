@@ -5,6 +5,9 @@ pub enum ComptokenError {
     #[msg("Nullifier has already been used")]
     NullifierAlreadyUsed,
 
+    #[msg("Session already in use")]
+    SessionAlreadyInUse,
+
     #[msg("User data account is not current")]
     UserDataNotCurrent,
 

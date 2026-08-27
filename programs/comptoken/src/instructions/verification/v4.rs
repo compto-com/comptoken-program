@@ -149,7 +149,7 @@ pub fn verify(ctx: Context<Verify>, args: VerifyArgs) -> Result<()> {
         return err!(ComptokenError::SessionAlreadyInUse);
     }
 
-    let signal = hash_signal(&[ctx.accounts.user_wallet.key().as_ref(), VERIFY_SIGNAL_ACTION]);
+    let signal = hash_signal(ctx.accounts.user_wallet.key(), VERIFY_SIGNAL_ACTION);
     world_id_verify_uniqueness((), &args.proof, signal)?;
 
     // scope to limit the lifetime of the session borrow
@@ -231,8 +231,8 @@ pub fn reverify(ctx: Context<Reverify>, args: ReverifyArgs) -> Result<()> {
 
     require!(user_data.session_id() == args.session_proof.session_id, ComptokenError::InvalidNullifierHash);
 
-    let session_signal = hash_signal(&[ctx.accounts.user_wallet.key().as_ref(), REVERIFY_SIGNAL_ACTION]);
-    world_id_verify_session((), &args.session_proof, session_signal)?;
+    let signal = hash_signal(ctx.accounts.user_wallet.key(), REVERIFY_SIGNAL_ACTION);
+    world_id_verify_session((), &args.session_proof, signal)?;
 
     user_data.update_last_verified_timestamp();
 
@@ -282,8 +282,8 @@ pub fn unverify_with_proof(ctx: Context<UnverifyWithProof>, args: UnverifyWithPr
 
     require!(user_data.session_id() == args.session_proof.session_id, ComptokenError::InvalidNullifierHash);
 
-    let session_signal = hash_signal(&[ctx.accounts.user_wallet.key().as_ref(), UNVERIFY_SIGNAL_ACTION]);
-    world_id_verify_session((), &args.session_proof, session_signal)?;
+    let signal = hash_signal(ctx.accounts.user_wallet.key(), UNVERIFY_SIGNAL_ACTION);
+    world_id_verify_session((), &args.session_proof, signal)?;
 
     user_data.clear_session_id();
     let mut session = ctx.accounts.world_id_session.load_mut()?;
@@ -354,8 +354,9 @@ pub fn unverify_with_wallet_signature(
 /// Hashes `parts` into a single signal value bound into a World ID proof.
 ///
 /// TODO: implement once the v4 world id program's signal hashing scheme is finalized
-fn hash_signal(parts: &[&[u8]]) -> Hash {
-    let _ = parts;
+fn hash_signal(user_wallet: Pubkey, signal_action: &[u8]) -> Hash {
+    let mut combined = user_wallet.as_ref().to_vec();
+    combined.extend_from_slice(signal_action);
     todo!()
 }
 

@@ -8,8 +8,9 @@ use ethnum::u256;
 
 use crate::{
     constants::{
-        GLOBAL_DATA_SEED, MINT_DECIMALS, NULLIFIER_SEED, UNSTAKED_MINT_SEED, USER_DATA_SEED, VERIFICATION_TYPE,
-        WORLD_ACTION, WORLD_APP_ID, WORLD_ID_PROOF_SIZE,
+        GLOBAL_DATA_SEED, MINT_DECIMALS, NULLIFIER_SEED, REVERIFY_SIGNAL_ACTION, UNSTAKED_MINT_SEED,
+        UNVERIFY_SIGNAL_ACTION, USER_DATA_SEED, VERIFICATION_TYPE, VERIFY_SIGNAL_ACTION, WORLD_ACTION, WORLD_APP_ID,
+        WORLD_ID_PROOF_SIZE,
     },
     state::{
         error::ComptokenError,
@@ -143,6 +144,7 @@ pub fn verify(ctx: Context<Verify>, args: WorldIdVerificationData) -> Result<()>
 
     // 2. CPI to World ID program to verify proof
 
+    let signal = hash_signal(ctx.accounts.user_wallet.key(), VERIFY_SIGNAL_ACTION);
     world_id_verify(
         CpiContext::new(
             ctx.accounts.world_id_program.to_account_info(),
@@ -152,7 +154,7 @@ pub fn verify(ctx: Context<Verify>, args: WorldIdVerificationData) -> Result<()>
                 config: ctx.accounts.world_id_config.to_account_info(),
             },
         ),
-        ctx.accounts.user_wallet.key(),
+        signal,
         args.root_hash,
         args.nullifier_hash,
         args.proof,
@@ -250,6 +252,7 @@ pub fn reverify(ctx: Context<Reverify>, args: WorldIdVerificationData) -> Result
 
     // CPI to World ID program to verify proof
 
+    let signal = hash_signal(ctx.accounts.user_wallet.key(), REVERIFY_SIGNAL_ACTION);
     world_id_verify(
         CpiContext::new(
             ctx.accounts.world_id_program.to_account_info(),
@@ -259,7 +262,7 @@ pub fn reverify(ctx: Context<Reverify>, args: WorldIdVerificationData) -> Result
                 config: ctx.accounts.world_id_config.to_account_info(),
             },
         ),
-        ctx.accounts.user_wallet.key(),
+        signal,
         args.root_hash,
         args.nullifier_hash,
         args.proof,
@@ -339,6 +342,7 @@ pub fn unverify_with_proof_recovery(
 
     // CPI to World ID program to verify proof
 
+    let signal = hash_signal(ctx.accounts.user_wallet.key(), UNVERIFY_SIGNAL_ACTION);
     world_id_verify(
         CpiContext::new(
             ctx.accounts.world_id_program.to_account_info(),
@@ -348,8 +352,7 @@ pub fn unverify_with_proof_recovery(
                 config: ctx.accounts.world_id_config.to_account_info(),
             },
         ),
-        ctx.accounts.user_wallet.key(),
-        UNVERIFY_SIGNAL_ACTION,
+        signal,
         args.root_hash,
         args.nullifier_hash,
         args.proof,
@@ -427,14 +430,14 @@ pub fn unverify_with_wallet_signature(
 }
 
 pub fn world_id_verify<'info>(
-    ctx: CpiContext<'_, '_, '_, 'info, world_id_program::cpi::accounts::VerifyGroth16Proof<'info>>,
-    user_wallet_key: Pubkey, signal_action: &[u8], root: Hash, nullifier_hash: Hash, proof: [u8; WORLD_ID_PROOF_SIZE],
+    ctx: CpiContext<'_, '_, '_, 'info, world_id_program::cpi::accounts::VerifyGroth16Proof<'info>>, signal: [u8; 32],
+    root: Hash, nullifier_hash: Hash, proof: [u8; WORLD_ID_PROOF_SIZE],
 ) -> Result<()> {
     world_id_program::cpi::verify_groth16_proof(
         ctx,
         root.to_bytes(),
         *VERIFICATION_TYPE,
-        hash_signal(user_wallet_key, signal_action),
+        signal,
         nullifier_hash.to_bytes(),
         get_external_nullifier_hash(),
         proof,

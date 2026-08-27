@@ -5,7 +5,11 @@ use anchor_spl::{
 };
 
 use crate::{
-    constants::{GLOBAL_DATA_SEED, MINT_DECIMALS, NULLIFIER_SEED, UNSTAKED_MINT_SEED, USER_DATA_SEED},
+    constants::{
+        GLOBAL_DATA_SEED, MINT_DECIMALS, NULLIFIER_SEED, REVERIFY_SIGNAL_ACTION, UNSTAKED_MINT_SEED,
+        UNVERIFY_SIGNAL_ACTION, USER_DATA_SEED, VERIFY_SIGNAL_ACTION, WORLD_ID_V4_ACTION,
+        WORLD_ID_V4_CREDENTIAL_GENESIS_ISSUED_AT_MIN, WORLD_ID_V4_RP_ID, WORLD_ID_V4_SESSION_SEED,
+    },
     state::{
         error::ComptokenError, ext::world_id_program::WorldIdProgram, global_data::GlobalData, hash::Hash,
         nullifier::NullifierV4, session::WorldIdV4Session, user_data::UserData,
@@ -13,18 +17,6 @@ use crate::{
 };
 
 // TODO: much of this is duplicated from v3, refactor to share code between v3 and v4 verification instructions
-
-// TODO: move to constants, get correct values
-const WORLD_ID_V4_ACTION: &[u8] = b"comptoken-v4";
-const WORLD_ID_V4_RP_ID: u64 = 1;
-const WORLD_ID_V4_CREDENTIAL_GENESIS_ISSUED_AT_MIN: u64 = 0; // unconstrained. TODO: do we want to constrain this? if so, what value should we use?
-const WORLD_ID_V4_SESSION_SEED: &[u8] = b"world_id_session";
-
-// signals scope a proof to a specific instruction/account combination, so a proof cannot be
-// replayed against a different instruction within world id's proof validity window.
-const VERIFY_SIGNAL_ACTION: &[u8] = b"verify";
-const REVERIFY_SIGNAL_ACTION: &[u8] = b"reverify";
-const UNVERIFY_SIGNAL_ACTION: &[u8] = b"unverify";
 
 /// Fields common to every World ID v4 proof.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]

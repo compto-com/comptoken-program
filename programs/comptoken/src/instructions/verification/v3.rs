@@ -349,6 +349,7 @@ pub fn unverify_with_proof_recovery(
             },
         ),
         ctx.accounts.user_wallet.key(),
+        UNVERIFY_SIGNAL_ACTION,
         args.root_hash,
         args.nullifier_hash,
         args.proof,
@@ -427,17 +428,25 @@ pub fn unverify_with_wallet_signature(
 
 pub fn world_id_verify<'info>(
     ctx: CpiContext<'_, '_, '_, 'info, world_id_program::cpi::accounts::VerifyGroth16Proof<'info>>,
-    user_wallet_key: Pubkey, root: Hash, nullifier_hash: Hash, proof: [u8; WORLD_ID_PROOF_SIZE],
+    user_wallet_key: Pubkey, signal_action: &[u8], root: Hash, nullifier_hash: Hash, proof: [u8; WORLD_ID_PROOF_SIZE],
 ) -> Result<()> {
     world_id_program::cpi::verify_groth16_proof(
         ctx,
         root.to_bytes(),
         *VERIFICATION_TYPE,
-        hash_to_field(user_wallet_key.as_ref()),
+        hash_signal(user_wallet_key, signal_action),
         nullifier_hash.to_bytes(),
         get_external_nullifier_hash(),
         proof,
     )
+}
+
+/// Scopes a signal to a specific wallet/instruction combination, so a proof generated for one
+/// instruction cannot be replayed against another within world id's proof validity window.
+fn hash_signal(user_wallet_key: Pubkey, signal_action: &[u8]) -> [u8; 32] {
+    let mut combined = user_wallet_key.as_ref().to_vec();
+    combined.extend_from_slice(signal_action);
+    hash_to_field(&combined)
 }
 
 fn hash_to_field(val: &[u8]) -> [u8; 32] {

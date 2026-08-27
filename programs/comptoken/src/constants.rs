@@ -77,3 +77,28 @@ pub const WORLD_APP_ID: &[u8] = b"app_staging_651f58cce60b3e824a4206cdcf3d4025";
 
 #[constant]
 pub const WORLD_ACTION: &[u8] = b"verifyhuman";
+
+// signals scope a proof to a specific instruction/account combination, so a proof cannot be
+// replayed against a different instruction within world id's proof validity window.
+#[constant]
+pub const VERIFY_SIGNAL_ACTION: &[u8] = b"verify";
+
+#[constant]
+pub const REVERIFY_SIGNAL_ACTION: &[u8] = b"reverify";
+
+#[constant]
+pub const UNVERIFY_SIGNAL_ACTION: &[u8] = b"unverify";
+
+// TODO: get correct values for v4
+
+#[constant]
+pub const WORLD_ID_V4_ACTION: &[u8] = b"verifyhuman-v4";
+
+#[constant]
+pub const WORLD_ID_V4_RP_ID: u64 = 1;
+
+#[constant]
+pub const WORLD_ID_V4_CREDENTIAL_GENESIS_ISSUED_AT_MIN: u64 = 0; // unconstrained. TODO: do we want to constrain this? if so, what value should we use?
+
+#[constant]
+pub const WORLD_ID_V4_SESSION_SEED: &[u8] = b"world_id_session";

@@ -154,6 +154,19 @@ pub fn verify_common<'info>(
         return err!(ComptokenError::AccountAlreadyVerified);
     }
 
+    // v4 (Session) verified users may not step down to v3 (Nullifier) verification - only the
+    // reverse (upgrading v3 -> v4) is allowed.
+    if matches!(user_data.verification, Verification::Session { .. })
+        && matches!(verification, Verification::Nullifier { .. })
+    {
+        msg!("Account is already verified with World ID v4. Downgrading to v3 verification is not allowed.");
+        return err!(ComptokenError::AccountAlreadyVerified);
+    }
+
+    // Upgrading a v3-verified user to v4 intentionally leaves the old v3 nullifier account
+    // orphaned (still bound to user_wallet) rather than clearing it - this makes it marginally
+    // harder for a user to hold both a v3 and v4 verification concurrently.
+
     if user_data.verification == Verification::Unverified {
         global_data_loader.load_mut()?.daily_distribution.verified_accounts_count += 1;
     }

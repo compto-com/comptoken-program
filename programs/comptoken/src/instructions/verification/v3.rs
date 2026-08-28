@@ -240,7 +240,7 @@ pub struct Reverify<'info> {
         has_one = user_wallet @ ComptokenError::InvalidNullifierOwner,
         bump,
     )]
-    pub world_id_nullifier: AccountLoader<'info, Nullifier>,
+    pub world_id_nullifier: Account<'info, Nullifier>,
 }
 
 /// Refreshes a user's World ID verification by checking a proof and updating their verification timestamp.
@@ -322,7 +322,7 @@ pub struct UnverifyWithProofRecovery<'info> {
         has_one = user_wallet @ ComptokenError::InvalidNullifierOwner,
         bump,
     )]
-    pub world_id_nullifier: AccountLoader<'info, Nullifier>,
+    pub world_id_nullifier: Account<'info, Nullifier>,
 
     #[account(
         mut,
@@ -360,8 +360,7 @@ pub fn unverify_with_proof_recovery(
 
     // Clear verification status
     user_data.clear_nullifier_hash(); // also updates last verified timestamp to 0
-    let mut nullifier = ctx.accounts.world_id_nullifier.load_mut()?;
-    nullifier.user_wallet = Pubkey::default();
+    ctx.accounts.world_id_nullifier.user_wallet = Pubkey::default();
 
     let mut global_data = ctx.accounts.global_data.load_mut()?;
     global_data.daily_distribution.verified_accounts_count -= 1;
@@ -393,7 +392,7 @@ pub struct UnverifyWithWalletSignature<'info> {
         has_one = user_wallet @ ComptokenError::InvalidNullifierOwner,
         bump,
     )]
-    pub world_id_nullifier: AccountLoader<'info, Nullifier>,
+    pub world_id_nullifier: Account<'info, Nullifier>,
 
     #[account(
         mut,
@@ -419,8 +418,7 @@ pub fn unverify_with_wallet_signature(
 
     // Clear verification status
     user_data.clear_nullifier_hash(); // also updates last verified timestamp to 0
-    let mut nullifier = ctx.accounts.world_id_nullifier.load_mut()?;
-    nullifier.user_wallet = Pubkey::default();
+    ctx.accounts.world_id_nullifier.user_wallet = Pubkey::default();
 
     let mut global_data = ctx.accounts.global_data.load_mut()?;
     global_data.daily_distribution.verified_accounts_count -= 1;

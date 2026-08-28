@@ -6,17 +6,25 @@ use anchor_spl::{
 
 use crate::{
     constants::{
-        GLOBAL_DATA_SEED, MINT_DECIMALS, NULLIFIER_SEED, REVERIFY_SIGNAL_ACTION, UNSTAKED_MINT_SEED,
-        UNVERIFY_SIGNAL_ACTION, USER_DATA_SEED, VERIFY_SIGNAL_ACTION, WORLD_ID_V4_ACTION,
-        WORLD_ID_V4_CREDENTIAL_GENESIS_ISSUED_AT_MIN, WORLD_ID_V4_RP_ID, WORLD_ID_V4_SESSION_SEED,
+        GLOBAL_DATA_SEED, NULLIFIER_SEED, REVERIFY_SIGNAL_ACTION, UNSTAKED_MINT_SEED, UNVERIFY_SIGNAL_ACTION,
+        USER_DATA_SEED, VERIFY_SIGNAL_ACTION, WORLD_ID_V4_ACTION, WORLD_ID_V4_CREDENTIAL_GENESIS_ISSUED_AT_MIN,
+        WORLD_ID_V4_RP_ID, WORLD_ID_V4_SESSION_SEED,
     },
+    instructions::verification::common::{reverify_common, unverify_common, verify_common},
     state::{
-        error::ComptokenError, ext::world_id_program::WorldIdProgram, global_data::GlobalData, hash::Hash,
-        nullifier::NullifierV4, session::WorldIdV4Session, user_data::UserData,
+        error::ComptokenError,
+        ext::world_id_program::WorldIdProgram,
+        global_data::GlobalData,
+        hash::Hash,
+        nullifier::NullifierV4,
+        session::WorldIdV4Session,
+        user_data::{UserData, Verification},
     },
 };
 
-// TODO: much of this is duplicated from v3, refactor to share code between v3 and v4 verification instructions
+// TODO: if a user unverifies, can they re-verify (or reverify), or is their world ID session permanently burnt?
+// TODO: enforce that v4 verified users can't verify with v3, but allow v3 verified users to upgrade to v4
+//       this may orphan v3 nullifier accounts, make sure this isn't an issue.
 
 /// Fields common to every World ID v4 proof.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
@@ -106,7 +114,6 @@ pub struct Verify<'info> {
     )]
     pub world_id_nullifier: Account<'info, NullifierV4>,
 
-    // Errors if this account already exists
     #[account(
         init,
         payer = payer,
@@ -139,61 +146,24 @@ pub struct Verify<'info> {
 /// nullifier, creates the session account bound to `user_wallet`, and marks the user as
 /// verified with `proof.session_id`.
 pub fn verify(ctx: Context<Verify>, args: VerifyArgs) -> Result<()> {
-    let user_data = &mut ctx.accounts.user_data;
-
-    if !user_data.is_current() {
-        return err!(ComptokenError::UserDataNotCurrent);
-    }
-
-    if user_data.session_id() != Hash::default() {
-        return err!(ComptokenError::SessionAlreadyInUse);
-    }
-
     let signal = hash_signal(ctx.accounts.user_wallet.key(), VERIFY_SIGNAL_ACTION);
     world_id_verify_uniqueness((), &args.proof, signal)?;
 
     ctx.accounts.world_id_nullifier.session_id = args.proof.session_id;
 
-    ctx.accounts.world_id_session.user_wallet = ctx.accounts.user_wallet.key();
-
     // TODO: this enforces that a wallet can't claim early adopter UBI more than once, but is that what we want?
     //       should it be per identity instead?
-    let ubi_eligible = !user_data.early_adopter_ubi_claimed();
-    user_data.set_session_id(args.proof.session_id);
-
-    let mut global_data = ctx.accounts.global_data.load_mut()?;
-
-    // if we reach here, the nullifier was not in use (if it existed, the user unverified earlier)
-    global_data.daily_distribution.verified_accounts_count += 1;
-
-    // mint early adopter UBI if applicable (only once per wallet, ever)
-    if global_data.daily_distribution.remaining_early_adopter_count > 0 && ubi_eligible {
-        msg!("Minting early adopter UBI reward");
-
-        global_data.daily_distribution.remaining_early_adopter_count -= 1;
-
-        let amount = global_data.daily_distribution.per_capita_early_adopter_ubi_amount;
-
-        // release borrow on global data for CPI
-        std::mem::drop(global_data);
-
-        anchor_spl::token_2022::mint_to_checked(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                anchor_spl::token_2022::MintToChecked {
-                    mint: ctx.accounts.unstaked_mint.to_account_info(),
-                    to: ctx.accounts.user_unstaked_token_account.to_account_info(),
-                    authority: ctx.accounts.global_data.to_account_info(),
-                },
-            )
-            .with_signer(&[&[GLOBAL_DATA_SEED, &[ctx.bumps.global_data]]]),
-            amount,
-            MINT_DECIMALS,
-        )?;
-    }
-
-    msg!("World ID proof verified");
-    Ok(())
+    verify_common(
+        &mut ctx.accounts.user_data,
+        ctx.accounts.user_wallet.key(),
+        &mut ctx.accounts.world_id_session,
+        Verification::Session { id: args.proof.session_id },
+        &ctx.accounts.global_data,
+        ctx.bumps.global_data,
+        &ctx.accounts.token_program,
+        &ctx.accounts.unstaked_mint,
+        &ctx.accounts.user_unstaked_token_account,
+    )
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
@@ -225,17 +195,10 @@ pub struct Reverify<'info> {
 /// verification timestamp. Does not touch the nullifier registry - re-use of an already-bound
 /// session is expected and required here.
 pub fn reverify(ctx: Context<Reverify>, args: ReverifyArgs) -> Result<()> {
-    let user_data = &mut ctx.accounts.user_data;
-
-    require!(user_data.session_id() == args.session_proof.session_id, ComptokenError::InvalidNullifierHash);
-
     let signal = hash_signal(ctx.accounts.user_wallet.key(), REVERIFY_SIGNAL_ACTION);
     world_id_verify_session((), &args.session_proof, signal)?;
 
-    user_data.update_last_verified_timestamp();
-
-    msg!("World ID proof re-verified");
-    Ok(())
+    reverify_common(&mut ctx.accounts.user_data, Verification::Session { id: args.session_proof.session_id })
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
@@ -276,19 +239,15 @@ pub struct UnverifyWithProof<'info> {
 /// Removes verification using a World ID session proof to confirm identity (no wallet
 /// signature required).
 pub fn unverify_with_proof(ctx: Context<UnverifyWithProof>, args: UnverifyWithProofArgs) -> Result<()> {
-    let user_data = &mut ctx.accounts.user_data;
-
-    require!(user_data.session_id() == args.session_proof.session_id, ComptokenError::InvalidNullifierHash);
-
     let signal = hash_signal(ctx.accounts.user_wallet.key(), UNVERIFY_SIGNAL_ACTION);
     world_id_verify_session((), &args.session_proof, signal)?;
 
-    user_data.clear_session_id();
-    ctx.accounts.world_id_session.user_wallet = Pubkey::default();
-
-    let mut global_data = ctx.accounts.global_data.load_mut()?;
-    global_data.daily_distribution.verified_accounts_count -= 1;
-    // do not update early adopter count here - only decremented on verify, never incremented
+    unverify_common(
+        &mut ctx.accounts.user_data,
+        &ctx.accounts.global_data,
+        &mut ctx.accounts.world_id_session,
+        Verification::Session { id: args.session_proof.session_id },
+    )?;
 
     msg!("World ID proof verified and user unverified");
     Ok(())
@@ -332,24 +291,20 @@ pub struct UnverifyWithWalletSignature<'info> {
 pub fn unverify_with_wallet_signature(
     ctx: Context<UnverifyWithWalletSignature>, args: UnverifyWithSignatureArgs,
 ) -> Result<()> {
-    let user_data = &mut ctx.accounts.user_data;
-
-    require!(user_data.is_current(), ComptokenError::UserDataNotCurrent);
-    require!(user_data.session_id() == args.session_id, ComptokenError::InvalidNullifierHash);
-
-    user_data.clear_session_id();
-    ctx.accounts.world_id_session.user_wallet = Pubkey::default();
-
-    let mut global_data = ctx.accounts.global_data.load_mut()?;
-    global_data.daily_distribution.verified_accounts_count -= 1;
-    // do not update early adopter count here - only decremented on verify, never incremented
+    unverify_common(
+        &mut ctx.accounts.user_data,
+        &ctx.accounts.global_data,
+        &mut ctx.accounts.world_id_session,
+        Verification::Session { id: args.session_id },
+    )?;
 
     Ok(())
 }
 
-/// Hashes `parts` into a single signal value bound into a World ID proof.
+/// Hashes into a single signal value bound into a World ID proof.
 ///
-/// TODO: implement once the v4 world id program's signal hashing scheme is finalized
+/// TODO: implement once the v4 world id program's signal hashing scheme is finalized, if it
+/// remains the same as in v3, reuse the v3 hashing logic.
 fn hash_signal(user_wallet: Pubkey, signal_action: &[u8]) -> Hash {
     let mut combined = user_wallet.as_ref().to_vec();
     combined.extend_from_slice(signal_action);

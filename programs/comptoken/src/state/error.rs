@@ -23,8 +23,11 @@ pub enum ComptokenError {
     #[msg("Invalid nullifier owner")]
     InvalidNullifierOwner,
 
-    #[msg("Invalid nullifier hash for user data")]
-    InvalidNullifierHash,
+    #[msg("Invalid verification for user data")]
+    InvalidVerification,
+
+    #[msg("Account has already been verified")]
+    AccountAlreadyVerified,
 
     #[msg("Invalid capacity for resizing user data account")]
     InvalidCapacity,

@@ -108,41 +108,16 @@ impl UserData {
         self.last_verified_timestamp = normalize_time(get_current_time());
     }
 
-    pub fn set_nullifier_hash(&mut self, nullifier_hash: Hash) {
-        self.verification = Verification::Nullifier { hash: nullifier_hash };
-        self.update_last_verified_timestamp();
-    }
-
-    pub fn clear_nullifier_hash(&mut self) {
-        // ubi is claimed if the user has ever verified, even if they unverify and reverify later
+    pub fn clear_verification(&mut self) {
         self.verification = Verification::Unverified;
     }
 
-    pub fn set_session_id(&mut self, session_id: Hash) {
-        self.verification = Verification::Session { id: session_id };
-    }
-
-    pub fn clear_session_id(&mut self) {
-        // ubi is claimed if the user has ever verified, even if they unverify and reverify later
-        self.verification = Verification::Unverified;
+    pub fn set_verification(&mut self, verification: Verification) {
+        self.verification = verification;
     }
 
     pub fn early_adopter_ubi_claimed(&self) -> bool {
         self.last_verified_timestamp != 0
-    }
-
-    pub fn nullifier_hash(&self) -> Hash {
-        match self.verification {
-            Verification::Nullifier { hash, .. } => hash,
-            _ => Hash::default(),
-        }
-    }
-
-    pub fn session_id(&self) -> Hash {
-        match self.verification {
-            Verification::Session { id, .. } => id,
-            _ => Hash::default(),
-        }
     }
 }
 

@@ -22,9 +22,6 @@ use crate::{
     },
 };
 
-// TODO: enforce that v4 verified users can't verify with v3, but allow v3 verified users to upgrade to v4
-//       this may orphan v3 nullifier accounts, make sure this isn't an issue.
-
 /// Fields common to every World ID v4 proof.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct WorldIdV4ProofCommon {

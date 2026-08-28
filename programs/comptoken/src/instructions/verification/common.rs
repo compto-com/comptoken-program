@@ -62,25 +62,49 @@ pub fn clear_verification<'info>(global_data_loader: &AccountLoader<'info, Globa
     Ok(())
 }
 
-pub trait ClearIdentityWallet {
+pub trait IdentityWallet {
+    fn get_user_wallet(&self) -> Pubkey;
+
     fn clear_identity_wallet(&mut self);
+
+    fn set_identity_wallet(&mut self, user_wallet: Pubkey) -> Result<()>;
 }
 
-impl ClearIdentityWallet for Account<'_, WorldIdV4Session> {
+impl IdentityWallet for Account<'_, WorldIdV4Session> {
+    fn get_user_wallet(&self) -> Pubkey {
+        self.user_wallet
+    }
+
     fn clear_identity_wallet(&mut self) {
         self.user_wallet = Pubkey::default();
     }
+
+    fn set_identity_wallet(&mut self, user_wallet: Pubkey) -> Result<()> {
+        require!(self.user_wallet == Pubkey::default(), ComptokenError::SessionAlreadyInUse);
+        self.user_wallet = user_wallet;
+        Ok(())
+    }
 }
 
-impl ClearIdentityWallet for Account<'_, Nullifier> {
+impl IdentityWallet for Account<'_, Nullifier> {
+    fn get_user_wallet(&self) -> Pubkey {
+        self.user_wallet
+    }
+
     fn clear_identity_wallet(&mut self) {
         self.user_wallet = Pubkey::default();
+    }
+
+    fn set_identity_wallet(&mut self, user_wallet: Pubkey) -> Result<()> {
+        require!(self.user_wallet == Pubkey::default(), ComptokenError::NullifierAlreadyUsed);
+        self.user_wallet = user_wallet;
+        Ok(())
     }
 }
 
 pub fn unverify_common<'info>(
     user_data: &mut Account<'info, UserData>, global_data_loader: &AccountLoader<'info, GlobalData>,
-    clear_identity_wallet: &mut impl ClearIdentityWallet, verification: Verification,
+    clear_identity_wallet: &mut impl IdentityWallet, verification: Verification,
 ) -> Result<()> {
     require!(user_data.is_current(), ComptokenError::UserDataNotCurrent);
     require!(user_data.verification == verification, ComptokenError::InvalidVerification);
@@ -90,34 +114,24 @@ pub fn unverify_common<'info>(
     clear_verification(global_data_loader)
 }
 
-pub fn reverify_common<'info>(user_data: &mut Account<'info, UserData>, verification: Verification) -> Result<()> {
+pub fn reverify_common<'info>(
+    user_data: &mut Account<'info, UserData>, identity_account: &mut impl IdentityWallet, identity: Pubkey,
+    verification: Verification,
+) -> Result<()> {
     require!(user_data.verification == verification, ComptokenError::InvalidVerification);
+
+    if identity_account.get_user_wallet() == Pubkey::default() {
+        // binding a previously verified but unbound identity to a new user wallet
+        require!(user_data.is_current(), ComptokenError::UserDataNotCurrent);
+        identity_account.set_identity_wallet(identity)?;
+    } else {
+        require!(identity_account.get_user_wallet() == identity, ComptokenError::InvalidNullifierOwner);
+    }
 
     user_data.update_last_verified_timestamp();
 
     msg!("World ID proof re-verified");
     Ok(())
-}
-
-pub trait SetIdentityWallet {
-    /// Marks the account as bound to `user_wallet`. Errors if it's already in use by someone else.
-    fn set_identity_wallet(&mut self, user_wallet: Pubkey) -> Result<()>;
-}
-
-impl SetIdentityWallet for Account<'_, WorldIdV4Session> {
-    fn set_identity_wallet(&mut self, user_wallet: Pubkey) -> Result<()> {
-        require!(self.user_wallet == Pubkey::default(), ComptokenError::SessionAlreadyInUse);
-        self.user_wallet = user_wallet;
-        Ok(())
-    }
-}
-
-impl SetIdentityWallet for Account<'_, Nullifier> {
-    fn set_identity_wallet(&mut self, user_wallet: Pubkey) -> Result<()> {
-        require!(self.user_wallet == Pubkey::default(), ComptokenError::NullifierAlreadyUsed);
-        self.user_wallet = user_wallet;
-        Ok(())
-    }
 }
 
 /// Shared tail of every verify instruction: checks `user_data` is current and not already bound to
@@ -128,7 +142,7 @@ impl SetIdentityWallet for Account<'_, Nullifier> {
 /// binding) must be handled by the caller before invoking this.
 #[allow(clippy::too_many_arguments)]
 pub fn verify_common<'info>(
-    user_data: &mut Account<'info, UserData>, user_wallet: Pubkey, identity_account: &mut impl SetIdentityWallet,
+    user_data: &mut Account<'info, UserData>, user_wallet: Pubkey, identity_account: &mut impl IdentityWallet,
     verification: Verification, global_data_loader: &AccountLoader<'info, GlobalData>, global_data_bump: u8,
     token_program: &Program<'info, Token2022>, unstaked_mint: &InterfaceAccount<'info, Mint>,
     user_unstaked_token_account: &InterfaceAccount<'info, TokenAccount>,

@@ -152,6 +152,8 @@ pub fn verify(ctx: Context<Verify>, args: VerifyArgs) -> Result<()> {
     let signal = hash_signal(ctx.accounts.user_wallet.key(), VERIFY_SIGNAL_ACTION);
     world_id_verify_uniqueness((), &args.proof, signal)?;
 
+    ctx.accounts.world_id_nullifier.session_id = args.proof.session_id;
+
     // scope to limit the lifetime of the session borrow
     {
         let mut session = ctx.accounts.world_id_session.load_init()?;

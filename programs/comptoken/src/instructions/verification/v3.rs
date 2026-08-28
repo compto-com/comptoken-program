@@ -76,8 +76,9 @@ pub struct Verify<'info> {
     pub world_id_config: Account<'info, WorldIdConfig>,
 
     /// CHECK: handled in instruction logic
+    // Errors if this account already exists
     #[account(
-        init_if_needed,
+        init,
         payer = payer,
         space = std::mem::size_of::<Nullifier>() + 8,
         seeds = [NULLIFIER_SEED, args.nullifier_hash.as_ref()],
@@ -172,14 +173,18 @@ pub struct Reverify<'info> {
     pub world_id_config: Account<'info, WorldIdConfig>,
 
     #[account(
+        mut,
         seeds = [NULLIFIER_SEED, args.nullifier_hash.as_ref()],
-        has_one = user_wallet @ ComptokenError::InvalidNullifierOwner,
         bump,
     )]
     pub world_id_nullifier: Account<'info, Nullifier>,
 }
 
 /// Refreshes a user's World ID verification by checking a proof and updating their verification timestamp.
+///
+/// The nullifier may already be bound to `user_wallet` (the common case), or unbound after a
+/// prior unverify - in which case it is rebound to `user_wallet` here. It must not be bound to
+/// a different wallet.
 pub fn reverify(ctx: Context<Reverify>, args: WorldIdVerificationData) -> Result<()> {
     // CPI to World ID program to verify proof
     let signal = hash_signal(ctx.accounts.user_wallet.key(), REVERIFY_SIGNAL_ACTION);
@@ -198,7 +203,12 @@ pub fn reverify(ctx: Context<Reverify>, args: WorldIdVerificationData) -> Result
         args.proof,
     )?;
 
-    reverify_common(&mut ctx.accounts.user_data, Verification::Nullifier { hash: args.nullifier_hash })
+    reverify_common(
+        &mut ctx.accounts.user_data,
+        &mut ctx.accounts.world_id_nullifier,
+        ctx.accounts.user_wallet.key(),
+        Verification::Nullifier { hash: args.nullifier_hash },
+    )
 }
 
 /// This instruction is called to unverify an account when the user does not have access to the wallet

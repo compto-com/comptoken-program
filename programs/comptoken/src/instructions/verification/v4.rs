@@ -22,7 +22,6 @@ use crate::{
     },
 };
 
-// TODO: if a user unverifies, can they re-verify (or reverify), or is their world ID session permanently burnt?
 // TODO: enforce that v4 verified users can't verify with v3, but allow v3 verified users to upgrade to v4
 //       this may orphan v3 nullifier accounts, make sure this isn't an issue.
 
@@ -184,9 +183,9 @@ pub struct Reverify<'info> {
     pub user_data: Account<'info, UserData>,
 
     #[account(
+        mut,
         seeds = [WORLD_ID_V4_SESSION_SEED, args.session_proof.session_id.as_ref()],
         bump,
-        has_one = user_wallet @ ComptokenError::InvalidNullifierOwner,
     )]
     pub world_id_session: Account<'info, WorldIdV4Session>,
 }
@@ -194,11 +193,20 @@ pub struct Reverify<'info> {
 /// Refreshes a user's World ID verification by checking a session proof and updating their
 /// verification timestamp. Does not touch the nullifier registry - re-use of an already-bound
 /// session is expected and required here.
+///
+/// The session may already be bound to `user_wallet` (the common case), or unbound after a
+/// prior unverify - in which case it is rebound to `user_wallet` here. It must not be bound to
+/// a different wallet.
 pub fn reverify(ctx: Context<Reverify>, args: ReverifyArgs) -> Result<()> {
     let signal = hash_signal(ctx.accounts.user_wallet.key(), REVERIFY_SIGNAL_ACTION);
     world_id_verify_session((), &args.session_proof, signal)?;
 
-    reverify_common(&mut ctx.accounts.user_data, Verification::Session { id: args.session_proof.session_id })
+    reverify_common(
+        &mut ctx.accounts.user_data,
+        &mut ctx.accounts.world_id_session,
+        ctx.accounts.user_wallet.key(),
+        Verification::Session { id: args.session_proof.session_id },
+    )
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]

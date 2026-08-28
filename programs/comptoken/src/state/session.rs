@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-#[account(zero_copy)]
+#[account()]
 pub struct WorldIdV4Session {
     pub user_wallet: Pubkey,
 }

@@ -114,7 +114,7 @@ pub struct Verify<'info> {
         seeds = [WORLD_ID_V4_SESSION_SEED, args.proof.session_id.as_ref()],
         bump,
     )]
-    pub world_id_session: AccountLoader<'info, WorldIdV4Session>,
+    pub world_id_session: Account<'info, WorldIdV4Session>,
 
     #[account(
         mut,
@@ -154,11 +154,7 @@ pub fn verify(ctx: Context<Verify>, args: VerifyArgs) -> Result<()> {
 
     ctx.accounts.world_id_nullifier.session_id = args.proof.session_id;
 
-    // scope to limit the lifetime of the session borrow
-    {
-        let mut session = ctx.accounts.world_id_session.load_init()?;
-        session.user_wallet = ctx.accounts.user_wallet.key();
-    }
+    ctx.accounts.world_id_session.user_wallet = ctx.accounts.user_wallet.key();
 
     // TODO: this enforces that a wallet can't claim early adopter UBI more than once, but is that what we want?
     //       should it be per identity instead?
@@ -222,7 +218,7 @@ pub struct Reverify<'info> {
         bump,
         has_one = user_wallet @ ComptokenError::InvalidNullifierOwner,
     )]
-    pub world_id_session: AccountLoader<'info, WorldIdV4Session>,
+    pub world_id_session: Account<'info, WorldIdV4Session>,
 }
 
 /// Refreshes a user's World ID verification by checking a session proof and updating their
@@ -260,7 +256,7 @@ pub struct UnverifyWithProof<'info> {
         bump,
         has_one = user_wallet @ ComptokenError::InvalidNullifierOwner,
     )]
-    pub world_id_session: AccountLoader<'info, WorldIdV4Session>,
+    pub world_id_session: Account<'info, WorldIdV4Session>,
 
     #[account(
         mut,
@@ -288,8 +284,7 @@ pub fn unverify_with_proof(ctx: Context<UnverifyWithProof>, args: UnverifyWithPr
     world_id_verify_session((), &args.session_proof, signal)?;
 
     user_data.clear_session_id();
-    let mut session = ctx.accounts.world_id_session.load_mut()?;
-    session.user_wallet = Pubkey::default();
+    ctx.accounts.world_id_session.user_wallet = Pubkey::default();
 
     let mut global_data = ctx.accounts.global_data.load_mut()?;
     global_data.daily_distribution.verified_accounts_count -= 1;
@@ -322,7 +317,7 @@ pub struct UnverifyWithWalletSignature<'info> {
         bump,
         has_one = user_wallet @ ComptokenError::InvalidNullifierOwner,
     )]
-    pub world_id_session: AccountLoader<'info, WorldIdV4Session>,
+    pub world_id_session: Account<'info, WorldIdV4Session>,
 
     #[account(
         mut,
@@ -343,8 +338,7 @@ pub fn unverify_with_wallet_signature(
     require!(user_data.session_id() == args.session_id, ComptokenError::InvalidNullifierHash);
 
     user_data.clear_session_id();
-    let mut session = ctx.accounts.world_id_session.load_mut()?;
-    session.user_wallet = Pubkey::default();
+    ctx.accounts.world_id_session.user_wallet = Pubkey::default();
 
     let mut global_data = ctx.accounts.global_data.load_mut()?;
     global_data.daily_distribution.verified_accounts_count -= 1;

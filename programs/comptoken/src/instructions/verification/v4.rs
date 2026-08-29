@@ -98,6 +98,7 @@ pub struct Verify<'info> {
     pub world_id_program: Program<'info, WorldIdProgram>,
 
     // TODO: add any accounts needed for v4 verification
+    /// CHECK: placeholder account for v4 verification; not yet validated. TODO: constrain once v4 accounts are finalized.
     pub world_id_root: UncheckedAccount<'info>,
 
     // Errors if this account already exists

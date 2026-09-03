@@ -121,7 +121,7 @@ runs:
         - name: Install Anchor
           id: anchor-version
           run: |
-              cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+              cargo install --git https://github.com/coral-xyz/anchor --tag "v${{ steps.resolve-versions.outputs.anchor_version }}" avm --locked --force
               avm install "${{ steps.resolve-versions.outputs.anchor_version }}"
               avm use "${{ steps.resolve-versions.outputs.anchor_version }}"
               echo "installed_anchor_version=$(anchor --version | awk '{print $3}')" >> $GITHUB_OUTPUT

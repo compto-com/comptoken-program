@@ -74,7 +74,7 @@ pub struct UnstakeArgs {
 pub fn unstake(ctx: Context<Unstake>, args: UnstakeArgs) -> Result<()> {
     let user_staked_token_account = &mut ctx.accounts.user_staked_token_account;
     let user_unstaked_token_account = &mut ctx.accounts.user_unstaked_token_account;
-    let user_data = &mut ctx.accounts.user_data;
+    let user_data = &ctx.accounts.user_data;
 
     require!(user_staked_token_account.amount >= args.amount, ComptokenError::InsufficientFunds);
     require!(user_data.is_current(), ComptokenError::UserDataNotCurrent); // prevent staking until user has collected outstanding rewards

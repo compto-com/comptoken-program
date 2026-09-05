@@ -214,7 +214,7 @@ describe("collect:", () => {
                 userPubkey: user.publicKey,
                 lastClaimed: weekAgo,
                 lastVerified: weekAgo,
-                verification: { Nullifier: { hash: { "0": Array.from({ length: 32 }).fill(1) } } },
+                verification: { Nullifier: { hash: { "0": Array.from({ length: 32 }).fill(1) as number[] } } },
             }),
             createGlobalDataAddedAccount({
                 historicDistributions: {
@@ -276,7 +276,7 @@ describe("collect:", () => {
                 userPubkey: user.publicKey,
                 lastClaimed: weekAgo,
                 lastVerified: weekAgo,
-                verification: { Nullifier: { hash: { "0": Array.from({ length: 32 }).fill(1) } } },
+                verification: { Nullifier: { hash: { "0": Array.from({ length: 32 }).fill(1) as number[] } } },
             }),
             createGlobalDataAddedAccount({
                 historicDistributions: {

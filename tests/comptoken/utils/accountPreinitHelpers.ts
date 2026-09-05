@@ -1,7 +1,5 @@
 import {
-    type ComptokenIdl,
     type ComptokenProgram,
-    type SolanaWorldIdIdl,
     addresses,
     createComptokenProgram,
     createDummyProvider,
@@ -29,6 +27,8 @@ import {
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { expect } from "chai";
 import type { AddedAccount } from "solana-bankrun";
+import type { Comptoken as ComptokenIdl } from "../../../target/types/comptoken.ts";
+import type { SolanaWorldIdProgram as SolanaWorldIdIdl } from "../../../target/types/solana_world_id_program.ts";
 const { BN } = anchor;
 const {
     getGlobalDataAddress,
@@ -82,7 +82,6 @@ export async function createUserDataAddedAccount({
     lastClaimed?: Date;
     lastVerified?: Date;
     verification?: userDataAccountData["verification"];
-    nullifierHash?: Uint8Array;
     recentBlockhash?: Uint8Array;
     proofs?: Uint8Array[];
 }): Promise<AddedAccount> {
@@ -98,9 +97,8 @@ export async function createUserDataAddedAccount({
         proofs: proofs.map((proof) => ({ [0]: Array.from(proof) })),
     };
 
-    const verificationSize = "Unverified" in userData.verification ? 1 : 33; // discriminator (+ Hash for Nullifier/Session) + padding
-    const baseSize = coder.accounts.size("UserData") - 1 + 4; // size adds 1 for variable length fields, plus 4 bytes for the vector length
-    const size = baseSize + capacity * 32 - 32 + verificationSize; // TODO: remove -32 after updating comptoken.js
+    const baseSize = baseProgram.constants.userDataSizeWithoutProofs.toNumber();
+    const size = baseSize + capacity * 32;
     const data = Buffer.alloc(size);
     let offset = 0;
     data.set(coder.accounts.accountDiscriminator("UserData"));
@@ -116,12 +114,12 @@ export async function createUserDataAddedAccount({
     } else if ("Nullifier" in userData.verification) {
         data.writeUInt8(1, offset); // Nullifier discriminator
         offset += 1;
-        data.set(userData.verification["Nullifier"].hash[0], offset);
+        data.set(userData.verification.Nullifier.hash[0], offset);
         offset += 32;
     } else if ("Session" in userData.verification) {
         data.writeUInt8(2, offset); // Session discriminator
         offset += 1;
-        data.set(userData.verification["Session"].id[0], offset);
+        data.set(userData.verification.Session.id[0], offset);
         offset += 32;
     } else {
         throw new Error("Unknown verification variant");

@@ -8,6 +8,7 @@ const { getGlobalDataAddress, getStakedMintAddress, getUnstakedMintAddress } = a
 
 import {
     createGlobalDataAddedAccount,
+    createLiquidityPoolTokenAccountAddedAccount,
     createStakedMintAddedAccount,
     createUnstakedMintAddedAccount,
 } from "./utils/accountPreinitHelpers.ts";
@@ -28,7 +29,9 @@ describe("initialize", () => {
         let unstakedMintDecoded: Mint;
 
         before(async () => {
-            ({ provider, program } = await prepareTest());
+            const accounts = [await createLiquidityPoolTokenAccountAddedAccount()];
+
+            ({ provider, program } = await prepareTest(accounts));
             stakedMintPda = getStakedMintAddress(program);
             unstakedMintPda = getUnstakedMintAddress(program);
             globalDataPda = getGlobalDataAddress(program);
@@ -137,6 +140,7 @@ describe("initialize", () => {
             createGlobalDataAddedAccount(),
             createStakedMintAddedAccount(),
             createUnstakedMintAddedAccount(),
+            createLiquidityPoolTokenAccountAddedAccount(),
         ]);
 
         const { program } = await prepareTest(preinitializedAccounts);

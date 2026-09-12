@@ -1,5 +1,5 @@
 import {
-    type ComptokenProgram,
+    type ComptokenProgram as CP,
     addresses,
     createComptokenProgram,
     createDummyProvider,
@@ -24,7 +24,7 @@ import {
     getAccount as splGetAccount,
     getMint as splGetMint,
 } from "@solana/spl-token";
-import { PublicKey, SystemProgram } from "@solana/web3.js";
+import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { expect } from "chai";
 import type { AddedAccount } from "solana-bankrun";
 import type { Comptoken as ComptokenIdl } from "../../../target/types/comptoken.ts";
@@ -38,19 +38,57 @@ const {
     getWorldIdNullifierAddress,
 } = addresses;
 
+// this is to fix the hard-coded (outdated) idl in comptoken.js. when comptoken.js is updated to use the latest idl, this can be removed
+// or better yet, comptoken.js should handle idl's better or just be integrated into this repo so that the idl is always up to date
+import type { BetterBorshCoder } from "@compto/comptoken.js/src/coder.ts";
+import type { ProgramWithConstants } from "@compto/comptoken.js/src/programWithConstants.ts";
+
+type ComptokenCoder = BetterBorshCoder<ComptokenIdl>;
+type ComptokenProgram = Omit<ProgramWithConstants<ComptokenIdl>, "coder"> & { coder: ComptokenCoder };
+
 import { type CamelToSnakeCaseObject } from "./typeHelpers.ts";
 import { normalizeTime, saturatingSubtract, toUnixTime, today } from "./utils.ts";
 
 const projectRoot = `${import.meta.dirname}/../../..`;
 export const Idl = getComptokenIdl(`${projectRoot}/target/idl/comptoken.json`);
-export const baseProgram = createComptokenProgram(Idl, createDummyProvider());
+export const baseProgram = createComptokenProgram(Idl, createDummyProvider()) as CP & ComptokenProgram;
 export const coder = new BorshCoder(Idl);
 
 export const solanaWorldIdIdl = getSolanaWorldIdIdl(`${projectRoot}/target/idl/solana_world_id_program.json`);
 export const solanaWorldIdProgram = createSolanaWorldIdProgram(solanaWorldIdIdl, createDummyProvider());
 export const solanaWorldIdCoder = new BorshCoder(solanaWorldIdIdl);
 
-type userDataAccountData = IdlAccounts<ComptokenIdl>["userData"];
+// not sure why the type is wrong, but this should fix it
+type VerificationFixed =
+    | {
+          Unverified: {};
+      }
+    | {
+          Nullifier: {
+              hash: { [0]: number[] };
+          };
+      }
+    | {
+          Session: {
+              id: { [0]: number[] };
+          };
+      };
+
+type userDataAccountData = Omit<IdlAccounts<ComptokenIdl>["userData"], "verification"> & {
+    verification: VerificationFixed;
+};
+
+export type HistoricDistribution = IdlTypes<ComptokenIdl>["historicDistribution"];
+export type GlobalDataAccountData = Omit<IdlAccounts<ComptokenIdl>["globalData"], "dailyDistribution"> & {
+    dailyDistribution: Omit<IdlAccounts<ComptokenIdl>["globalData"]["dailyDistribution"], "historicDistributions"> & {
+        historicDistributions: Omit<
+            IdlAccounts<ComptokenIdl>["globalData"]["dailyDistribution"]["historicDistributions"],
+            "buffer"
+        > & {
+            buffer: HistoricDistribution[];
+        };
+    };
+};
 
 export async function createWalletAddedAccount(
     address: PublicKey,
@@ -147,18 +185,6 @@ export async function createUserDataAddedAccount({
         },
     };
 }
-
-export type HistoricDistribution = IdlTypes<ComptokenIdl>["historicDistribution"];
-export type GlobalDataAccountData = Omit<IdlAccounts<ComptokenIdl>["globalData"], "dailyDistribution"> & {
-    dailyDistribution: Omit<IdlAccounts<ComptokenIdl>["globalData"]["dailyDistribution"], "historicDistributions"> & {
-        historicDistributions: Omit<
-            IdlAccounts<ComptokenIdl>["globalData"]["dailyDistribution"]["historicDistributions"],
-            "buffer"
-        > & {
-            buffer: HistoricDistribution[];
-        };
-    };
-};
 
 export async function createGlobalDataAddedAccount({
     totalMinedToday = 0,
@@ -398,6 +424,14 @@ export async function createUnstakedTokenAccountAddedAccount({
             lamports: 1_000_000_000, // arbitrary lamport amount
         },
     };
+}
+
+export function createLiquidityPoolTokenAccountAddedAccount(amount: bigint | number = 0) {
+    return createUnstakedTokenAccountAddedAccount({
+        address: baseProgram.constants.liquidityPoolTokenAccountAddress,
+        owner: Keypair.generate().publicKey,
+        amount,
+    });
 }
 
 export async function createStakedTokenAccountAddedAccount({
@@ -692,6 +726,8 @@ function BNtoBigIntRecursive(obj: any): any {
 function snakeToCamelRecursive(obj: any): any {
     if (Array.isArray(obj)) {
         return obj.map((item) => snakeToCamelRecursive(item));
+    } else if (obj instanceof PublicKey || obj instanceof BN) {
+        return obj;
     } else if (obj !== null && typeof obj === "object") {
         const newObj: any = {};
         for (const key of Object.keys(obj)) {

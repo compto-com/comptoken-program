@@ -106,7 +106,6 @@ pub fn unverify_common<'info>(
     user_data: &mut Account<'info, UserData>, global_data_loader: &AccountLoader<'info, GlobalData>,
     clear_identity_wallet: &mut impl IdentityWallet, verification: Verification,
 ) -> Result<()> {
-    require!(user_data.is_current(), ComptokenError::UserDataNotCurrent);
     require!(user_data.verification == verification, ComptokenError::InvalidVerification);
 
     user_data.clear_verification();

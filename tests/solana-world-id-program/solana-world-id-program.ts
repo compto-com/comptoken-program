@@ -312,7 +312,9 @@ describe("solana-world-id-program", () => {
                     refundRecipient: next_owner.publicKey,
                 })
                 .rpc(),
-        ).to.be.rejectedWith("AnchorError caused by account: guardian_signatures_buffer. Error Code: ConstraintHasOne.");
+        ).to.be.rejectedWith(
+            "AnchorError caused by account: guardian_signatures_buffer. Error Code: ConstraintHasOne.",
+        );
     });
 
     it(fmtTest("update_root_with_query", "Rejects root hash instruction argument mismatch"), async () => {
@@ -1661,7 +1663,9 @@ describe("solana-world-id-program", () => {
                     guardianSignaturesBuffer: signatureSet.publicKey,
                 })
                 .rpc(),
-        ).to.be.rejectedWith("AnchorError caused by account: guardian_signatures_buffer. Error Code: ConstraintHasOne.");
+        ).to.be.rejectedWith(
+            "AnchorError caused by account: guardian_signatures_buffer. Error Code: ConstraintHasOne.",
+        );
     });
 
     it(fmtTest("close_signatures", "Rejects without refund recipient as signer"), async () => {

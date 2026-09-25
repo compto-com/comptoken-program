@@ -210,7 +210,12 @@ describe("collect:", () => {
         const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
         const accounts = await Promise.all([
-            createUserDataAddedAccount({ userPubkey: user.publicKey, lastClaimed: weekAgo, lastVerified: weekAgo }),
+            createUserDataAddedAccount({
+                userPubkey: user.publicKey,
+                lastClaimed: weekAgo,
+                lastVerified: weekAgo,
+                verification: { Nullifier: { hash: { "0": Array.from({ length: 32 }).fill(1) as number[] } } },
+            }),
             createGlobalDataAddedAccount({
                 historicDistributions: {
                     position: 1,
@@ -267,7 +272,12 @@ describe("collect:", () => {
         const userUnstakedAta = getUserUnstakedAssociatedTokenAddress(baseProgram, user.publicKey);
 
         const accounts = await Promise.all([
-            createUserDataAddedAccount({ userPubkey: user.publicKey, lastClaimed: weekAgo, lastVerified: weekAgo }),
+            createUserDataAddedAccount({
+                userPubkey: user.publicKey,
+                lastClaimed: weekAgo,
+                lastVerified: weekAgo,
+                verification: { Nullifier: { hash: { "0": Array.from({ length: 32 }).fill(1) as number[] } } },
+            }),
             createGlobalDataAddedAccount({
                 historicDistributions: {
                     position: 1,

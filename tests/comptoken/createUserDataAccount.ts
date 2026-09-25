@@ -38,8 +38,10 @@ describe("create_user_data_account", async () => {
             8 + // discriminator
                 8 + // last_claimed_timestamp
                 8 + // last_verified_timestamp
-                32 + // nullifier_hash
+                1 + // verification discriminator
+                32 + // verification value (nullifier/session hash or empty)
                 32 + // recent_blockhash
+                7 + // padding (Rust aligns the following Vec<Hash> to 8 bytes)
                 4 + // proofs vec length
                 10 * 32, // proofs capacity (10) * size of each proof (32 bytes)
         );

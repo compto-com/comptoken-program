@@ -297,6 +297,8 @@ pub struct UnverifyWithWalletSignature<'info> {
 pub fn unverify_with_wallet_signature(
     ctx: Context<UnverifyWithWalletSignature>, args: UnverifyWithSignatureArgs,
 ) -> Result<()> {
+    require!(ctx.accounts.user_data.is_current(), ComptokenError::UserDataNotCurrent);
+
     unverify_common(
         &mut ctx.accounts.user_data,
         &ctx.accounts.global_data,

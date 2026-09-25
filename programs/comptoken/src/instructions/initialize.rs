@@ -5,11 +5,13 @@ use anchor_spl::{
         spl_token_2022::{extension::ExtensionType, pod::PodMint},
         InitializeMint2, Token2022,
     },
-    token_interface::{non_transferable_mint_initialize, Mint, NonTransferableMintInitialize},
+    token_interface::{non_transferable_mint_initialize, Mint, NonTransferableMintInitialize, TokenAccount},
 };
 
 use crate::{
-    constants::{GLOBAL_DATA_SEED, MINT_DECIMALS, STAKED_MINT_SEED, UNSTAKED_MINT_SEED},
+    constants::{
+        GLOBAL_DATA_SEED, LIQUIDITY_POOL_TOKEN_ACCOUNT_ADDRESS, MINT_DECIMALS, STAKED_MINT_SEED, UNSTAKED_MINT_SEED,
+    },
     state::global_data::GlobalData,
 };
 
@@ -53,6 +55,13 @@ pub struct Initialize<'info> {
     /// CHECK: SlotHashes sysvar account
     #[account(constraint = slot_hashes.key() == anchor_lang::solana_program::sysvar::slot_hashes::ID)]
     pub slot_hashes: UncheckedAccount<'info>, // Sysvar account, but Sysvar<'_, SlotHashes> deserializes it, which fails
+
+    #[account(
+        address = LIQUIDITY_POOL_TOKEN_ACCOUNT_ADDRESS,
+        token::mint = unstaked_mint,
+        token::token_program = token_program,
+    )]
+    pub liquidity_pool_token_account: InterfaceAccount<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token2022>,
     pub system_program: Program<'info, System>,

@@ -30,6 +30,12 @@ pub const COMPTOKEN_DISTRIBUTION_MULTIPLIER: u64 = 146_000;
 pub const EARLY_ADOPTER_COUNT: u32 = 1_000_000_000;
 
 #[constant]
+pub const LIQUIDITY_POOL_PERCENT: f64 = 0.05; // 5% of the daily distribution is sent to the liquidity pool
+
+#[constant]
+pub const LIQUIDITY_POOL_TOKEN_ACCOUNT_ADDRESS: Pubkey = pubkey!("21111111111111111111111111111111111111111111"); // TODO: replace with actual liquidity pool token account address
+
+#[constant]
 pub const MIN_SUPPLY_LIMIT_AMT: u64 = 1_000_000;
 
 #[constant]

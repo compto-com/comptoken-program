@@ -27,7 +27,7 @@ custom-panic = []
 anchor-lang = { version = "0.32.1", features = ["init-if-needed"] }
 anchor-spl = "0.32.1"
 bytemuck = { version = "1.24.0", features = ["min_const_generics"] }
-ethnum = "1.5.2"
+ethnum = "1.5.3"
 hex = "0.4.3"
 solana-hash = { version = "3.0.0", features = ["borsh"] }
 solana-world-id-program = { path = "../solana-world-id-program", features = [

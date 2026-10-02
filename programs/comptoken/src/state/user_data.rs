@@ -13,6 +13,17 @@ pub enum UserDataVerificationStatus {
     VerificationExpired,
 }
 
+/// Tracks which World ID verification flow (if any) a user is currently bound to.
+/// `ubi_claimed` is carried through every variant and is only ever set true, never reset,
+/// so the one-time early adopter UBI cannot be re-claimed by unverifying and verifying
+/// again (v3, v4, or across versions).
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Verification {
+    Unverified,
+    Nullifier { hash: Hash },
+    Session { id: Hash },
+}
+
 // UserData has a limit on the number of proofs it can store (just over 300)
 // due to size limits on Solana. In practice, no single user should need
 // anywhere near that many proofs (current miners should only get 1
@@ -24,7 +35,7 @@ pub struct UserData {
     pub last_claimed_timestamp: i64,
 
     pub last_verified_timestamp: i64, // 0 if never verified
-    pub nullifier_hash: Hash,
+    pub verification: Verification,
 
     pub recent_blockhash: Hash,
     pub proofs: Vec<Hash>,
@@ -36,7 +47,7 @@ impl UserData {
         *self = Self {
             last_claimed_timestamp: normalize_time(get_current_time()),
             last_verified_timestamp: 0,
-            nullifier_hash: Hash::default(),
+            verification: Verification::Unverified,
             recent_blockhash: Hash::default(),
             proofs: Vec::with_capacity(capacity),
         };
@@ -53,8 +64,12 @@ impl UserData {
 
     pub fn verification_status(&self) -> UserDataVerificationStatus {
         let today = normalize_time(get_current_time());
+        if self.verification == Verification::Unverified {
+            return UserDataVerificationStatus::Unverified;
+        }
+
         match self.last_verified_timestamp {
-            0 => UserDataVerificationStatus::Unverified,
+            0 => UserDataVerificationStatus::Unverified, // should never happen, but just in case
             ts if ts + VERIFICATION_DURATION > today => UserDataVerificationStatus::Verified,
             _ => UserDataVerificationStatus::VerificationExpired,
         }
@@ -93,14 +108,16 @@ impl UserData {
         self.last_verified_timestamp = normalize_time(get_current_time());
     }
 
-    pub fn set_nullifier_hash(&mut self, nullifier_hash: Hash) {
-        self.nullifier_hash = nullifier_hash;
-        self.update_last_verified_timestamp();
+    pub fn clear_verification(&mut self) {
+        self.verification = Verification::Unverified;
     }
 
-    pub fn clear_nullifier_hash(&mut self) {
-        self.nullifier_hash = Hash::default();
-        self.last_verified_timestamp = 0;
+    pub fn set_verification(&mut self, verification: Verification) {
+        self.verification = verification;
+    }
+
+    pub fn early_adopter_ubi_claimed(&self) -> bool {
+        self.last_verified_timestamp != 0
     }
 }
 

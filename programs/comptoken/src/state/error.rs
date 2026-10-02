@@ -5,6 +5,9 @@ pub enum ComptokenError {
     #[msg("Nullifier has already been used")]
     NullifierAlreadyUsed,
 
+    #[msg("Session already in use")]
+    SessionAlreadyInUse,
+
     #[msg("User data account is not current")]
     UserDataNotCurrent,
 
@@ -20,8 +23,11 @@ pub enum ComptokenError {
     #[msg("Invalid nullifier owner")]
     InvalidNullifierOwner,
 
-    #[msg("Invalid nullifier hash for user data")]
-    InvalidNullifierHash,
+    #[msg("Invalid verification for user data")]
+    InvalidVerification,
+
+    #[msg("Account has already been verified")]
+    AccountAlreadyVerified,
 
     #[msg("Invalid capacity for resizing user data account")]
     InvalidCapacity,

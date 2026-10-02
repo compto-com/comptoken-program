@@ -382,6 +382,96 @@ describe.skip("verification", () => {
                 );
             });
 
+            it("binds a previously-verified but unbound nullifier to a new user wallet", async () => {
+                const newWallet = Keypair.generate();
+
+                const accounts = [
+                    await createUserDataAddedAccount({
+                        userPubkey: newWallet.publicKey,
+                        lastClaimed: new Date(),
+                        lastVerified: new Date(),
+                        verification: { Nullifier: { hash: { [0]: Array.from(worldIdFixture.nullifierHash) } } },
+                        proofs: [],
+                    }),
+                    // nullifier exists but is unbound (owner defaults to Pubkey.default),
+                    // simulating e.g. a prior unverifyWithProofRecovery/WalletSignature call
+                    ...(await buildWorldIdAccountsWithNullifier({
+                        userWallet: PublicKey.default,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        program: baseProgram,
+                    })),
+                ];
+
+                const { program, solanaWorldIdProgram } = await prepareTest(accounts);
+
+                await reverify({
+                    program,
+                    solanaWorldIdProgram,
+                    rootHash: worldIdFixture.rootHash,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    proof: worldIdFixture.proof,
+                    accounts: {
+                        userWallet: newWallet,
+                    },
+                });
+
+                const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
+                const conn = program.provider.connection;
+                const info = await conn.getAccountInfo(worldIdNullifierPda, "confirmed");
+                const decoded = coder.accounts.decode("Nullifier", info!.data);
+                const ownerPk = new PublicKey(decoded.user_wallet);
+
+                // identity is now bound to the new wallet, not the default/unbound value
+                expect(ownerPk.toBase58()).to.equal(newWallet.publicKey.toBase58());
+            });
+
+            it("fails with InvalidNullifierOwner when reverifying a bound identity with a different wallet", async () => {
+                const otherWallet = Keypair.generate();
+
+                const accounts = [
+                    await createUserDataAddedAccount({
+                        userPubkey: otherWallet.publicKey,
+                        lastClaimed: new Date(),
+                        lastVerified: new Date(),
+                        verification: { Nullifier: { hash: { [0]: Array.from(worldIdFixture.nullifierHash) } } },
+                        proofs: [],
+                    }),
+                    // nullifier is already bound to the original `user`, not `otherWallet`
+                    ...(await buildWorldIdAccountsWithNullifier({
+                        userWallet: user.publicKey,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        program: baseProgram,
+                    })),
+                ];
+
+                const { program, solanaWorldIdProgram } = await prepareTest(accounts);
+
+                let threw = false;
+                try {
+                    await reverify({
+                        program,
+                        solanaWorldIdProgram,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        proof: worldIdFixture.proof,
+                        accounts: {
+                            userWallet: otherWallet,
+                        },
+                    });
+                } catch (err: any) {
+                    threw = true;
+                    const msg = (err?.error?.errorMessage ?? err?.toString() ?? "").toLowerCase();
+                    expect(
+                        msg.includes("invalid nullifier owner") || msg.includes("invalidnullifierowner"),
+                        `Expected InvalidNullifierOwner error, got: ${msg}`,
+                    ).to.be.true;
+                }
+                expect(threw, "Reverifying with a different wallet than the bound owner should be rejected").to.be
+                    .true;
+            });
+
             it("updates last_verified_timestamp on success", async () => {
                 // create user data with an older last_verified timestamp
                 const oldVerified = new Date(Date.now() - 24 * 60 * 60 * 1000); // 1 day ago

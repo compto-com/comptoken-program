@@ -1,7 +1,5 @@
 import {
-    type ComptokenIdl,
     type ComptokenProgram,
-    type SolanaWorldIdIdl,
     addresses,
     createComptokenProgram,
     createDummyProvider,
@@ -29,6 +27,8 @@ import {
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { expect } from "chai";
 import type { AddedAccount } from "solana-bankrun";
+import type { Comptoken as ComptokenIdl } from "../../../target/types/comptoken.ts";
+import type { SolanaWorldIdProgram as SolanaWorldIdIdl } from "../../../target/types/solana_world_id_program.ts";
 const { BN } = anchor;
 const {
     getGlobalDataAddress,
@@ -73,7 +73,7 @@ export async function createUserDataAddedAccount({
     capacity = 10,
     lastClaimed = normalizeTime(new Date()),
     lastVerified = normalizeTime(new Date(0)),
-    nullifierHash = new Uint8Array(32).fill(0),
+    verification = { Unverified: {} },
     recentBlockhash = new Uint8Array(32).fill(0),
     proofs = new Array<Uint8Array>(capacity).fill(new Uint8Array(32).fill(0)),
 }: {
@@ -81,7 +81,7 @@ export async function createUserDataAddedAccount({
     capacity?: number;
     lastClaimed?: Date;
     lastVerified?: Date;
-    nullifierHash?: Uint8Array;
+    verification?: userDataAccountData["verification"];
     recentBlockhash?: Uint8Array;
     proofs?: Uint8Array[];
 }): Promise<AddedAccount> {
@@ -92,12 +92,12 @@ export async function createUserDataAddedAccount({
     const userData: userDataAccountData = {
         lastClaimedTimestamp: new BN.BN(normalizeTime(lastClaimed).getTime() / 1000),
         lastVerifiedTimestamp: new BN.BN(normalizeTime(lastVerified).getTime() / 1000),
-        nullifierHash: { [0]: Array.from(nullifierHash) },
+        verification: verification,
         recentBlockhash: { [0]: Array.from(recentBlockhash) },
         proofs: proofs.map((proof) => ({ [0]: Array.from(proof) })),
     };
 
-    const baseSize = coder.accounts.size("UserData") - 1 + 4; // size adds 1 for variable length fields, plus 4 bytes for the vector length
+    const baseSize = baseProgram.constants.userDataSizeWithoutProofs.toNumber();
     const size = baseSize + capacity * 32;
     const data = Buffer.alloc(size);
     let offset = 0;
@@ -107,8 +107,23 @@ export async function createUserDataAddedAccount({
     offset += 8;
     data.writeBigInt64LE(BigInt(userData.lastVerifiedTimestamp.toString()), offset);
     offset += 8;
-    data.set(userData.nullifierHash[0], offset);
-    offset += 32;
+    if ("Unverified" in userData.verification) {
+        data.writeUInt8(0, offset); // Unverified discriminator
+        offset += 1;
+        // rest of the Unverified variant has no additional data
+    } else if ("Nullifier" in userData.verification) {
+        data.writeUInt8(1, offset); // Nullifier discriminator
+        offset += 1;
+        data.set(userData.verification.Nullifier.hash[0], offset);
+        offset += 32;
+    } else if ("Session" in userData.verification) {
+        data.writeUInt8(2, offset); // Session discriminator
+        offset += 1;
+        data.set(userData.verification.Session.id[0], offset);
+        offset += 32;
+    } else {
+        throw new Error("Unknown verification variant");
+    }
     data.set(userData.recentBlockhash[0], offset);
     offset += 32;
     data.writeUInt32LE(proofs.length, offset);

@@ -80,9 +80,7 @@ pub struct Verify<'info> {
     pub user_wallet: Signer<'info>,
 
     #[account(
-        init_if_needed,
-        payer = payer,
-        space = UserData::space(0),
+        mut,
         seeds = [USER_DATA_SEED, user_wallet.key().as_ref()],
         bump,
     )]

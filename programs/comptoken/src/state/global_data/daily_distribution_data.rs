@@ -6,7 +6,7 @@ use crate::{
     state::error::ComptokenError,
     utils::ring_buffer::RingBuffer,
     ADJUST_FACTOR, COMPTOKEN_DISTRIBUTION_MULTIPLIER, EARLY_ADOPTER_COUNT, END_GOAL_PERCENT_INCREASE,
-    MIN_SUPPLY_LIMIT_AMT,
+    LIQUIDITY_POOL_PERCENT, MIN_SUPPLY_LIMIT_AMT,
 };
 
 const HISTORY_LENGTH: usize = 365;
@@ -23,6 +23,7 @@ pub struct DailyDistribution {
     pub yield_amount: u64,
     pub ubi_amount: u64,
     pub early_adopter_ubi_amount: u64,
+    pub liquidity_pool_amount: u64,
 }
 
 // technically, because of the RingBuffer, this struct is not strictly Pod. see comment there
@@ -69,7 +70,12 @@ impl DailyDistributionData {
     pub fn daily_distribution(&mut self, staked_supply: u64, unstaked_supply: u64) -> DailyDistribution {
         if self.total_mined_today == 0 {
             self.finalize_day(HistoricDistribution { yield_rate: 0., ubi_yield: 0 });
-            return DailyDistribution { yield_amount: 0, ubi_amount: 0, early_adopter_ubi_amount: 0 };
+            return DailyDistribution {
+                yield_amount: 0,
+                ubi_amount: 0,
+                early_adopter_ubi_amount: 0,
+                liquidity_pool_amount: 0,
+            };
         }
 
         let high_water_mark_increase = self.calculate_high_water_mark_increase(staked_supply + unstaked_supply);
@@ -80,7 +86,11 @@ impl DailyDistributionData {
         let total_daily_distribution = high_water_mark_increase * COMPTOKEN_DISTRIBUTION_MULTIPLIER;
         msg!("Total daily distribution: {}", total_daily_distribution);
 
-        let total_ubi_distribution = total_daily_distribution / 2;
+        let liquidity_pool_amount = (total_daily_distribution as f64 * LIQUIDITY_POOL_PERCENT).round_ties_even() as u64;
+        msg!("Liquidity pool amount: {}", liquidity_pool_amount);
+
+        let remaining_distribution = total_daily_distribution - liquidity_pool_amount;
+        let total_ubi_distribution = remaining_distribution / 2;
         // when verified_accounts_count >= EARLY_ADOPTER_COUNT, early_adopter_ubi_ratio will be 0
         // otherwise, it scales so that a verified account gets ~twice as much UBI as is stored for (later) early adopters
         let early_adopter_ubi_ratio = EARLY_ADOPTER_COUNT.saturating_sub(self.verified_accounts_count) as f64
@@ -90,9 +100,10 @@ impl DailyDistributionData {
 
         let ubi_for_early_adopters = (total_ubi_distribution as f64 * early_adopter_ubi_ratio).round_ties_even() as u64;
         let distribution = DailyDistribution {
-            yield_amount: total_daily_distribution - total_ubi_distribution,
+            yield_amount: remaining_distribution - total_ubi_distribution,
             ubi_amount: total_ubi_distribution - ubi_for_early_adopters,
             early_adopter_ubi_amount: ubi_for_early_adopters,
+            liquidity_pool_amount,
         };
 
         let todays_yield_rate =

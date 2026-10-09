@@ -50,7 +50,7 @@ export const solanaWorldIdIdl = getSolanaWorldIdIdl(`${projectRoot}/target/idl/s
 export const solanaWorldIdProgram = createSolanaWorldIdProgram(solanaWorldIdIdl, createDummyProvider());
 export const solanaWorldIdCoder = new BorshCoder(solanaWorldIdIdl);
 
-type userDataAccountData = IdlAccounts<ComptokenIdl>["userData"];
+export type UserDataAccountData = IdlAccounts<ComptokenIdl>["userData"];
 
 export async function createWalletAddedAccount(
     address: PublicKey,
@@ -81,7 +81,7 @@ export async function createUserDataAddedAccount({
     capacity?: number;
     lastClaimed?: Date;
     lastVerified?: Date;
-    verification?: userDataAccountData["verification"];
+    verification?: UserDataAccountData["verification"];
     recentBlockhash?: Uint8Array;
     proofs?: Uint8Array[];
 }): Promise<AddedAccount> {
@@ -89,7 +89,7 @@ export async function createUserDataAddedAccount({
 
     const userDataPda = getUserDataAddress(baseProgram, userPubkey);
 
-    const userData: userDataAccountData = {
+    const userData: UserDataAccountData = {
         lastClaimedTimestamp: new BN.BN(normalizeTime(lastClaimed).getTime() / 1000),
         lastVerifiedTimestamp: new BN.BN(normalizeTime(lastVerified).getTime() / 1000),
         verification: verification,

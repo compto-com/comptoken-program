@@ -73,7 +73,7 @@ pub const WORLD_APP_ID: &[u8] = b""; // TODO:;
 
 #[constant]
 #[cfg(feature = "devnet")]
-pub const WORLD_APP_ID: &[u8] = b"app_staging_651f58cce60b3e824a4206cdcf3d4025"; // staging app id that allows cloud verifications (i.e. not orb based)
+pub const WORLD_APP_ID: &[u8] = b"app_6599964a29641e47c6f38c562da0628d"; // staging app id that allows cloud verifications (i.e. not orb based)
 
 #[constant]
 pub const WORLD_ACTION: &[u8] = b"verifyhuman";

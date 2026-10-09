@@ -6,6 +6,9 @@ const { getGlobalDataAddress, getUserDataAddress } = addresses;
 
 import type { GlobalDataAccountData, HistoricDistribution } from "./accountPreinitHelpers.ts";
 
+// TODO: remove after comptoken.js is updated
+import type { UserDataAccountData } from "./accountPreinitHelpers.ts";
+
 // Program/account state helpers (non-assertion)
 
 export function getGlobalDataPda(program: ComptokenProgram) {
@@ -25,7 +28,7 @@ export function getUserDataPda(program: ComptokenProgram, userWallet: PublicKey)
 
 export async function fetchUserData(program: ComptokenProgram, userWallet: PublicKey) {
     const pda = getUserDataPda(program, userWallet);
-    return program.account.userData.fetch(pda);
+    return program.account.userData.fetch(pda) as unknown as Promise<UserDataAccountData>;
 }
 
 export async function fetchUserDataInfo(program: ComptokenProgram, userWallet: PublicKey) {

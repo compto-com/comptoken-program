@@ -20,13 +20,6 @@ outputs:
 runs:
     using: "composite"
     steps:
-        - name: download scripts
-          run: |
-              mkdir -p scripts/semver_bash
-              curl -sSfL https://raw.githubusercontent.com/anza-xyz/agave/master/ci/channel-info.sh -o scripts/channel-info.sh
-              curl -sSfL https://raw.githubusercontent.com/anza-xyz/agave/master/ci/semver_bash/semver.sh -o scripts/semver_bash/semver.sh
-          shell: bash
-
         - name: Resolve toolchain versions
           id: resolve-versions
           run: |
@@ -73,28 +66,14 @@ runs:
         - name: Determine Solana CLI version
           id: solana-release
           run: |
-              chmod +x scripts/channel-info.sh
-              output=$("scripts/channel-info.sh")
-              read -r BETA_CHANNEL_LATEST_TAG STABLE_CHANNEL_LATEST_TAG <<< "$output"
-
               SOLANA_VERSION='${{ steps.resolve-versions.outputs.solana_cli_version }}'
 
-              if [[ "$SOLANA_VERSION" =~ ^[a-zA-Z] ]]; then
-                if [[ "$SOLANA_VERSION" =~ ^(edge|stable|beta)$ ]]; then
-                  if [[ "$SOLANA_VERSION" == "edge" ]]; then
-                    echo "Using Solana CLI edge channel"
-                    echo "install_version=edge" >> $GITHUB_OUTPUT
-                  elif [[ "$SOLANA_VERSION" == "stable" ]]; then
-                    echo "install_version=$STABLE_CHANNEL_LATEST_TAG" >> $GITHUB_OUTPUT
-                    echo "Using Solana CLI stable channel $STABLE_CHANNEL_LATEST_TAG"
-                  elif [[ "$SOLANA_VERSION" == "beta" ]]; then
-                    echo "Using Solana CLI beta channel"
-                    echo "install_version=$BETA_CHANNEL_LATEST_TAG" >> $GITHUB_OUTPUT
-                  fi
-                else
-                  echo "Invalid Solana CLI channel: $SOLANA_VERSION"
-                  exit 1
-                fi
+              if [[ "$SOLANA_VERSION" == "edge" ]]; then
+                echo "Using Solana CLI edge channel"
+                echo "install_version=edge" >> $GITHUB_OUTPUT
+              elif [[ "$SOLANA_VERSION" =~ ^[a-zA-Z] ]]; then
+                echo "Unsupported Solana CLI version selector: $SOLANA_VERSION (only 'edge' or a concrete version like 2.3.13 are supported)"
+                exit 1
               else
                 echo "Using Solana CLI $SOLANA_VERSION"
                 echo "install_version=v$SOLANA_VERSION" >> $GITHUB_OUTPUT
@@ -121,7 +100,7 @@ runs:
         - name: Install Anchor
           id: anchor-version
           run: |
-              cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+              cargo install --git https://github.com/coral-xyz/anchor --tag "v${{ steps.resolve-versions.outputs.anchor_version }}" avm --locked --force
               avm install "${{ steps.resolve-versions.outputs.anchor_version }}"
               avm use "${{ steps.resolve-versions.outputs.anchor_version }}"
               echo "installed_anchor_version=$(anchor --version | awk '{print $3}')" >> $GITHUB_OUTPUT

@@ -23,34 +23,35 @@ import { fetchGlobalData, fetchUserData } from "./utils/stateHelpers.ts";
 import { prepareTest } from "./utils/utils.ts";
 
 describe("verification", () => {
-    const worldIdFixture = (() => {
-        // appId:  "app_staging_651f58cce60b3e824a4206cdcf3d4025"
-        // action: "verifyhuman"
-        // signal: user wallet address hex
-        const proofHex =
-            "0x" +
-            "2012d6598f18f54eb6321dbd3601d4fb17280715535e34bba519e3b1753f249a" +
-            "15431db76b5f9742225d5571221218669def38d04b7c4095bcd9fd7134ea67d5" +
-            "146f0336508cbbc5f390b7180ddc1f88db45cea4c666e8bf19c2fb5d96b43224" +
-            "0fe5798ab62b7510a04859388819396588fbd4526cbef92b93f73a8680b2f774" +
-            "2c8b2f0717489de42c965734108a7cb61b662d122313eac8ba7a9224726067cd" +
-            "03c3512a5b5d5954141034c9992ccd080c9c0e70d39de437b15f06050e884940" +
-            "032b19a95f0b60b3ab245a01407f31d6310e46a98664903024f5c20f34a0afc0" +
-            "0b04c9a57a2ff613324fd7bc2d58d10fc667601671bb97937ebcc7a281f86d94";
-
-        const rootHex = "0x07d06889b612bfa4012421ebe6374ad65da74ef76a6040c8e1f74631dd4fef29";
-        const nullifierHex = "0x1ac54fa5387f177af3887514acc3643c1c041e959207b62a647375cba83ccfa6";
-
-        return {
-            proof: Buffer.from(proofHex.replace("0x", ""), "hex"),
-            rootHash: Buffer.from(rootHex.replace("0x", ""), "hex"),
-            nullifierHash: Buffer.from(nullifierHex.replace("0x", ""), "hex"),
-        } as const;
-    })();
-
     const user = Keypair.fromSeed(new Uint8Array(32).fill(0x01));
 
     describe("Verify (World ID)", () => {
+        const worldIdFixture = (() => {
+            // appId:  "app_6599964a29641e47c6f38c562da0628d"
+            // action: "verifyhuman"
+            // signal: user wallet address hex + "verify"
+            const proofHex =
+                "0x" +
+                "0f8c9f4db39d5615ad433d835c8c332ffcf52e11a670d8112c1df4286c591bb2" +
+                "24634696cc84f79aefc11d916135aee1338d47022ee682e318fe8450aed17e8f" +
+                "15a174e9bb65a792a901c4436fbe4885bccbc3758d15acb29147c14d1f33b172" +
+                "106b989e11a7afc735951837256861f6829ccc53bec97d5923685bab98826efe" +
+                "2f93d6eda999b0831fd7380e181d4dfb531b3130fa383f1832cebf5aeabed4c7" +
+                "03b561921884a7dbb0af623b70ab5987181452bbbb8f35db384da3ecf78730c2" +
+                "1876f4490d163fcd69fb72d9f720626e0a8758d9f72f09ae881d967cd2fe5fd6" +
+                "18fb01ebf86d1f225d8e7969a5389edb8efe2600409fcae1b487a1fdee8014e9";
+
+            const rootHex = "0x17042ce814bfae374b947cd5278815aaef3ee2ff35f08f74444f1a3d3cfae06e";
+            const nullifierHex = "0x00fdc9448b89970a2316edc0c161ab169c3b0881263754e420ce6fa030a0b90b";
+            //signal_hash: "0x0077b06b7357c3bc09b0c0e044343af5ab5a49347b2bf4ac128afbf9419d6ac0",
+
+            return {
+                proof: Buffer.from(proofHex.replace("0x", ""), "hex"),
+                rootHash: Buffer.from(rootHex.replace("0x", ""), "hex"),
+                nullifierHash: Buffer.from(nullifierHex.replace("0x", ""), "hex"),
+            } as const;
+        })();
+
         describe("Core success path scenarios", () => {
             it("verifies a valid World ID proof and sets nullifier_hash in user_data", async () => {
                 // PDAs used by instruction / assertions
@@ -88,7 +89,7 @@ describe("verification", () => {
                 });
 
                 const userData = await fetchUserData(program, user.publicKey);
-                expect(Uint8Array.from(userData.nullifierHash[0])).to.deep.equal(
+                expect(Uint8Array.from(userData.verification.nullifier!.hash[0])).to.deep.equal(
                     Uint8Array.from(worldIdFixture.nullifierHash),
                 );
             });
@@ -312,6 +313,32 @@ describe("verification", () => {
     });
 
     describe("Reverify (World ID)", () => {
+        const worldIdFixture = (() => {
+            // appId:  "app_6599964a29641e47c6f38c562da0628d"
+            // action: "verifyhuman"
+            // signal: user wallet address hex + "reverify"
+            const proofHex =
+                "0x" +
+                "003dcb7fad733156e451b38e79eeb30960ba7a54c30e9c3144f1e24539c4542a" +
+                "2d2a411f0f7e541f859670ab2b58e79de76fb41c3678b59767809e6e4380fb8e" +
+                "2c493fce0d13b638ef2dde98ee63680622de3ad398e839adcbfe67c8d32e81d5" +
+                "007ba465b103f1f805424815e0c9cb7343616f52f910629a00720c858bbf1567" +
+                "0d854ae91b562ae7aea8754fe8991799126648d2586906288fe1f550ffe89811" +
+                "2835a986c105af2e3635c9f576678a89680d656f7c8f48f8ecf7f8d4a6638949" +
+                "26f04762efbb5c097e1303c6330d80da61ece76332510bf3f3c98cc5d61202eb" +
+                "0f12759e450f606856473c26628d98b03cfaba57f53eaa305528531c0121c2fe";
+
+            const rootHex = "0x0eaf6241c8a35811ddad3edab5fc35d9baf5b09391614062aa4d567f51499830";
+            const nullifierHex = "0x00fdc9448b89970a2316edc0c161ab169c3b0881263754e420ce6fa030a0b90b";
+            // signal_hash: "0x0081c84b3e2b5899372508f99482aaf819ed0e8d70792ca83ea509253c450f59",
+
+            return {
+                proof: Buffer.from(proofHex.replace("0x", ""), "hex"),
+                rootHash: Buffer.from(rootHex.replace("0x", ""), "hex"),
+                nullifierHash: Buffer.from(nullifierHex.replace("0x", ""), "hex"),
+            } as const;
+        })();
+
         describe("Core success path scenarios", () => {
             it("re-verifies under the same nullifier without requiring user_data to be current", async () => {
                 // Seed on-chain state: user_data is stale (last_claimed not equal to today) but has nullifier set
@@ -321,7 +348,7 @@ describe("verification", () => {
                         // make last_claimed old so `is_current()` is false
                         lastClaimed: new Date(0),
                         lastVerified: new Date(0),
-                        nullifierHash: worldIdFixture.nullifierHash,
+                        verification: { Nullifier: { hash: { [0]: Array.from(worldIdFixture.nullifierHash) } } },
                         proofs: [],
                     }),
                     // world id PDAs + pre-created nullifier owned by program with correct owner set
@@ -349,9 +376,92 @@ describe("verification", () => {
 
                 const userData = await fetchUserData(program, user.publicKey);
                 // nullifier hash must remain set to the same value
-                expect(Uint8Array.from(userData.nullifierHash[0])).to.deep.equal(
+                expect(Uint8Array.from(userData.verification.nullifier!.hash[0])).to.deep.equal(
                     Uint8Array.from(worldIdFixture.nullifierHash),
                 );
+            });
+
+            it("binds a previously-verified but unbound nullifier to a new user wallet", async () => {
+                const accounts = [
+                    await createUserDataAddedAccount({
+                        userPubkey: user.publicKey,
+                        lastClaimed: new Date(),
+                        lastVerified: new Date(),
+                        verification: { Nullifier: { hash: { [0]: Array.from(worldIdFixture.nullifierHash) } } },
+                        proofs: [],
+                    }),
+                    ...(await buildWorldIdAccountsWithNullifier({
+                        userWallet: PublicKey.default,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        program: baseProgram,
+                    })),
+                ];
+
+                const { program, solanaWorldIdProgram } = await prepareTest(accounts);
+
+                await reverify({
+                    program,
+                    solanaWorldIdProgram,
+                    rootHash: worldIdFixture.rootHash,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    proof: worldIdFixture.proof,
+                    accounts: {
+                        userWallet: user,
+                    },
+                });
+
+                const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
+                const conn = program.provider.connection;
+                const info = await conn.getAccountInfo(worldIdNullifierPda, "confirmed");
+                const decoded = coder.accounts.decode("Nullifier", info!.data);
+                const ownerPk = new PublicKey(decoded.user_wallet);
+
+                expect(ownerPk.toBase58()).to.equal(user.publicKey.toBase58());
+            });
+
+            it("fails with InvalidNullifierOwner when reverifying a bound identity with a different wallet", async () => {
+                const otherWallet = Keypair.generate();
+
+                const accounts = [
+                    await createUserDataAddedAccount({
+                        userPubkey: user.publicKey,
+                        lastClaimed: new Date(),
+                        lastVerified: new Date(),
+                        verification: { Nullifier: { hash: { [0]: Array.from(worldIdFixture.nullifierHash) } } },
+                        proofs: [],
+                    }),
+                    ...(await buildWorldIdAccountsWithNullifier({
+                        userWallet: otherWallet.publicKey,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        program: baseProgram,
+                    })),
+                ];
+
+                const { program, solanaWorldIdProgram } = await prepareTest(accounts);
+
+                let threw = false;
+                try {
+                    await reverify({
+                        program,
+                        solanaWorldIdProgram,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        proof: worldIdFixture.proof,
+                        accounts: {
+                            userWallet: user,
+                        },
+                    });
+                } catch (err: any) {
+                    threw = true;
+                    const msg = (err?.error?.errorMessage ?? err?.toString() ?? "").toLowerCase();
+                    expect(
+                        msg.includes("invalid nullifier owner") || msg.includes("invalidnullifierowner"),
+                        `Expected InvalidNullifierOwner error, got: ${msg}`,
+                    ).to.be.true;
+                }
+                expect(threw, "Reverifying with a different wallet than the bound owner should be rejected").to.be.true;
             });
 
             it("updates last_verified_timestamp on success", async () => {
@@ -363,7 +473,7 @@ describe("verification", () => {
                         userPubkey: user.publicKey,
                         lastClaimed: new Date(0),
                         lastVerified: oldVerified,
-                        nullifierHash: worldIdFixture.nullifierHash,
+                        verification: { Nullifier: { hash: { [0]: Array.from(worldIdFixture.nullifierHash) } } },
                         proofs: [],
                     }),
                     ...(await buildWorldIdAccountsWithNullifier({
@@ -408,7 +518,33 @@ describe("verification", () => {
         });
     });
 
-    describe("Unverify (World ID)", () => {
+    describe("UnverifyWithProofRecovery", () => {
+        const worldIdFixture = (() => {
+            // appId:  "app_6599964a29641e47c6f38c562da0628d"
+            // action: "verifyhuman"
+            // signal: user wallet address hex + "unverify"
+            const proofHex =
+                "0x" +
+                "0706bc5fd983e475c1b97696c14af6c673d08a7d7196e610c236e7586bb3ce20" +
+                "2309be5b8a1ab58356ad91d84438269c658344e48496aeb9f9bb8fc1eef9dd25" +
+                "09825d4559052a135bb63490f4cba81940aa81f424026503bf13ca03a12f3b7f" +
+                "016d4a2619556e1815d7e120c67fe89785a4e38108809ccb29875639b7884c1f" +
+                "2e1e58134da1616604463321414b46a7baf62b3ee8d4166e9fe811d897929420" +
+                "18871feaf64aedf9f96f07e2cc425c0859f0cd35fa20a900c222184e5d1581b7" +
+                "2759807dd17acc0253b848ade303ef71b39bbfcb9da3ef20743e34ce5df462ee" +
+                "2efbaa293dd01233a4101511cfd387ab7cc31e6caac70ef96259ebf827bb8656";
+
+            const rootHex = "0x0eaf6241c8a35811ddad3edab5fc35d9baf5b09391614062aa4d567f51499830";
+            const nullifierHex = "0x00fdc9448b89970a2316edc0c161ab169c3b0881263754e420ce6fa030a0b90b";
+            // signal_hash: "0x002e81cabbc568106e906de429f6d1640f7fb0a5282ff055cae4e84d34fa3ce1",
+
+            return {
+                proof: Buffer.from(proofHex.replace("0x", ""), "hex"),
+                rootHash: Buffer.from(rootHex.replace("0x", ""), "hex"),
+                nullifierHash: Buffer.from(nullifierHex.replace("0x", ""), "hex"),
+            } as const;
+        })();
+
         describe("Core success path scenarios", () => {
             it("verifies proof and clears nullifier_hash from user_data", async () => {
                 const worldIdNullifierPda = getWorldIdNullifierPda(worldIdFixture.nullifierHash);
@@ -416,7 +552,7 @@ describe("verification", () => {
                 const accounts = [
                     await createUserDataAddedAccount({
                         userPubkey: user.publicKey,
-                        nullifierHash: worldIdFixture.nullifierHash,
+                        verification: { Nullifier: { hash: { [0]: Array.from(worldIdFixture.nullifierHash) } } },
                         proofs: [],
                     }),
                     await createGlobalDataAddedAccount({ verifiedAccountsCount: 3 }),
@@ -445,9 +581,7 @@ describe("verification", () => {
                 });
 
                 const userData = await fetchUserData(program, user.publicKey);
-                expect(Uint8Array.from(userData.nullifierHash[0])).to.deep.equal(
-                    Uint8Array.from(new Uint8Array(32).fill(0)),
-                );
+                expect(userData.verification).to.deep.equal({ unverified: {} });
 
                 // verify nullifier account owner was reset to default (unused)
                 const conn = program.provider.connection;
@@ -466,7 +600,7 @@ describe("verification", () => {
                 const accounts = [
                     await createUserDataAddedAccount({
                         userPubkey: user.publicKey,
-                        nullifierHash: worldIdFixture.nullifierHash,
+                        verification: { Nullifier: { hash: { [0]: Array.from(worldIdFixture.nullifierHash) } } },
                         proofs: [],
                     }),
                     await createGlobalDataAddedAccount({ verifiedAccountsCount: 5 }),
@@ -511,13 +645,42 @@ describe("verification", () => {
         });
     });
 
-    describe("Unverify2 (no proof)", () => {
+    describe("UnverifyWithWalletSignature", () => {
+        const worldIdFixture = (() => {
+            // appId:  "app_6599964a29641e47c6f38c562da0628d"
+            // action: "verifyhuman"
+            // signal: user wallet address hex + "unverify"
+
+            // unverifyWithWalletSignature does not require a proof, so we don't need to include it in the fixture.
+            // without a proof, the root and nullifier values are unconstrained, but we still use real values.
+            //const proofHex =
+            //    "0x" +
+            //    "0706bc5fd983e475c1b97696c14af6c673d08a7d7196e610c236e7586bb3ce20" +
+            //    "2309be5b8a1ab58356ad91d84438269c658344e48496aeb9f9bb8fc1eef9dd25" +
+            //    "09825d4559052a135bb63490f4cba81940aa81f424026503bf13ca03a12f3b7f" +
+            //    "016d4a2619556e1815d7e120c67fe89785a4e38108809ccb29875639b7884c1f" +
+            //    "2e1e58134da1616604463321414b46a7baf62b3ee8d4166e9fe811d897929420" +
+            //    "18871feaf64aedf9f96f07e2cc425c0859f0cd35fa20a900c222184e5d1581b7" +
+            //    "2759807dd17acc0253b848ade303ef71b39bbfcb9da3ef20743e34ce5df462ee" +
+            //    "2efbaa293dd01233a4101511cfd387ab7cc31e6caac70ef96259ebf827bb8656";
+
+            const rootHex = "0x0eaf6241c8a35811ddad3edab5fc35d9baf5b09391614062aa4d567f51499830";
+            const nullifierHex = "0x00fdc9448b89970a2316edc0c161ab169c3b0881263754e420ce6fa030a0b90b";
+            // signal_hash: "0x002e81cabbc568106e906de429f6d1640f7fb0a5282ff055cae4e84d34fa3ce1",
+
+            return {
+                //proof: Buffer.from(proofHex.replace("0x", ""), "hex"),
+                rootHash: Buffer.from(rootHex.replace("0x", ""), "hex"),
+                nullifierHash: Buffer.from(nullifierHex.replace("0x", ""), "hex"),
+            } as const;
+        })();
+
         describe("Core success path scenarios", () => {
             it("clears nullifier_hash without CPI when user_wallet signs and data is current", async () => {
                 const accounts = [
                     await createUserDataAddedAccount({
                         userPubkey: user.publicKey,
-                        nullifierHash: worldIdFixture.nullifierHash,
+                        verification: { Nullifier: { hash: { [0]: Array.from(worldIdFixture.nullifierHash) } } },
                         proofs: [],
                     }),
                     await createGlobalDataAddedAccount({ verifiedAccountsCount: 2 }),
@@ -541,12 +704,10 @@ describe("verification", () => {
                 });
 
                 const userData = await fetchUserData(program, user.publicKey);
-                expect(Uint8Array.from(userData.nullifierHash[0])).to.deep.equal(
-                    Uint8Array.from(new Uint8Array(32).fill(0)),
-                );
+                expect(userData.verification).to.deep.equal({ unverified: {} });
             });
 
-            it("decrements verified_accounts_count and resets last_verified_timestamp to 0", async () => {
+            it("decrements verified_accounts_count and does not reset last_verified_timestamp", async () => {
                 const now = new Date();
 
                 const accounts = [
@@ -554,7 +715,7 @@ describe("verification", () => {
                         userPubkey: user.publicKey,
                         lastClaimed: new Date(),
                         lastVerified: now,
-                        nullifierHash: worldIdFixture.nullifierHash,
+                        verification: { Nullifier: { hash: { [0]: Array.from(worldIdFixture.nullifierHash) } } },
                         proofs: [],
                     }),
                     await createGlobalDataAddedAccount({ verifiedAccountsCount: 8 }),
@@ -588,7 +749,7 @@ describe("verification", () => {
 
                 const afterUser = await fetchUserData(program, user.publicKey);
                 const afterTs = Number(afterUser.lastVerifiedTimestamp);
-                expect(afterTs).to.equal(0);
+                expect(afterTs).to.equal(beforeTs);
             });
         });
 

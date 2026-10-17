@@ -2,8 +2,8 @@ use anchor_lang::prelude::*;
 
 use crate::{
     constants::SECONDS_IN_A_DAY,
+    error::ComptokenError,
     helpers::{get_current_time, normalize_time},
-    state::error::ComptokenError,
     utils::ring_buffer::RingBuffer,
     ADJUST_FACTOR, COMPTOKEN_DISTRIBUTION_MULTIPLIER, EARLY_ADOPTER_COUNT, END_GOAL_PERCENT_INCREASE,
     LIQUIDITY_POOL_PERCENT, MIN_SUPPLY_LIMIT_AMT,

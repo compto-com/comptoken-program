@@ -11,9 +11,9 @@ use crate::{
         GLOBAL_DATA_SEED, NULLIFIER_SEED, REVERIFY_SIGNAL_ACTION, UNSTAKED_MINT_SEED, UNVERIFY_SIGNAL_ACTION,
         USER_DATA_SEED, VERIFICATION_TYPE, VERIFY_SIGNAL_ACTION, WORLD_ACTION, WORLD_APP_ID, WORLD_ID_PROOF_SIZE,
     },
+    error::ComptokenError,
     instructions::verification::common::{reverify_common, unverify_common, verify_common},
     state::{
-        error::ComptokenError,
         ext::world_id_program::{self, WorldIdConfig, WorldIdLatestRoot, WorldIdProgram, WorldIdRoot},
         global_data::GlobalData,
         hash::Hash,

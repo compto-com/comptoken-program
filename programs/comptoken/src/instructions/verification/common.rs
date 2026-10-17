@@ -6,8 +6,8 @@ use anchor_spl::{
 
 use crate::{
     constants::{GLOBAL_DATA_SEED, MINT_DECIMALS},
+    error::ComptokenError,
     state::{
-        error::ComptokenError,
         global_data::GlobalData,
         nullifier::Nullifier,
         session::WorldIdV4Session,

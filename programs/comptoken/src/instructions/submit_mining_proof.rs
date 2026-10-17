@@ -10,8 +10,8 @@ use crate::{
         GLOBAL_DATA_SEED, MINING_REWARD_AMOUNT, MINT_DECIMALS, PROOF_DIFFICULTY_NBITS, PROOF_DIFFICULTY_NBITS_DEVNET,
         UNSTAKED_MINT_SEED, USER_DATA_SEED,
     },
+    error::ComptokenError,
     state::{
-        error::ComptokenError,
         global_data::{GlobalData, ValidBlockhashes},
         hash::Hash,
         user_data::UserData,

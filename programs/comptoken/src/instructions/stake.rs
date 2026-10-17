@@ -7,7 +7,8 @@ use anchor_spl::{
 
 use crate::{
     constants::{GLOBAL_DATA_SEED, MINT_DECIMALS, STAKED_MINT_SEED, UNSTAKED_MINT_SEED, USER_DATA_SEED},
-    state::{error::ComptokenError, global_data::GlobalData, user_data::UserData},
+    error::ComptokenError,
+    state::{global_data::GlobalData, user_data::UserData},
 };
 
 #[derive(Accounts)]

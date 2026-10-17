@@ -10,9 +10,9 @@ use crate::{
         USER_DATA_SEED, VERIFY_SIGNAL_ACTION, WORLD_ID_V4_ACTION, WORLD_ID_V4_CREDENTIAL_GENESIS_ISSUED_AT_MIN,
         WORLD_ID_V4_RP_ID, WORLD_ID_V4_SESSION_SEED,
     },
+    error::ComptokenError,
     instructions::verification::common::{reverify_common, unverify_common, verify_common},
     state::{
-        error::ComptokenError,
         ext::world_id_program::WorldIdProgram,
         global_data::GlobalData,
         hash::Hash,

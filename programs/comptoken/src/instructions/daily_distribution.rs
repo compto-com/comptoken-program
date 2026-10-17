@@ -32,7 +32,7 @@ pub struct DailyDistribution<'info> {
         mut,
         seeds = [UNSTAKED_MINT_SEED],
         bump,
-        mint::token_program = token_program,
+        mint::token_program = token_2022_program,
     )]
     pub unstaked_mint: InterfaceAccount<'info, Mint>,
 
@@ -40,11 +40,11 @@ pub struct DailyDistribution<'info> {
         mut,
         address = LIQUIDITY_POOL_TOKEN_ACCOUNT_ADDRESS,
         token::mint = unstaked_mint,
-        token::token_program = token_program,
+        token::token_program = token_2022_program,
     )]
     pub liquidity_pool_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    pub token_program: Program<'info, Token2022>,
+    pub token_2022_program: Program<'info, Token2022>,
 }
 
 /// Calculates and stores the daily distribution amounts for today, and mints the
@@ -76,7 +76,7 @@ pub fn daily_distribution(ctx: Context<DailyDistribution>) -> Result<()> {
     if distribution.liquidity_pool_amount > 0 {
         mint_to_checked(
             CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_2022_program.to_account_info(),
                 MintToChecked {
                     mint: ctx.accounts.unstaked_mint.to_account_info(),
                     to: ctx.accounts.liquidity_pool_token_account.to_account_info(),

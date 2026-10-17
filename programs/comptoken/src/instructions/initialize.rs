@@ -5,13 +5,11 @@ use anchor_spl::{
         spl_token_2022::{extension::ExtensionType, pod::PodMint},
         InitializeMint2, Token2022,
     },
-    token_interface::{non_transferable_mint_initialize, Mint, NonTransferableMintInitialize, TokenAccount},
+    token_interface::{non_transferable_mint_initialize, Mint, NonTransferableMintInitialize},
 };
 
 use crate::{
-    constants::{
-        GLOBAL_DATA_SEED, LIQUIDITY_POOL_TOKEN_ACCOUNT_ADDRESS, MINT_DECIMALS, STAKED_MINT_SEED, UNSTAKED_MINT_SEED,
-    },
+    constants::{GLOBAL_DATA_SEED, MINT_DECIMALS, STAKED_MINT_SEED, UNSTAKED_MINT_SEED},
     state::global_data::GlobalData,
 };
 
@@ -27,7 +25,7 @@ pub struct Initialize<'info> {
         space = ExtensionType::try_calculate_account_len::<PodMint>(&[ExtensionType::NonTransferable]).expect("NonTransferable extension size to be constant"),
         seeds = [STAKED_MINT_SEED],
         bump,
-        owner = token_program.key(),
+        owner = token_2022_program.key(),
     )]
     /// CHECK: This account will be initialized as a Token2022 mint with NonTransferable extension
     pub staked_mint: UncheckedAccount<'info>,
@@ -39,7 +37,7 @@ pub struct Initialize<'info> {
         mint::decimals = MINT_DECIMALS,
         seeds = [UNSTAKED_MINT_SEED],
         bump,
-        mint::token_program = token_program,
+        mint::token_program = token_2022_program,
     )]
     pub unstaked_mint: InterfaceAccount<'info, Mint>,
 
@@ -56,14 +54,7 @@ pub struct Initialize<'info> {
     #[account(constraint = slot_hashes.key() == anchor_lang::solana_program::sysvar::slot_hashes::ID)]
     pub slot_hashes: UncheckedAccount<'info>, // Sysvar account, but Sysvar<'_, SlotHashes> deserializes it, which fails
 
-    #[account(
-        address = LIQUIDITY_POOL_TOKEN_ACCOUNT_ADDRESS,
-        token::mint = unstaked_mint,
-        token::token_program = token_program,
-    )]
-    pub liquidity_pool_token_account: InterfaceAccount<'info, TokenAccount>,
-
-    pub token_program: Program<'info, Token2022>,
+    pub token_2022_program: Program<'info, Token2022>,
     pub system_program: Program<'info, System>,
 }
 
@@ -71,9 +62,9 @@ pub struct Initialize<'info> {
 pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
     // Initialize the non-transferable extension for the staked mint
     non_transferable_mint_initialize(CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
+        ctx.accounts.token_2022_program.to_account_info(),
         NonTransferableMintInitialize {
-            token_program_id: ctx.accounts.token_program.to_account_info(),
+            token_program_id: ctx.accounts.token_2022_program.to_account_info(),
             mint: ctx.accounts.staked_mint.to_account_info(),
         },
     ))?;
@@ -81,7 +72,7 @@ pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
     // Initialize the mint after the extension
     initialize_mint2(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_2022_program.to_account_info(),
             InitializeMint2 { mint: ctx.accounts.staked_mint.to_account_info() },
         )
         .with_signer(&[&[GLOBAL_DATA_SEED]]),

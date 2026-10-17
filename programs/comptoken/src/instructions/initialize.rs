@@ -1,15 +1,19 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
+    token::Token,
     token_2022::{
         initialize_mint2,
         spl_token_2022::{extension::ExtensionType, pod::PodMint},
         InitializeMint2, Token2022,
     },
-    token_interface::{non_transferable_mint_initialize, Mint, NonTransferableMintInitialize},
+    token_interface::{non_transferable_mint_initialize, Mint, NonTransferableMintInitialize, TokenAccount},
 };
 
 use crate::{
-    constants::{GLOBAL_DATA_SEED, MINT_DECIMALS, STAKED_MINT_SEED, UNSTAKED_MINT_SEED},
+    constants::{
+        COMPTOKEN_LIQUIDITY_TOKEN_ACCOUNT_SEED, GLOBAL_DATA_SEED, MINT_DECIMALS, STAKED_MINT_SEED, UNSTAKED_MINT_SEED,
+        USDC_LIQUIDITY_TOKEN_ACCOUNT_SEED, USDC_MINT_ADDRESS,
+    },
     state::global_data::GlobalData,
 };
 
@@ -41,6 +45,9 @@ pub struct Initialize<'info> {
     )]
     pub unstaked_mint: InterfaceAccount<'info, Mint>,
 
+    #[account(address = USDC_MINT_ADDRESS)]
+    pub usdc_mint: Box<InterfaceAccount<'info, Mint>>,
+
     #[account(
         init,
         payer = payer,
@@ -50,15 +57,39 @@ pub struct Initialize<'info> {
     )]
     pub global_data: AccountLoader<'info, GlobalData>,
 
+    #[account(
+        init,
+        payer = payer,
+        seeds = [COMPTOKEN_LIQUIDITY_TOKEN_ACCOUNT_SEED],
+        bump,
+        token::mint = unstaked_mint,
+        token::authority = global_data,
+        token::token_program = token_2022_program,
+    )]
+    pub comptoken_liquidity_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        init,
+        payer = payer,
+        seeds = [USDC_LIQUIDITY_TOKEN_ACCOUNT_SEED],
+        bump,
+        token::mint = usdc_mint,
+        token::authority = global_data,
+        token::token_program = token_program,
+    )]
+    pub usdc_liquidity_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
     /// CHECK: SlotHashes sysvar account
     #[account(constraint = slot_hashes.key() == anchor_lang::solana_program::sysvar::slot_hashes::ID)]
     pub slot_hashes: UncheckedAccount<'info>, // Sysvar account, but Sysvar<'_, SlotHashes> deserializes it, which fails
 
+    pub token_program: Program<'info, Token>,
     pub token_2022_program: Program<'info, Token2022>,
     pub system_program: Program<'info, System>,
 }
 
-/// Creates the global state account and initializes the staked and unstaked token mints.
+/// Creates the global state account, initializes the staked and unstaked token mints, and creates
+/// the program-owned comptoken and USDC token accounts used for liquidity pool deposits.
 pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
     // Initialize the non-transferable extension for the staked mint
     non_transferable_mint_initialize(CpiContext::new(

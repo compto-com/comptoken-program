@@ -40,4 +40,10 @@ pub enum ComptokenError {
 
     #[msg("Stale valid blockhash")]
     StaleValidBlockhash,
+
+    #[msg("Liquidity pool has non-zero fee")]
+    LiquidityPoolFeeNotZero,
+
+    #[msg("Liquidity pool is empty")]
+    LiquidityPoolEmpty,
 }

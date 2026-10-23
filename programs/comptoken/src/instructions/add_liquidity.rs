@@ -90,7 +90,10 @@ pub struct AddLiquidity<'info> {
 
     /// address validated against pool_state in the handler
     #[account(
-        constraint = amm_config.trade_fee_rate == 0 @ ComptokenError::LiquidityPoolFeeNotZero,
+        constraint = amm_config.trade_fee_rate == 0
+            && amm_config.creator_fee_rate == 0
+            && amm_config.protocol_fee_rate == 0
+            && amm_config.fund_fee_rate == 0 @ ComptokenError::LiquidityPoolFeeNotZero,
     )]
     pub amm_config: Account<'info, raydium::accounts::AmmConfig>,
 
@@ -242,8 +245,11 @@ fn add_liquidity_pool_share(ctx: &mut Context<AddLiquidity>) -> Result<()> {
 
     let (comptoken_vault_key, usdc_vault_key) =
         (ctx.accounts.pool_comptoken_vault.key(), ctx.accounts.pool_usdc_vault.key());
-    let (token_0_vault_key, token_1_vault_key) =
-        if comptoken_is_token_0 { (comptoken_vault_key, usdc_vault_key) } else { (usdc_vault_key, comptoken_vault_key) };
+    let (token_0_vault_key, token_1_vault_key) = if comptoken_is_token_0 {
+        (comptoken_vault_key, usdc_vault_key)
+    } else {
+        (usdc_vault_key, comptoken_vault_key)
+    };
 
     // load pool_state once and validate every account derived from it here rather than in the
     // account constraints, where each check would re-borrow and re-check the zero-copy account

@@ -309,32 +309,28 @@ fn add_liquidity_pool_share(ctx: &mut Context<DailyDistribution>) -> Result<()> 
     let lp_token_amount = lp_token_amount - (lp_token_amount / 1000 + 1); // ~0.1% conservative margin
     let lp_token_amount = u64::try_from(lp_token_amount).unwrap_or(u64::MAX);
 
-    let (
-        (maximum_token_0_amount, maximum_token_1_amount),
-        (token_0_account, token_1_account),
-        (token_0_vault, token_1_vault),
-        (vault_0_mint, vault_1_mint),
-    ) = if comptoken_is_token_0 {
-        (
-            (comp_token_amount, usdc_token_amount),
-            (
-                ctx.accounts.comptoken_liquidity_token_account.to_account_info(),
-                ctx.accounts.usdc_liquidity_token_account.to_account_info(),
-            ),
-            (ctx.accounts.pool_comptoken_vault.to_account_info(), ctx.accounts.pool_usdc_vault.to_account_info()),
-            (ctx.accounts.unstaked_mint.to_account_info(), ctx.accounts.usdc_mint.to_account_info()),
-        )
-    } else {
-        (
-            (usdc_token_amount, comp_token_amount),
-            (
-                ctx.accounts.usdc_liquidity_token_account.to_account_info(),
-                ctx.accounts.comptoken_liquidity_token_account.to_account_info(),
-            ),
-            (ctx.accounts.pool_usdc_vault.to_account_info(), ctx.accounts.pool_comptoken_vault.to_account_info()),
-            (ctx.accounts.usdc_mint.to_account_info(), ctx.accounts.unstaked_mint.to_account_info()),
-        )
+    struct DepositToken<'a> {
+        max_amount: u64,
+        account: AccountInfo<'a>,
+        vault: AccountInfo<'a>,
+        mint: AccountInfo<'a>,
+    }
+
+    let comp_token = DepositToken {
+        max_amount: comp_token_amount,
+        account: ctx.accounts.comptoken_liquidity_token_account.to_account_info(),
+        vault: ctx.accounts.pool_comptoken_vault.to_account_info(),
+        mint: ctx.accounts.unstaked_mint.to_account_info(),
     };
+
+    let usdc_token = DepositToken {
+        max_amount: usdc_token_amount,
+        account: ctx.accounts.usdc_liquidity_token_account.to_account_info(),
+        vault: ctx.accounts.pool_usdc_vault.to_account_info(),
+        mint: ctx.accounts.usdc_mint.to_account_info(),
+    };
+
+    let (token_0, token_1) = if comptoken_is_token_0 { (comp_token, usdc_token) } else { (usdc_token, comp_token) };
 
     raydium::cpi::deposit(
         CpiContext::new(
@@ -344,21 +340,21 @@ fn add_liquidity_pool_share(ctx: &mut Context<DailyDistribution>) -> Result<()> 
                 authority: ctx.accounts.raydium_authority.to_account_info(),
                 pool_state: ctx.accounts.pool_state.to_account_info(),
                 owner_lp_token: ctx.accounts.comptoken_lp_token_account.to_account_info(),
-                token_0_account,
-                token_1_account,
-                token_0_vault,
-                token_1_vault,
+                token_0_account: token_0.account,
+                token_1_account: token_1.account,
+                token_0_vault: token_0.vault,
+                token_1_vault: token_1.vault,
                 token_program: ctx.accounts.token_program.to_account_info(),
                 token_program_2022: ctx.accounts.token_2022_program.to_account_info(),
-                vault_0_mint,
-                vault_1_mint,
+                vault_0_mint: token_0.mint,
+                vault_1_mint: token_1.mint,
                 lp_mint: ctx.accounts.lp_mint.to_account_info(),
             },
         )
         .with_signer(global_data_signer_seeds),
         lp_token_amount,
-        maximum_token_0_amount,
-        maximum_token_1_amount,
+        token_0.max_amount,
+        token_1.max_amount,
     )?;
 
     Ok(())

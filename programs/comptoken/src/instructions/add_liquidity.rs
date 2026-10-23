@@ -44,10 +44,8 @@ pub struct AddLiquidity<'info> {
     #[account(address = USDC_MINT_ADDRESS)]
     pub usdc_mint: InterfaceAccount<'info, Mint>,
 
-    #[account(
-        mut,
-        address = pool_state.load()?.lp_mint
-    )]
+    /// validated against pool_state in the handler
+    #[account(mut)]
     pub lp_mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(
@@ -79,27 +77,19 @@ pub struct AddLiquidity<'info> {
     )]
     pub comptoken_lp_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(
-        mut,
-        constraint = pool_comptoken_vault.key() == pool_state.load()?.token_0_vault
-            || pool_comptoken_vault.key() == pool_state.load()?.token_1_vault,
-        token::mint = unstaked_mint,
-    )]
+    /// validated against pool_state in the handler
+    #[account(mut, token::mint = unstaked_mint)]
     pub pool_comptoken_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    #[account(
-        mut,
-        constraint = pool_usdc_vault.key() == pool_state.load()?.token_0_vault
-            || pool_usdc_vault.key() == pool_state.load()?.token_1_vault,
-        token::mint = usdc_mint,
-    )]
+    /// validated against pool_state in the handler
+    #[account(mut, token::mint = usdc_mint)]
     pub pool_usdc_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(mut, address = COMP_USDC_POOL_ADDRESS)]
     pub pool_state: AccountLoader<'info, PoolState>,
 
+    /// address validated against pool_state in the handler
     #[account(
-        address = pool_state.load()?.amm_config,
         constraint = amm_config.trade_fee_rate == 0 @ ComptokenError::LiquidityPoolFeeNotZero,
     )]
     pub amm_config: Account<'info, raydium::accounts::AmmConfig>,
@@ -112,7 +102,8 @@ pub struct AddLiquidity<'info> {
     )]
     pub raydium_authority: UncheckedAccount<'info>,
 
-    #[account(mut, address = pool_state.load()?.observation_key)]
+    /// validated against pool_state in the handler
+    #[account(mut)]
     pub observation_state: AccountLoader<'info, ObservationState>,
 
     pub raydium_cp_swap_program: Program<'info, RaydiumCpSwap>,
@@ -249,10 +240,26 @@ fn add_liquidity_pool_share(ctx: &mut Context<AddLiquidity>) -> Result<()> {
     let (token_0_mint_key, token_1_mint_key) =
         if comptoken_is_token_0 { (unstaked_mint_key, usdc_mint_key) } else { (usdc_mint_key, unstaked_mint_key) };
 
+    let (comptoken_vault_key, usdc_vault_key) =
+        (ctx.accounts.pool_comptoken_vault.key(), ctx.accounts.pool_usdc_vault.key());
+    let (token_0_vault_key, token_1_vault_key) =
+        if comptoken_is_token_0 { (comptoken_vault_key, usdc_vault_key) } else { (usdc_vault_key, comptoken_vault_key) };
+
+    // load pool_state once and validate every account derived from it here rather than in the
+    // account constraints, where each check would re-borrow and re-check the zero-copy account
     let lp_supply = {
         let pool_state = ctx.accounts.pool_state.load()?;
         require_keys_eq!(pool_state.token_0_mint, token_0_mint_key, ErrorCode::ConstraintAddress);
         require_keys_eq!(pool_state.token_1_mint, token_1_mint_key, ErrorCode::ConstraintAddress);
+        require_keys_eq!(pool_state.token_0_vault, token_0_vault_key, ErrorCode::ConstraintAddress);
+        require_keys_eq!(pool_state.token_1_vault, token_1_vault_key, ErrorCode::ConstraintAddress);
+        require_keys_eq!(pool_state.lp_mint, ctx.accounts.lp_mint.key(), ErrorCode::ConstraintAddress);
+        require_keys_eq!(pool_state.amm_config, ctx.accounts.amm_config.key(), ErrorCode::ConstraintAddress);
+        require_keys_eq!(
+            pool_state.observation_key,
+            ctx.accounts.observation_state.key(),
+            ErrorCode::ConstraintAddress
+        );
         pool_state.lp_supply
     };
 

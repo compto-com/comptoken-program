@@ -26,6 +26,10 @@ compile_error!("Either feature 'mainnet' or 'devnet' must be enabled.");
 pub mod comptoken {
     use super::*;
 
+    pub fn add_liquidity(ctx: Context<AddLiquidity>) -> Result<()> {
+        add_liquidity::add_liquidity(ctx)
+    }
+
     pub fn collect(ctx: Context<Collect>) -> Result<()> {
         collect::collect(ctx)
     }

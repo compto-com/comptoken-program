@@ -47,11 +47,11 @@ pub const USDC_MINT_ADDRESS: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wE
 pub const USDC_MINT_ADDRESS: Pubkey = pubkey!("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 
 // index of the zero-fee amm_config in our raydium cp-swap fork that the COMP/USDC pool is created under.
-// the swap sizing in daily_distribution assumes a zero trade fee, which is enforced on-chain.
+// the swap sizing in add_liquidity assumes a zero trade fee, which is enforced on-chain.
 #[constant]
 pub const RAYDIUM_AMM_CONFIG_INDEX: u16 = 0;
 
-// daily_distribution only swaps/deposits into the pool when its spot price is within
+// add_liquidity only swaps/deposits into the pool when its spot price is within
 // LIQUIDITY_MAX_PRICE_DEVIATION_BPS of the pool's TWAP over at least LIQUIDITY_TWAP_MIN_WINDOW_SECONDS.
 // this bounds what a sandwich around the (permissionless) instruction can extract.
 // the oracle holds at least 25 mins of history when full, so anything longer could potentially block

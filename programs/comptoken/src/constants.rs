@@ -51,6 +51,17 @@ pub const USDC_MINT_ADDRESS: Pubkey = pubkey!("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEER
 #[constant]
 pub const RAYDIUM_AMM_CONFIG_INDEX: u16 = 0;
 
+// daily_distribution only swaps/deposits into the pool when its spot price is within
+// LIQUIDITY_MAX_PRICE_DEVIATION_BPS of the pool's TWAP over at least LIQUIDITY_TWAP_MIN_WINDOW_SECONDS.
+// this bounds what a sandwich around the (permissionless) instruction can extract.
+// the oracle holds at least 25 mins of history when full, so anything longer could potentially block
+// if the pool is busy
+#[constant]
+pub const LIQUIDITY_TWAP_MIN_WINDOW_SECONDS: u64 = 24 * 60;
+
+#[constant]
+pub const LIQUIDITY_MAX_PRICE_DEVIATION_BPS: u64 = 200;
+
 // raydium pool PDA: [POOL_SEED, amm_config, token_0_mint, token_1_mint] under the cp-swap program,
 // where amm_config = [AMM_CONFIG_SEED, RAYDIUM_AMM_CONFIG_INDEX (be)]. precomputed to avoid an
 // on-chain find_program_address; checked by `tests::comp_usdc_pool_address_matches_derivation`.

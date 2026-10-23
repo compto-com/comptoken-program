@@ -8,13 +8,14 @@ use ethnum::U256;
 
 use crate::{
     constants::{
-        COMPTOKEN_LIQUIDITY_TOKEN_ACCOUNT_SEED, COMP_USDC_POOL_ADDRESS, GLOBAL_DATA_SEED, MINT_DECIMALS,
-        STAKED_MINT_SEED, UNSTAKED_MINT_SEED, USDC_LIQUIDITY_TOKEN_ACCOUNT_SEED, USDC_MINT_ADDRESS,
+        COMPTOKEN_LIQUIDITY_TOKEN_ACCOUNT_SEED, COMP_USDC_POOL_ADDRESS, GLOBAL_DATA_SEED,
+        LIQUIDITY_MAX_PRICE_DEVIATION_BPS, LIQUIDITY_TWAP_MIN_WINDOW_SECONDS, MINT_DECIMALS, STAKED_MINT_SEED,
+        UNSTAKED_MINT_SEED, USDC_LIQUIDITY_TOKEN_ACCOUNT_SEED, USDC_MINT_ADDRESS,
     },
     error::ComptokenError,
     raydium::{
         self,
-        accounts::PoolState,
+        accounts::{ObservationState, PoolState},
         cpi::accounts::{Deposit, SwapBaseInput},
         program::RaydiumCpSwap,
     },
@@ -91,7 +92,7 @@ pub struct DailyDistribution<'info> {
         mut,
         constraint = pool_comptoken_vault.key() == pool_state.load()?.token_0_vault
             || pool_comptoken_vault.key() == pool_state.load()?.token_1_vault,
-        constraint = pool_comptoken_vault.mint == unstaked_mint.key(),
+        token::mint = unstaked_mint,
     )]
     pub pool_comptoken_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -99,7 +100,7 @@ pub struct DailyDistribution<'info> {
         mut,
         constraint = pool_usdc_vault.key() == pool_state.load()?.token_0_vault
             || pool_usdc_vault.key() == pool_state.load()?.token_1_vault,
-        constraint = pool_usdc_vault.mint == usdc_mint.key(),
+        token::mint = usdc_mint,
     )]
     pub pool_usdc_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -121,7 +122,7 @@ pub struct DailyDistribution<'info> {
     pub raydium_authority: UncheckedAccount<'info>,
 
     #[account(mut, address = pool_state.load()?.observation_key)]
-    pub observation_state: AccountLoader<'info, raydium::accounts::ObservationState>,
+    pub observation_state: AccountLoader<'info, ObservationState>,
 
     pub raydium_cp_swap_program: Program<'info, RaydiumCpSwap>,
 
@@ -133,7 +134,8 @@ pub struct DailyDistribution<'info> {
 
 /// Calculates and stores the daily distribution amounts for today, mints the liquidity pool's
 /// share of comptoken to the program's own working balance, swaps/deposits into the Raydium
-/// CP-swap pool as liquidity.
+/// CP-swap pool as liquidity. If the pool price looks manipulated the comptoken is left in the
+/// program's working balance, and any later call (even on the same day) retries the deposit.
 pub fn daily_distribution(mut ctx: Context<DailyDistribution>) -> Result<()> {
     let mut global_data = ctx.accounts.global_data.load_mut()?;
     let staked_mint = &ctx.accounts.staked_mint;
@@ -141,6 +143,11 @@ pub fn daily_distribution(mut ctx: Context<DailyDistribution>) -> Result<()> {
 
     if global_data.daily_distribution.last_update_timestamp == normalize_time(get_current_time()) {
         msg!("Daily distribution has already been calculated for today");
+        drop(global_data);
+        // retry a deposit that an earlier call skipped
+        if ctx.accounts.comptoken_liquidity_token_account.amount > 0 {
+            add_liquidity_pool_share(&mut ctx)?;
+        }
         return Ok(());
     }
 
@@ -222,7 +229,66 @@ fn comptoken_swap_amount(
         .min(trade_comp_supply)
 }
 
-/// Swaps comptoken for usdc, then deposits as liquidity.
+/// Time-weighted average pool prices `(token_1 per token_0, token_0 per token_1)` in Q32.32, from
+/// Raydium's observation ring buffer, over a window of at least `min_window` seconds. Returns None
+/// if the pool doesn't have that much price history yet.
+///
+/// Raydium samples the pre-swap price and accumulates it over the time elapsed since its last
+/// update, so swaps in the current slot (e.g. a sandwich's front-run) can't move this value.
+fn pool_twap_x32(observation_state: &ObservationState, min_window: u64) -> Option<(u128, u128)> {
+    if !observation_state.initialized {
+        return None;
+    }
+    let observations = &observation_state.observations;
+    let latest_index = observation_state.observation_index as usize;
+    let latest = observations[latest_index];
+    // updates within 15s of the latest observation accumulate into it in place without changing its
+    // block_timestamp, so its cumulatives run up to last_update_timestamp. older observations have the
+    // same skew (< 15s), which is small enough we are willing to ignore it.
+    let end_timestamp = observation_state.last_update_timestamp;
+
+    // walk backwards from the latest observation to the newest one that is at least min_window old
+    for offset in 1..observations.len() {
+        let observation = observations[(latest_index + observations.len() - offset) % observations.len()];
+        if observation.block_timestamp == 0 {
+            return None; // never written
+        }
+        let elapsed = end_timestamp.saturating_sub(observation.block_timestamp);
+        if elapsed >= min_window {
+            // cumulatives are designed to wrap
+            let token_0_price_x32 =
+                latest.cumulative_token_0_price_x32.wrapping_sub(observation.cumulative_token_0_price_x32)
+                    / elapsed as u128;
+            let token_1_price_x32 =
+                latest.cumulative_token_1_price_x32.wrapping_sub(observation.cumulative_token_1_price_x32)
+                    / elapsed as u128;
+            return Some((token_0_price_x32, token_1_price_x32));
+        }
+    }
+    None
+}
+
+/// Whether the pool's spot price is within `max_deviation_bps` of its TWAP.
+fn spot_price_within_twap(
+    vault_0_amount: u64, vault_1_amount: u64, (twap_0_x32, twap_1_x32): (u128, u128), max_deviation_bps: u64,
+) -> bool {
+    // compare in whichever direction the price is >= 1, where Q32.32 keeps more relative precision
+    let (twap_x32, numerator, denominator) = if twap_0_x32 >= twap_1_x32 {
+        (twap_0_x32, vault_1_amount, vault_0_amount)
+    } else {
+        (twap_1_x32, vault_0_amount, vault_1_amount)
+    };
+    if twap_x32 == 0 || denominator == 0 {
+        return false;
+    }
+    // can't overflow: spot and twap are < 2^96, so these products are < 2^110
+    let spot_x32 = ((numerator as u128) << 32) / denominator as u128;
+    spot_x32.abs_diff(twap_x32) * 10_000 <= twap_x32 * max_deviation_bps as u128
+}
+
+/// Swaps comptoken for usdc, then deposits as liquidity. Skips both (leaving the balance for a later
+/// call) when the pool's spot price deviates from its TWAP, which is what an attacker sandwiching
+/// this permissionless instruction would have to cause.
 fn add_liquidity_pool_share(ctx: &mut Context<DailyDistribution>) -> Result<()> {
     let unstaked_mint_key = ctx.accounts.unstaked_mint.key();
     let usdc_mint_key = ctx.accounts.usdc_mint.key();
@@ -243,16 +309,34 @@ fn add_liquidity_pool_share(ctx: &mut Context<DailyDistribution>) -> Result<()> 
     let global_data_signer_seeds: &[&[&[u8]]] = &[&[GLOBAL_DATA_SEED, &[ctx.bumps.global_data]]];
 
     let comptoken_vault_amount_before_swap = ctx.accounts.pool_comptoken_vault.amount;
+    let usdc_vault_amount_before_swap = ctx.accounts.pool_usdc_vault.amount;
     require!(comptoken_vault_amount_before_swap > 0, ComptokenError::LiquidityPoolEmpty);
+
+    let (vault_0_amount, vault_1_amount) = if comptoken_is_token_0 {
+        (comptoken_vault_amount_before_swap, usdc_vault_amount_before_swap)
+    } else {
+        (usdc_vault_amount_before_swap, comptoken_vault_amount_before_swap)
+    };
+    let price_ok = match pool_twap_x32(&*ctx.accounts.observation_state.load()?, LIQUIDITY_TWAP_MIN_WINDOW_SECONDS) {
+        Some(twap) => spot_price_within_twap(vault_0_amount, vault_1_amount, twap, LIQUIDITY_MAX_PRICE_DEVIATION_BPS),
+        None => false,
+    };
+    if !price_ok {
+        msg!("Pool price deviates from its TWAP (or has too little history); deferring liquidity deposit");
+        return Ok(());
+    }
 
     let amount_in = comptoken_swap_amount(
         comptoken_vault_amount_before_swap,
-        ctx.accounts.pool_usdc_vault.amount,
+        usdc_vault_amount_before_swap,
         ctx.accounts.comptoken_liquidity_token_account.amount,
         ctx.accounts.usdc_liquidity_token_account.amount,
     );
+    // fee-free CPMM output; raydium rejects swaps that would return nothing
+    let expected_amount_out = (usdc_vault_amount_before_swap as u128 * amount_in as u128
+        / (comptoken_vault_amount_before_swap as u128 + amount_in as u128)) as u64;
 
-    if amount_in > 0 {
+    if expected_amount_out > 0 {
         raydium::cpi::swap_base_input(
             CpiContext::new(
                 ctx.accounts.raydium_cp_swap_program.to_account_info(),
@@ -274,8 +358,8 @@ fn add_liquidity_pool_share(ctx: &mut Context<DailyDistribution>) -> Result<()> 
             )
             .with_signer(global_data_signer_seeds),
             amount_in,
-            // minimum_amount_out: this is a small, protocol-controlled swap, not user-facing, so
-            // slippage is accepted rather than computing a precise quote.
+            // minimum_amount_out: a quote from the current reserves would be computed from the same state
+            // an attacker already moved, so it adds no protection; the TWAP check above is the guard.
             0,
         )?;
     }
@@ -421,6 +505,92 @@ mod tests {
         for &(p, q, c, r) in cases {
             assert_ratios_match(p, q, c, r);
         }
+    }
+
+    const Q32: u128 = 1 << 32;
+
+    /// Builds an observation state whose ring buffer holds `(block_timestamp, token_0_price_x32)` samples
+    /// in order, accumulated the way raydium does; token_1's price is the reciprocal.
+    fn observation_state(samples: &[(u64, u128)]) -> ObservationState {
+        let empty = raydium::types::Observation {
+            block_timestamp: 0,
+            cumulative_token_0_price_x32: 0,
+            cumulative_token_1_price_x32: 0,
+        };
+        let mut observations = [empty; 100];
+        let (mut cumulative_0, mut cumulative_1) = (0u128, 0u128);
+        let mut previous_timestamp = samples[0].0;
+        for (i, &(timestamp, price_0_x32)) in samples.iter().enumerate() {
+            let elapsed = (timestamp - previous_timestamp) as u128;
+            cumulative_0 = cumulative_0.wrapping_add(price_0_x32 * elapsed);
+            cumulative_1 = cumulative_1.wrapping_add(Q32 * Q32 / price_0_x32 * elapsed);
+            observations[i] = raydium::types::Observation {
+                block_timestamp: timestamp,
+                cumulative_token_0_price_x32: cumulative_0,
+                cumulative_token_1_price_x32: cumulative_1,
+            };
+            previous_timestamp = timestamp;
+        }
+        ObservationState {
+            initialized: true,
+            observation_index: (samples.len() - 1) as u16,
+            pool_id: Pubkey::default(),
+            observations,
+            last_update_timestamp: previous_timestamp,
+            padding: [0; 3],
+        }
+    }
+
+    #[test]
+    fn twap_needs_enough_history() {
+        let state = observation_state(&[(1_000, 2 * Q32), (1_500, 2 * Q32)]);
+        assert_eq!(pool_twap_x32(&state, 501), None);
+        assert_eq!(pool_twap_x32(&state, 500), Some((2 * Q32, Q32 / 2)));
+    }
+
+    #[test]
+    fn twap_uses_newest_observation_old_enough() {
+        // price 1 for 1000s, then 3 for 1000s, then 5 for 100s
+        let state = observation_state(&[(10_000, Q32), (11_000, Q32), (12_000, 3 * Q32), (12_100, 5 * Q32)]);
+        // window starts at the second observation: (3 * 1000 + 5 * 100) / 1100
+        let (twap_0, _) = pool_twap_x32(&state, 1_000).unwrap();
+        assert_eq!(twap_0, (3 * 1_000 + 5 * 100) * Q32 / 1_100);
+        // window starts at the first observation
+        let (twap_0, _) = pool_twap_x32(&state, 1_101).unwrap();
+        assert_eq!(twap_0, (1_000 + 3 * 1_000 + 5 * 100) * Q32 / 2_100);
+    }
+
+    #[test]
+    fn twap_handles_wrapped_cumulatives() {
+        let mut state = observation_state(&[(10_000, Q32), (11_000, Q32)]);
+        let observations = &mut state.observations;
+        observations[0].cumulative_token_0_price_x32 = u128::MAX - 10 * Q32 + 1;
+        observations[1].cumulative_token_0_price_x32 = 990 * Q32;
+        assert_eq!(pool_twap_x32(&state, 1_000).unwrap().0, Q32);
+    }
+
+    #[test]
+    fn uninitialized_twap_is_none() {
+        let mut state = observation_state(&[(10_000, Q32), (11_000, Q32)]);
+        state.initialized = false;
+        assert_eq!(pool_twap_x32(&state, 0), None);
+    }
+
+    #[test]
+    fn spot_price_deviation() {
+        // twap: 2 token_1 per token_0
+        let twap = (2 * Q32, Q32 / 2);
+        assert!(spot_price_within_twap(1_000_000, 2_000_000, twap, 200));
+        assert!(spot_price_within_twap(1_000_000, 2_039_000, twap, 200));
+        assert!(spot_price_within_twap(1_000_000, 1_961_000, twap, 200));
+        assert!(!spot_price_within_twap(1_000_000, 2_041_000, twap, 200));
+        assert!(!spot_price_within_twap(1_000_000, 1_959_000, twap, 200));
+        // price < 1 is compared in the other direction: 1/2 token_1 per token_0
+        let twap = (Q32 / 2, 2 * Q32);
+        assert!(spot_price_within_twap(2_000_000, 1_000_000, twap, 200));
+        assert!(!spot_price_within_twap(2_100_000, 1_000_000, twap, 200));
+        // empty side never passes
+        assert!(!spot_price_within_twap(0, 1_000_000, twap, 200));
     }
 
     #[test]

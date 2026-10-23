@@ -30,6 +30,50 @@ pub const COMPTOKEN_DISTRIBUTION_MULTIPLIER: u64 = 146_000;
 pub const EARLY_ADOPTER_COUNT: u32 = 1_000_000_000;
 
 #[constant]
+pub const LIQUIDITY_POOL_PERCENT: f64 = 0.05; // 5% of the daily distribution is sent to the liquidity pool
+
+#[constant]
+pub const COMPTOKEN_LIQUIDITY_TOKEN_ACCOUNT_SEED: &[u8] = b"liquidity_COMP";
+
+#[constant]
+pub const USDC_LIQUIDITY_TOKEN_ACCOUNT_SEED: &[u8] = b"liquidity_USDC";
+
+#[constant]
+#[cfg(feature = "mainnet")]
+pub const USDC_MINT_ADDRESS: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+#[constant]
+#[cfg(feature = "devnet")]
+pub const USDC_MINT_ADDRESS: Pubkey = pubkey!("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+
+// index of the zero-fee amm_config in our raydium cp-swap fork that the COMP/USDC pool is created under.
+// the swap sizing in add_liquidity assumes a zero trade fee, which is enforced on-chain.
+#[constant]
+pub const RAYDIUM_AMM_CONFIG_INDEX: u16 = 0;
+
+// add_liquidity only swaps/deposits into the pool when its spot price is within
+// LIQUIDITY_MAX_PRICE_DEVIATION_BPS of the pool's TWAP over at least LIQUIDITY_TWAP_MIN_WINDOW_SECONDS.
+// this bounds what a sandwich around the (permissionless) instruction can extract.
+// the oracle holds at least 25 mins of history when full, so anything longer could potentially block
+// if the pool is busy
+#[constant]
+pub const LIQUIDITY_TWAP_MIN_WINDOW_SECONDS: u64 = 24 * 60;
+
+#[constant]
+pub const LIQUIDITY_MAX_PRICE_DEVIATION_BPS: u64 = 200;
+
+// raydium pool PDA: [POOL_SEED, amm_config, token_0_mint, token_1_mint] under the cp-swap program,
+// where amm_config = [AMM_CONFIG_SEED, RAYDIUM_AMM_CONFIG_INDEX (be)]. precomputed to avoid an
+// on-chain find_program_address; checked by `tests::comp_usdc_pool_address_matches_derivation`.
+#[constant]
+#[cfg(feature = "mainnet")]
+pub const COMP_USDC_POOL_ADDRESS: Pubkey = pubkey!("84Y5S1XNBSwgC8oAcvyBkcvBW3QrnebUvvt7WJXjixgw");
+
+#[constant]
+#[cfg(feature = "devnet")]
+pub const COMP_USDC_POOL_ADDRESS: Pubkey = pubkey!("2wRw8foEASWECmNLu1aWsEtSr4wfVfWqGXPkqYGU1BcE");
+
+#[constant]
 pub const MIN_SUPPLY_LIMIT_AMT: u64 = 1_000_000;
 
 #[constant]
@@ -102,3 +146,33 @@ pub const WORLD_ID_V4_CREDENTIAL_GENESIS_ISSUED_AT_MIN: u64 = 0; // unconstraine
 
 #[constant]
 pub const WORLD_ID_V4_SESSION_SEED: &[u8] = b"world_id_session";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::raydium;
+
+    #[test]
+    fn comp_usdc_pool_address_matches_derivation() {
+        let (unstaked_mint, _) = Pubkey::find_program_address(&[UNSTAKED_MINT_SEED], &crate::ID);
+        let (amm_config, _) = Pubkey::find_program_address(
+            &[raydium::constants::AMM_CONFIG_SEED, &RAYDIUM_AMM_CONFIG_INDEX.to_be_bytes()],
+            &raydium::ID,
+        );
+        let (token_0_mint, token_1_mint) = if unstaked_mint < USDC_MINT_ADDRESS {
+            (unstaked_mint, USDC_MINT_ADDRESS)
+        } else {
+            (USDC_MINT_ADDRESS, unstaked_mint)
+        };
+        let (pool, _) = Pubkey::find_program_address(
+            &[
+                raydium::constants::POOL_SEED,
+                amm_config.as_ref(),
+                token_0_mint.as_ref(),
+                token_1_mint.as_ref(),
+            ],
+            &raydium::ID,
+        );
+        assert_eq!(pool, COMP_USDC_POOL_ADDRESS);
+    }
+}

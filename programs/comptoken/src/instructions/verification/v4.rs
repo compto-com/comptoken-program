@@ -10,9 +10,9 @@ use crate::{
         USER_DATA_SEED, VERIFY_SIGNAL_ACTION, WORLD_ID_V4_ACTION, WORLD_ID_V4_CREDENTIAL_GENESIS_ISSUED_AT_MIN,
         WORLD_ID_V4_RP_ID, WORLD_ID_V4_SESSION_SEED,
     },
+    error::ComptokenError,
     instructions::verification::common::{reverify_common, unverify_common, verify_common},
     state::{
-        error::ComptokenError,
         ext::world_id_program::WorldIdProgram,
         global_data::GlobalData,
         hash::Hash,
@@ -129,11 +129,11 @@ pub struct Verify<'info> {
         mut,
         seeds = [UNSTAKED_MINT_SEED],
         bump,
-        mint::token_program = token_program,
+        mint::token_program = token_2022_program,
     )]
     pub unstaked_mint: InterfaceAccount<'info, Mint>,
 
-    pub token_program: Program<'info, Token2022>,
+    pub token_2022_program: Program<'info, Token2022>,
     pub system_program: Program<'info, System>,
 }
 
@@ -155,7 +155,7 @@ pub fn verify(ctx: Context<Verify>, args: VerifyArgs) -> Result<()> {
         Verification::Session { id: args.proof.session_id },
         &ctx.accounts.global_data,
         ctx.bumps.global_data,
-        &ctx.accounts.token_program,
+        &ctx.accounts.token_2022_program,
         &ctx.accounts.unstaked_mint,
         &ctx.accounts.user_unstaked_token_account,
     )

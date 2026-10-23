@@ -2,7 +2,8 @@ use anchor_lang::prelude::*;
 
 use crate::{
     constants::{SECONDS_IN_A_DAY, VERIFICATION_DURATION},
-    state::{error::ComptokenError, hash::Hash},
+    error::ComptokenError,
+    state::hash::Hash,
     utils::helpers::{get_current_time, normalize_time},
 };
 

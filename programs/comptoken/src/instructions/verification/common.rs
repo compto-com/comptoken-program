@@ -6,8 +6,8 @@ use anchor_spl::{
 
 use crate::{
     constants::{GLOBAL_DATA_SEED, MINT_DECIMALS},
+    error::ComptokenError,
     state::{
-        error::ComptokenError,
         global_data::GlobalData,
         nullifier::Nullifier,
         session::WorldIdV4Session,
@@ -21,7 +21,7 @@ use crate::{
 /// Must be called after the identity proof has already been verified and `user_data` updated.
 pub fn record_verification<'info>(
     global_data_loader: &AccountLoader<'info, GlobalData>, global_data_bump: u8, ubi_eligible: bool,
-    token_program: &Program<'info, Token2022>, unstaked_mint: &InterfaceAccount<'info, Mint>,
+    token_2022_program: &Program<'info, Token2022>, unstaked_mint: &InterfaceAccount<'info, Mint>,
     user_unstaked_token_account: &InterfaceAccount<'info, TokenAccount>,
 ) -> Result<()> {
     let mut global_data = global_data_loader.load_mut()?;
@@ -38,7 +38,7 @@ pub fn record_verification<'info>(
 
         anchor_spl::token_2022::mint_to_checked(
             CpiContext::new(
-                token_program.to_account_info(),
+                token_2022_program.to_account_info(),
                 anchor_spl::token_2022::MintToChecked {
                     mint: unstaked_mint.to_account_info(),
                     to: user_unstaked_token_account.to_account_info(),
@@ -143,7 +143,7 @@ pub fn reverify_common<'info>(
 pub fn verify_common<'info>(
     user_data: &mut Account<'info, UserData>, user_wallet: Pubkey, identity_account: &mut impl IdentityWallet,
     verification: Verification, global_data_loader: &AccountLoader<'info, GlobalData>, global_data_bump: u8,
-    token_program: &Program<'info, Token2022>, unstaked_mint: &InterfaceAccount<'info, Mint>,
+    token_2022_program: &Program<'info, Token2022>, unstaked_mint: &InterfaceAccount<'info, Mint>,
     user_unstaked_token_account: &InterfaceAccount<'info, TokenAccount>,
 ) -> Result<()> {
     require!(user_data.is_current(), ComptokenError::UserDataNotCurrent);
@@ -180,7 +180,7 @@ pub fn verify_common<'info>(
         global_data_loader,
         global_data_bump,
         ubi_eligible,
-        token_program,
+        token_2022_program,
         unstaked_mint,
         user_unstaked_token_account,
     )?;

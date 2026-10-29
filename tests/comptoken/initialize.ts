@@ -1,16 +1,21 @@
-import type { ComptokenProgram } from "@compto/comptoken.js";
-import { addresses } from "@compto/comptoken.js";
-import { type Mint, TOKEN_2022_PROGRAM_ID, getMint } from "@solana/spl-token";
+import { addresses, type ComptokenProgram as CP } from "@compto/comptoken.js";
+import { type Account, getMint, type Mint, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { type AccountInfo, PublicKey, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/web3.js";
 import { BankrunProvider } from "anchor-bankrun";
 import { expect } from "chai";
 const { getGlobalDataAddress, getStakedMintAddress, getUnstakedMintAddress } = addresses;
 
 import {
+    type ComptokenProgram,
+    createComptokenLiquidityTokenAccountAddedAccount,
     createGlobalDataAddedAccount,
-    createLiquidityPoolTokenAccountAddedAccount,
     createStakedMintAddedAccount,
     createUnstakedMintAddedAccount,
+    createUsdcLiquidityTokenAccountAddedAccount,
+    createUsdcMintAddedAccount,
+    getAccount,
+    getComptokenLiquidityTokenAccountAddress,
+    getUsdcLiquidityTokenAccountAddress,
 } from "./utils/accountPreinitHelpers.ts";
 import { normalizeTime, prepareTest } from "./utils/utils.ts";
 
@@ -27,14 +32,17 @@ describe("initialize", () => {
         let globalData: Awaited<ReturnType<ComptokenProgram["account"]["globalData"]["fetch"]>>;
         let stakedMintDecoded: Mint;
         let unstakedMintDecoded: Mint;
+        let comptokenLiquidityTokenAccount: Account;
+        let usdcLiquidityTokenAccount: Account;
 
         before(async () => {
-            const accounts = [await createLiquidityPoolTokenAccountAddedAccount()];
+            // USDC is an external mint, so it must already exist
+            const accounts = [await createUsdcMintAddedAccount()];
 
             ({ provider, program } = await prepareTest(accounts));
-            stakedMintPda = getStakedMintAddress(program);
-            unstakedMintPda = getUnstakedMintAddress(program);
-            globalDataPda = getGlobalDataAddress(program);
+            stakedMintPda = getStakedMintAddress(program as CP & ComptokenProgram);
+            unstakedMintPda = getUnstakedMintAddress(program as CP & ComptokenProgram);
+            globalDataPda = getGlobalDataAddress(program as CP & ComptokenProgram);
 
             // Single initialize call (initialize has no wrapper; use direct RPC)
             await program.methods.initialize().accounts({ slotHashes: SYSVAR_SLOT_HASHES_PUBKEY }).rpc();
@@ -46,6 +54,16 @@ describe("initialize", () => {
             globalData = await program.account.globalData.fetch(globalDataPda);
             stakedMintDecoded = await getMint(provider.connection, stakedMintPda, undefined, TOKEN_2022_PROGRAM_ID);
             unstakedMintDecoded = await getMint(provider.connection, unstakedMintPda, undefined, TOKEN_2022_PROGRAM_ID);
+            comptokenLiquidityTokenAccount = await getAccount(
+                provider.connection,
+                getComptokenLiquidityTokenAccountAddress(),
+                TOKEN_2022_PROGRAM_ID,
+            );
+            usdcLiquidityTokenAccount = await getAccount(
+                provider.connection,
+                getUsdcLiquidityTokenAccountAddress(),
+                TOKEN_PROGRAM_ID,
+            );
         });
 
         it("creates staked mint account with correct owner and size", () => {
@@ -132,6 +150,43 @@ describe("initialize", () => {
                 "Remaining early adopter count should be initialized",
             ).to.equal(program.constants.earlyAdopterCount);
         });
+
+        it("creates the empty comptoken liquidity token account owned by GlobalData", () => {
+            expect(comptokenLiquidityTokenAccount.mint.toString(), "Should hold unstaked comptokens").to.equal(
+                unstakedMintPda.toString(),
+            );
+            expect(comptokenLiquidityTokenAccount.owner.toString(), "Should be owned by GlobalData PDA").to.equal(
+                globalDataPda.toString(),
+            );
+            expect(comptokenLiquidityTokenAccount.amount).to.equal(0n);
+        });
+
+        it("creates the empty usdc liquidity token account owned by GlobalData", () => {
+            expect(usdcLiquidityTokenAccount.mint.toString(), "Should hold USDC").to.equal(
+                program.constants.usdcMintAddress.toString(),
+            );
+            expect(usdcLiquidityTokenAccount.owner.toString(), "Should be owned by GlobalData PDA").to.equal(
+                globalDataPda.toString(),
+            );
+            expect(usdcLiquidityTokenAccount.amount).to.equal(0n);
+        });
+    });
+
+    it("fails when the USDC mint does not exist", async () => {
+        const { program } = await prepareTest();
+
+        let threw = false;
+        try {
+            await program.methods.initialize().accounts({ slotHashes: SYSVAR_SLOT_HASHES_PUBKEY }).rpc();
+        } catch (err: any) {
+            threw = true;
+            const msg = (err?.error?.errorMessage ?? err?.toString() ?? "").toLowerCase();
+            expect(
+                msg.includes("accountnotinitialized") || msg.includes("account expected to be already initialized"),
+                `Expected an AccountNotInitialized error for usdc_mint, got: ${msg}`,
+            ).to.be.true;
+        }
+        expect(threw, "Initialize should fail without the USDC mint").to.be.true;
     });
 
     it("fails when initialize invoked on existing mint/global accounts (simulate re-invoke)", async () => {
@@ -140,7 +195,9 @@ describe("initialize", () => {
             createGlobalDataAddedAccount(),
             createStakedMintAddedAccount(),
             createUnstakedMintAddedAccount(),
-            createLiquidityPoolTokenAccountAddedAccount(),
+            createUsdcMintAddedAccount(),
+            createComptokenLiquidityTokenAccountAddedAccount(),
+            createUsdcLiquidityTokenAccountAddedAccount(),
         ]);
 
         const { program } = await prepareTest(preinitializedAccounts);

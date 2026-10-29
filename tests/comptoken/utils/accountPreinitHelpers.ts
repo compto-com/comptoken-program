@@ -18,6 +18,7 @@ import {
     ExtensionType,
     MintLayout,
     TOKEN_2022_PROGRAM_ID,
+    TOKEN_PROGRAM_ID,
     getAccountLen,
     getAssociatedTokenAddressSync,
     getMintLen,
@@ -44,7 +45,7 @@ import type { BetterBorshCoder } from "@compto/comptoken.js/src/coder.ts";
 import type { ProgramWithConstants } from "@compto/comptoken.js/src/programWithConstants.ts";
 
 type ComptokenCoder = BetterBorshCoder<ComptokenIdl>;
-type ComptokenProgram = Omit<ProgramWithConstants<ComptokenIdl>, "coder"> & { coder: ComptokenCoder };
+export type ComptokenProgram = Omit<ProgramWithConstants<ComptokenIdl>, "coder"> & { coder: ComptokenCoder };
 
 import { type CamelToSnakeCaseObject } from "./typeHelpers.ts";
 import { normalizeTime, saturatingSubtract, toUnixTime, today } from "./utils.ts";
@@ -426,11 +427,142 @@ export async function createUnstakedTokenAccountAddedAccount({
     };
 }
 
-export function createLiquidityPoolTokenAccountAddedAccount(amount: bigint | number = 0) {
-    return createUnstakedTokenAccountAddedAccount({
-        address: baseProgram.constants.liquidityPoolTokenAccountAddress,
-        owner: Keypair.generate().publicKey,
+export function createTokenAccountAddedAccount({
+    address,
+    mint,
+    owner,
+    amount = 0,
+    tokenProgram,
+}: {
+    address: PublicKey;
+    mint: PublicKey;
+    owner: PublicKey;
+    amount?: bigint | number;
+    tokenProgram: PublicKey;
+}): AddedAccount {
+    const data = Buffer.alloc(ACCOUNT_SIZE);
+
+    AccountLayout.encode(
+        {
+            mint,
+            owner,
+            amount: BigInt(amount),
+            delegateOption: 0,
+            delegate: PublicKey.default,
+            state: AccountState.Initialized,
+            isNativeOption: 0,
+            isNative: BigInt(0),
+            delegatedAmount: BigInt(0),
+            closeAuthorityOption: 0,
+            closeAuthority: PublicKey.default,
+        },
+        data,
+    );
+
+    return {
+        address,
+        info: {
+            owner: tokenProgram,
+            data,
+            executable: false,
+            lamports: 1_000_000_000, // arbitrary lamport amount
+        },
+    };
+}
+
+export function createMintAddedAccount({
+    address,
+    mintAuthority,
+    supply = 0,
+    decimals,
+    tokenProgram,
+}: {
+    address: PublicKey;
+    mintAuthority: PublicKey;
+    supply?: bigint | number;
+    decimals: number;
+    tokenProgram: PublicKey;
+}): AddedAccount {
+    const data = Buffer.alloc(MintLayout.span);
+    MintLayout.encode(
+        {
+            mintAuthorityOption: 1,
+            mintAuthority,
+            supply: BigInt(supply),
+            decimals,
+            isInitialized: true,
+            freezeAuthorityOption: 0,
+            freezeAuthority: PublicKey.default,
+        },
+        data,
+    );
+
+    return {
+        address,
+        info: {
+            owner: tokenProgram,
+            data,
+            executable: false,
+            lamports: 1_000_000_000, // arbitrary lamport amount
+        },
+    };
+}
+
+export function getComptokenLiquidityTokenAccountAddress(): PublicKey {
+    return PublicKey.findProgramAddressSync(
+        [baseProgram.constants.comptokenLiquidityTokenAccountSeed],
+        baseProgram.programId,
+    )[0];
+}
+
+export function getUsdcLiquidityTokenAccountAddress(): PublicKey {
+    return PublicKey.findProgramAddressSync(
+        [baseProgram.constants.usdcLiquidityTokenAccountSeed],
+        baseProgram.programId,
+    )[0];
+}
+
+export async function createComptokenLiquidityTokenAccountAddedAccount({
+    amount = 0,
+}: {
+    amount?: bigint | number;
+} = {}): Promise<AddedAccount> {
+    return createTokenAccountAddedAccount({
+        address: getComptokenLiquidityTokenAccountAddress(),
+        mint: getUnstakedMintAddress(baseProgram),
+        owner: getGlobalDataAddress(baseProgram),
         amount,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+    });
+}
+
+export async function createUsdcLiquidityTokenAccountAddedAccount({
+    amount = 0,
+}: {
+    amount?: bigint | number;
+} = {}): Promise<AddedAccount> {
+    return createTokenAccountAddedAccount({
+        address: getUsdcLiquidityTokenAccountAddress(),
+        mint: baseProgram.constants.usdcMintAddress,
+        owner: getGlobalDataAddress(baseProgram),
+        amount,
+        tokenProgram: TOKEN_PROGRAM_ID,
+    });
+}
+
+export const USDC_DECIMALS = 6;
+
+export async function createUsdcMintAddedAccount({
+    supply = 1_000_000_000_000,
+}: {
+    supply?: bigint | number;
+} = {}): Promise<AddedAccount> {
+    return createMintAddedAccount({
+        address: baseProgram.constants.usdcMintAddress,
+        mintAuthority: Keypair.generate().publicKey,
+        supply,
+        decimals: USDC_DECIMALS,
+        tokenProgram: TOKEN_PROGRAM_ID,
     });
 }
 
@@ -693,15 +825,20 @@ export async function buildWorldIdAccountsWithNullifier({
     ];
 }
 
-export function getAccount(connection: anchor.web3.Connection, address: anchor.web3.PublicKey): Promise<Account> {
-    return splGetAccount(connection, address, "confirmed", TOKEN_2022_PROGRAM_ID);
+export function getAccount(
+    connection: anchor.web3.Connection,
+    address: anchor.web3.PublicKey,
+    tokenProgram: anchor.web3.PublicKey = TOKEN_2022_PROGRAM_ID,
+): Promise<Account> {
+    return splGetAccount(connection, address, "confirmed", tokenProgram);
 }
 
 export function getMint(
     connection: anchor.web3.Connection,
     address: anchor.web3.PublicKey,
+    tokenProgram: anchor.web3.PublicKey = TOKEN_2022_PROGRAM_ID,
 ): Promise<import("@solana/spl-token").Mint> {
-    return splGetMint(connection, address, "confirmed", TOKEN_2022_PROGRAM_ID);
+    return splGetMint(connection, address, "confirmed", tokenProgram);
 }
 
 function BNtoBigIntRecursive(obj: any): any {

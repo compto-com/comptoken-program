@@ -1,4 +1,4 @@
-import { addresses, transactions } from "@compto/comptoken.js";
+import { addresses, transactions, type ComptokenProgram } from "@compto/comptoken.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
@@ -7,7 +7,6 @@ const { getGlobalDataAddress } = addresses;
 const { dailyDistribution } = transactions;
 
 import {
-    type ComptokenProgram,
     baseProgram,
     createComptokenLiquidityTokenAccountAddedAccount,
     createGlobalDataAddedAccount,
@@ -20,7 +19,6 @@ import {
     getUsdcLiquidityTokenAccountAddress,
 } from "./utils/accountPreinitHelpers.ts";
 import {
-    type PoolAddresses,
     addLiquidity,
     createAmmConfigAddedAccount,
     createComptokenUsdcPoolAddedAccounts,
@@ -32,6 +30,7 @@ import {
     sqrt,
     steadyPriceHistory,
     token0SpotPrice,
+    type PoolAddresses,
 } from "./utils/raydiumHelpers.ts";
 import { normalizeTime, prepareTest, subtractDays } from "./utils/utils.ts";
 

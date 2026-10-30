@@ -1,12 +1,12 @@
 import fs from "fs";
 import path from "path";
 
-import { createComptokenProgram, createSolanaWorldIdProgram, type ComptokenProgram as CP } from "@compto/comptoken.js";
+import { createComptokenProgram, createSolanaWorldIdProgram, type ComptokenProgram } from "@compto/comptoken.js";
 import { PublicKey } from "@solana/web3.js";
 import { BankrunProvider, startAnchor } from "anchor-bankrun";
 import type { AddedAccount } from "solana-bankrun";
 
-import { Idl, solanaWorldIdIdl, type ComptokenProgram } from "./accountPreinitHelpers.ts";
+import { Idl, solanaWorldIdIdl } from "./accountPreinitHelpers.ts";
 import { RAYDIUM_CP_SWAP_PROGRAM_ID } from "./raydiumHelpers.ts";
 
 const BPF_LOADER_UPGRADEABLE_PROGRAM_ID = new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111");
@@ -90,7 +90,7 @@ export async function prepareTest(accounts: AddedAccount[] = []) {
     const workspaceRoot = path.resolve(import.meta.dirname, "../../..");
     const context = await startAnchor(workspaceRoot, [], [...raydiumCpSwapProgram, ...accounts]);
     const provider = new BankrunProvider(context);
-    const program = createComptokenProgram(Idl, provider) as CP & ComptokenProgram;
+    const program = createComptokenProgram(Idl, provider);
     const solanaWorldIdProgram = createSolanaWorldIdProgram(solanaWorldIdIdl, provider);
     return { context, provider, program, solanaWorldIdProgram };
 }

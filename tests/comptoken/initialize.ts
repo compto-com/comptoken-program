@@ -1,4 +1,4 @@
-import { addresses, type ComptokenProgram as CP } from "@compto/comptoken.js";
+import { addresses, type ComptokenProgram } from "@compto/comptoken.js";
 import { type Account, getMint, type Mint, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { type AccountInfo, PublicKey, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/web3.js";
 import { BankrunProvider } from "anchor-bankrun";
@@ -6,7 +6,6 @@ import { expect } from "chai";
 const { getGlobalDataAddress, getStakedMintAddress, getUnstakedMintAddress } = addresses;
 
 import {
-    type ComptokenProgram,
     createComptokenLiquidityTokenAccountAddedAccount,
     createGlobalDataAddedAccount,
     createStakedMintAddedAccount,
@@ -40,9 +39,9 @@ describe("initialize", () => {
             const accounts = [await createUsdcMintAddedAccount()];
 
             ({ provider, program } = await prepareTest(accounts));
-            stakedMintPda = getStakedMintAddress(program as CP & ComptokenProgram);
-            unstakedMintPda = getUnstakedMintAddress(program as CP & ComptokenProgram);
-            globalDataPda = getGlobalDataAddress(program as CP & ComptokenProgram);
+            stakedMintPda = getStakedMintAddress(program);
+            unstakedMintPda = getUnstakedMintAddress(program);
+            globalDataPda = getGlobalDataAddress(program);
 
             // Single initialize call (initialize has no wrapper; use direct RPC)
             await program.methods.initialize().accounts({ slotHashes: SYSVAR_SLOT_HASHES_PUBKEY }).rpc();

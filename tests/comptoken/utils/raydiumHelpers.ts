@@ -1,5 +1,5 @@
-import { addresses } from "@compto/comptoken.js";
-import { default as anchor, BorshCoder, type Idl as AnchorIdl, type Program } from "@coral-xyz/anchor";
+import { default as anchor, BorshCoder, type Idl as AnchorIdl } from "@anchor-lang/core";
+import { addresses, type ComptokenProgram } from "@compto/comptoken.js";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
@@ -13,7 +13,6 @@ import {
     createMintAddedAccount,
     createTokenAccountAddedAccount,
     USDC_DECIMALS,
-    type ComptokenProgram,
 } from "./accountPreinitHelpers.ts";
 
 // Helpers for standing up the COMP/USDC pool of our raydium cp-swap fork (loaded via [[test.genesis]] in Anchor.toml)

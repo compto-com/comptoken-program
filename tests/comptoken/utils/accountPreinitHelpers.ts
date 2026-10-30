@@ -1,5 +1,6 @@
+import { BorshCoder, type IdlAccounts, type IdlTypes, default as anchor } from "@anchor-lang/core";
 import {
-    type ComptokenProgram as CP,
+    type ComptokenProgram,
     addresses,
     createComptokenProgram,
     createDummyProvider,
@@ -8,7 +9,6 @@ import {
     getComptokenIdl,
     getSolanaWorldIdIdl,
 } from "@compto/comptoken.js";
-import { BorshCoder, type IdlAccounts, type IdlTypes, default as anchor } from "@coral-xyz/anchor";
 import {
     ACCOUNT_SIZE,
     type Account,
@@ -39,20 +39,12 @@ const {
     getWorldIdNullifierAddress,
 } = addresses;
 
-// this is to fix the hard-coded (outdated) idl in comptoken.js. when comptoken.js is updated to use the latest idl, this can be removed
-// or better yet, comptoken.js should handle idl's better or just be integrated into this repo so that the idl is always up to date
-import type { BetterBorshCoder } from "@compto/comptoken.js/src/coder.ts";
-import type { ProgramWithConstants } from "@compto/comptoken.js/src/programWithConstants.ts";
-
-type ComptokenCoder = BetterBorshCoder<ComptokenIdl>;
-export type ComptokenProgram = Omit<ProgramWithConstants<ComptokenIdl>, "coder"> & { coder: ComptokenCoder };
-
 import { type CamelToSnakeCaseObject } from "./typeHelpers.ts";
 import { normalizeTime, saturatingSubtract, toUnixTime, today } from "./utils.ts";
 
 const projectRoot = `${import.meta.dirname}/../../..`;
 export const Idl = getComptokenIdl(`${projectRoot}/target/idl/comptoken.json`);
-export const baseProgram = createComptokenProgram(Idl, createDummyProvider()) as CP & ComptokenProgram;
+export const baseProgram = createComptokenProgram(Idl, createDummyProvider());
 export const coder = new BorshCoder(Idl);
 
 export const solanaWorldIdIdl = getSolanaWorldIdIdl(`${projectRoot}/target/idl/solana_world_id_program.json`);

@@ -1,12 +1,12 @@
 import fs from "fs";
 
+import { AnchorProvider, Wallet } from "@anchor-lang/core";
 import {
     createComptokenProgram,
     createSolanaWorldIdProgram,
     type ComptokenIdl,
     type SolanaWorldIdIdl,
 } from "@compto/comptoken.js";
-import { AnchorProvider, Wallet } from "@coral-xyz/anchor";
 import { clusterApiUrl, Connection, PublicKey, SYSVAR_SLOT_HASHES_PUBKEY } from "@solana/web3.js";
 import { BN } from "bn.js";
 

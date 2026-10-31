@@ -387,7 +387,7 @@ describe("verification", () => {
                         userPubkey: user.publicKey,
                         lastClaimed: new Date(),
                         lastVerified: new Date(),
-                        verification: { Nullifier: { hash: { [0]: Array.from(worldIdFixture.nullifierHash) } } },
+                        verification: { Unverified: {} },
                         proofs: [],
                     }),
                     ...(await buildWorldIdAccountsWithNullifier({

@@ -25,6 +25,12 @@ pub enum Verification {
     Session { id: Hash },
 }
 
+impl std::fmt::Display for Verification {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 // UserData has a limit on the number of proofs it can store (just over 300)
 // due to size limits on Solana. In practice, no single user should need
 // anywhere near that many proofs (current miners should only get 1

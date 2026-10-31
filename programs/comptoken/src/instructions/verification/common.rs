@@ -80,7 +80,7 @@ impl IdentityWallet for Account<'_, WorldIdV4Session> {
     }
 
     fn set_identity_wallet(&mut self, user_wallet: Pubkey) -> Result<()> {
-        require!(self.user_wallet == Pubkey::default(), ComptokenError::SessionAlreadyInUse);
+        require_keys_eq!(self.user_wallet, Pubkey::default(), ComptokenError::SessionAlreadyInUse);
         self.user_wallet = user_wallet;
         Ok(())
     }
@@ -96,7 +96,7 @@ impl IdentityWallet for Account<'_, Nullifier> {
     }
 
     fn set_identity_wallet(&mut self, user_wallet: Pubkey) -> Result<()> {
-        require!(self.user_wallet == Pubkey::default(), ComptokenError::NullifierAlreadyUsed);
+        require_keys_eq!(self.user_wallet, Pubkey::default(), ComptokenError::NullifierAlreadyUsed);
         self.user_wallet = user_wallet;
         Ok(())
     }
@@ -106,7 +106,7 @@ pub fn unverify_common<'info>(
     user_data: &mut Account<'info, UserData>, global_data_loader: &AccountLoader<'info, GlobalData>,
     clear_identity_wallet: &mut impl IdentityWallet, verification: Verification,
 ) -> Result<()> {
-    require!(user_data.verification == verification, ComptokenError::InvalidVerification);
+    require_eq!(user_data.verification, verification, ComptokenError::InvalidVerification);
 
     user_data.clear_verification();
     clear_identity_wallet.clear_identity_wallet();
@@ -117,14 +117,13 @@ pub fn reverify_common<'info>(
     user_data: &mut Account<'info, UserData>, identity_account: &mut impl IdentityWallet, identity: Pubkey,
     verification: Verification,
 ) -> Result<()> {
-    require!(user_data.verification == verification, ComptokenError::InvalidVerification);
-
-    if identity_account.get_user_wallet() == Pubkey::default() {
-        // binding a previously verified but unbound identity to a new user wallet
+    if let Verification::Unverified = user_data.verification {
+        require_keys_eq!(identity_account.get_user_wallet(), Pubkey::default(), ComptokenError::InvalidVerification);
         require!(user_data.is_current(), ComptokenError::UserDataNotCurrent);
         identity_account.set_identity_wallet(identity)?;
     } else {
-        require!(identity_account.get_user_wallet() == identity, ComptokenError::InvalidNullifierOwner);
+        require_eq!(user_data.verification, verification, ComptokenError::InvalidVerification);
+        require_keys_eq!(identity_account.get_user_wallet(), identity, ComptokenError::InvalidNullifierOwner);
     }
 
     user_data.update_last_verified_timestamp();

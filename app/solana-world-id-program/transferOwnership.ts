@@ -1,6 +1,6 @@
 // NEW_OWNER=<new_owner_address> NETWORK=testnet WALLET=~/.config/solana/your-key.json npx tsx app/transferOwnership.ts
 
-import { web3 } from "@coral-xyz/anchor";
+import { web3 } from "@anchor-lang/core";
 import { getEnv } from "./env";
 
 const { program } = getEnv();

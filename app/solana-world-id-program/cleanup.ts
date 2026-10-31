@@ -1,6 +1,6 @@
 // NETWORK=testnet WALLET=~/.config/solana/your-key.json npx tsx app/cleanup.ts
 
-import { Program } from "@coral-xyz/anchor";
+import { Program } from "@anchor-lang/core";
 import BN from "bn.js";
 import { Logger } from "winston";
 import type { SolanaWorldIdProgram } from "../../target/types/solana_world_id_program";
@@ -12,7 +12,7 @@ export async function cleanUpRoots(program: Program<SolanaWorldIdProgram>, logge
     const config = await program.account.config.fetch(deriveConfigKey(program.programId));
     const latestRoot = deriveLatestRootKey(program.programId, 0);
     const slot = await program.provider.connection.getSlot();
-    const blockTime = new BN(await program.provider.connection.getBlockTime(slot));
+    const blockTime = new BN((await program.provider.connection.getBlockTime(slot))!);
     const roots = await program.account.root.all();
     logger.debug(`Found ${roots.length} root(s)`);
     for (const root of roots) {
@@ -35,7 +35,11 @@ export async function cleanUpRoots(program: Program<SolanaWorldIdProgram>, logge
                     .rpc();
                 logger.info(`Cleaned up root ${rootHex} account ${root.publicKey.toString()} in tx ${tx}`);
             } catch (e) {
-                logger.error(`Error cleaning up root account ${root.publicKey.toString()}: ${e.message}`);
+                logger.error(
+                    `Error cleaning up root account ${root.publicKey.toString()}${
+                        e instanceof Error ? `: ${e.message}` : ""
+                    }`,
+                );
             }
         }
     }

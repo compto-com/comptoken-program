@@ -1,3 +1,4 @@
+pub mod add_liquidity;
 pub mod collect;
 pub mod create_user_data_account;
 pub mod daily_distribution;
@@ -9,6 +10,7 @@ pub mod sync_valid_blockhashes;
 pub mod unstake;
 pub mod verification;
 
+pub use add_liquidity::*;
 pub use collect::*;
 pub use create_user_data_account::*;
 pub use daily_distribution::*;

@@ -1,18 +1,27 @@
-import { transactions } from "@compto/comptoken.js";
-import { PublicKey } from "@solana/web3.js";
+import { addresses, transactions } from "@compto/comptoken.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
+const { getUnstakedMintAddress } = addresses;
 const { dailyDistribution } = transactions;
 
 import {
     baseProgram,
+    createComptokenLiquidityTokenAccountAddedAccount,
     createGlobalDataAddedAccount,
     createStakedMintAddedAccount,
     createUnstakedMintAddedAccount,
+    createUnstakedTokenAccountAddedAccount,
+    getAccount,
+    getComptokenLiquidityTokenAccountAddress,
+    getMint,
     type HistoricDistribution,
 } from "./utils/accountPreinitHelpers.ts";
 import { fetchGlobalData, getLatestDistribution } from "./utils/stateHelpers.ts";
 import { expectAlmostEqual, expectHistoryAdvancedBy } from "./utils/testAssertions.ts";
 import { normalizeTime, prepareTest, subtractDays, toUnixTime } from "./utils/utils.ts";
+
+// Mirrors constants::LIQUIDITY_POOL_PERCENT on the Rust side (also exposed as baseProgram.constants.liquidityPoolPercent).
+const LIQUIDITY_POOL_PERCENT = Number(baseProgram.constants.liquidityPoolPercent);
 
 describe("daily_distribution", () => {
     describe("Core success path scenarios", () => {
@@ -30,10 +39,12 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: 50_000 }),
                 createUnstakedMintAddedAccount({ supply: 150_000 }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
-            const { program } = await prepareTest(accounts);
+            const { program, provider } = await prepareTest(accounts);
             const beforeGlobal = await fetchGlobalData(program);
+            const beforePoolAccount = await getAccount(provider.connection, getComptokenLiquidityTokenAccountAddress());
 
             await dailyDistribution({ program });
 
@@ -45,6 +56,14 @@ describe("daily_distribution", () => {
             expect(afterGlobal.dailyDistribution.highWaterMark.toNumber()).to.be.greaterThan(startingHwm);
             // total_mined_today reset
             expect(afterGlobal.dailyDistribution.totalMinedToday.toNumber()).to.equal(0);
+
+            // Liquidity pool receives LIQUIDITY_POOL_PERCENT of the total daily distribution, minted
+            // directly to its unstaked token account.
+            const afterPoolAccount = await getAccount(provider.connection, getComptokenLiquidityTokenAccountAddress());
+            const hwmIncrease = afterGlobal.dailyDistribution.highWaterMark.toNumber() - startingHwm;
+            const totalDailyDistribution = hwmIncrease * Number(program.constants.comptokenDistributionMultiplier);
+            const expectedLiquidityPoolAmount = roundTiesEven(totalDailyDistribution * LIQUIDITY_POOL_PERCENT);
+            expect(Number(afterPoolAccount.amount - beforePoolAccount.amount)).to.equal(expectedLiquidityPoolAmount);
         });
 
         it("records zeroed distribution when total_mined_today < high_water_mark", async () => {
@@ -61,6 +80,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: 50_000 }),
                 createUnstakedMintAddedAccount({ supply: 150_000 }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
             const { program } = await prepareTest(accounts);
@@ -88,6 +108,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: 10_000 }),
                 createUnstakedMintAddedAccount({ supply: 25_000 }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
             const { program } = await prepareTest(accounts);
             const beforeGlobal = await fetchGlobalData(program);
@@ -115,6 +136,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: 1_000 }),
                 createUnstakedMintAddedAccount({ supply: 2_000 }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
             const { program } = await prepareTest(accounts);
             const before = await fetchGlobalData(program);
@@ -149,6 +171,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
             const { program } = await prepareTest(accounts);
@@ -190,6 +213,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
             const { program } = await prepareTest(accounts);
@@ -225,9 +249,14 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
-            const { program } = await prepareTest(accounts);
+            const { program, provider } = await prepareTest(accounts);
+            const beforeLiquidityPool = await getAccount(
+                provider.connection,
+                getComptokenLiquidityTokenAccountAddress(),
+            );
 
             await dailyDistribution({ program });
 
@@ -237,14 +266,25 @@ describe("daily_distribution", () => {
             expect(hwmIncrease).to.equal(minedToday - startingHwm, "Expected uncapped high water mark increase");
             const multiplier = Number(program.constants.comptokenDistributionMultiplier); // 146_000
             const totalDailyDistribution = hwmIncrease * multiplier; // integer
-            const totalUbiDistribution = Math.floor(totalDailyDistribution / 2);
-            const expectedYieldAmount = totalDailyDistribution - totalUbiDistribution; // should equal the other half
+            const liquidityPoolAmount = roundTiesEven(totalDailyDistribution * LIQUIDITY_POOL_PERCENT);
+            const remainingDistribution = totalDailyDistribution - liquidityPoolAmount;
+            const totalUbiDistribution = Math.floor(remainingDistribution / 2);
+            const expectedYieldAmount = remainingDistribution - totalUbiDistribution; // should equal the other half
 
             const pushed = getLatestDistribution(after, program);
             const recordedYieldRate = pushed.yieldRate;
             const reconstructedYieldAmount = Math.round(recordedYieldRate * stakedSupply);
             expectAlmostEqual(reconstructedYieldAmount, expectedYieldAmount, 3, "Yield half mismatch");
             expectAlmostEqual(expectedYieldAmount, totalUbiDistribution, 1, "50/50 split violated");
+
+            const afterLiquidityPool = await getAccount(
+                provider.connection,
+                getComptokenLiquidityTokenAccountAddress(),
+            );
+            expect(Number(afterLiquidityPool.amount - beforeLiquidityPool.amount)).to.equal(
+                liquidityPoolAmount,
+                "Liquidity pool token account should receive LIQUIDITY_POOL_PERCENT of the total daily distribution",
+            );
         });
 
         it("allocates early adopter UBI portion based on verified_accounts_count ratio", async () => {
@@ -267,6 +307,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
             const { program } = await prepareTest(accounts);
             const before = await fetchGlobalData(program);
@@ -278,7 +319,9 @@ describe("daily_distribution", () => {
             const hwmIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
             const multiplier = Number(program.constants.comptokenDistributionMultiplier);
             const totalDailyDistribution = hwmIncrease * multiplier;
-            const totalUbiDistribution = Math.floor(totalDailyDistribution / 2);
+            const liquidityPoolAmount = roundTiesEven(totalDailyDistribution * LIQUIDITY_POOL_PERCENT);
+            const remainingDistribution = totalDailyDistribution - liquidityPoolAmount;
+            const totalUbiDistribution = Math.floor(remainingDistribution / 2);
             const ratio = (earlyAdopterCount - verifiedAccountsCount) / (earlyAdopterCount + verifiedAccountsCount);
             const expectedEarlyAdopterUbi = roundTiesEven(totalUbiDistribution * ratio);
             const perCapitaIncrement = Math.floor(expectedEarlyAdopterUbi / remainingEarlyAdopterCount);
@@ -309,6 +352,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
             const { program } = await prepareTest(accounts);
@@ -321,7 +365,9 @@ describe("daily_distribution", () => {
 
             const hwmIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
             const totalDailyDistribution = hwmIncrease * Number(program.constants.comptokenDistributionMultiplier);
-            const totalUbiDistribution = Math.floor(totalDailyDistribution / 2);
+            const liquidityPoolAmount = roundTiesEven(totalDailyDistribution * LIQUIDITY_POOL_PERCENT);
+            const remainingDistribution = totalDailyDistribution - liquidityPoolAmount;
+            const totalUbiDistribution = Math.floor(remainingDistribution / 2);
             const ratio = (earlyAdopterCount - verifiedAccountsCount) / (earlyAdopterCount + verifiedAccountsCount);
             const earlyAdopterUbi = roundTiesEven(totalUbiDistribution * ratio);
             const expectedIncrement = Math.floor(earlyAdopterUbi / remainingEarlyAdopterCount);
@@ -350,6 +396,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
             const { program } = await prepareTest(accounts);
@@ -381,6 +428,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
             const { program } = await prepareTest(accounts);
@@ -392,8 +440,10 @@ describe("daily_distribution", () => {
 
             const increase = minedToday - startingHwm;
             const totalDailyDistribution = increase * Number(program.constants.comptokenDistributionMultiplier);
-            const totalUbiDistribution = Math.floor(totalDailyDistribution / 2);
-            const expectedYieldAmount = totalDailyDistribution - totalUbiDistribution;
+            const liquidityPoolAmount = roundTiesEven(totalDailyDistribution * LIQUIDITY_POOL_PERCENT);
+            const remainingDistribution = totalDailyDistribution - liquidityPoolAmount;
+            const totalUbiDistribution = Math.floor(remainingDistribution / 2);
+            const expectedYieldAmount = remainingDistribution - totalUbiDistribution;
             const reconstructedYieldAmount = Math.round(pushed.yieldRate * stakedSupply);
             expectAlmostEqual(reconstructedYieldAmount, expectedYieldAmount, 3);
         });
@@ -413,6 +463,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
             const { program } = await prepareTest(accounts);
@@ -442,6 +493,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
             const { program } = await prepareTest(accounts);
@@ -454,7 +506,9 @@ describe("daily_distribution", () => {
             const increase = minedToday - startingHwm;
             const multiplier = Number(program.constants.comptokenDistributionMultiplier);
             const totalDailyDistribution = increase * multiplier;
-            const totalUbiDistribution = Math.floor(totalDailyDistribution / 2);
+            const liquidityPoolAmount = roundTiesEven(totalDailyDistribution * LIQUIDITY_POOL_PERCENT);
+            const remainingDistribution = totalDailyDistribution - liquidityPoolAmount;
+            const totalUbiDistribution = Math.floor(remainingDistribution / 2);
             const ratio = (earlyAdopterCount - verifiedAccountsCount) / (earlyAdopterCount + verifiedAccountsCount);
             const earlyAdopterUbi = roundTiesEven(totalUbiDistribution * ratio);
             const verifiedShare = totalUbiDistribution - earlyAdopterUbi;
@@ -478,6 +532,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
             const { program } = await prepareTest(accounts);
@@ -505,6 +560,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
             const { program } = await prepareTest(accounts);
@@ -547,6 +603,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
             const { program } = await prepareTest(accounts);
@@ -583,6 +640,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
             const { program } = await prepareTest(accounts);
@@ -596,7 +654,9 @@ describe("daily_distribution", () => {
             const hwmIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
             const multiplier = Number(program.constants.comptokenDistributionMultiplier);
             const totalDailyDistribution = hwmIncrease * multiplier; // 1_000 * 146_000
-            const totalUbiDistribution = Math.floor(totalDailyDistribution / 2);
+            const liquidityPoolAmount = roundTiesEven(totalDailyDistribution * LIQUIDITY_POOL_PERCENT);
+            const remainingDistribution = totalDailyDistribution - liquidityPoolAmount;
+            const totalUbiDistribution = Math.floor(remainingDistribution / 2);
             const perCapitaIncrement = Math.floor(totalUbiDistribution / remainingEarlyAdopterCount);
             const afterPerCapita = after.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
 
@@ -629,6 +689,7 @@ describe("daily_distribution", () => {
                     }),
                     createStakedMintAddedAccount({ supply: stakedSupply }),
                     createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                    createComptokenLiquidityTokenAccountAddedAccount(),
                 ]);
                 const { program } = await prepareTest(accounts);
                 const before = await fetchGlobalData(program);
@@ -677,6 +738,7 @@ describe("daily_distribution", () => {
                     }),
                     createStakedMintAddedAccount({ supply: stakedSupply }),
                     createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                    createComptokenLiquidityTokenAccountAddedAccount(),
                 ]);
                 const { program } = await prepareTest(accounts);
                 const before = await fetchGlobalData(program);
@@ -688,7 +750,9 @@ describe("daily_distribution", () => {
                 const afterPerCapita = after.dailyDistribution.perCapitaEarlyAdopterUbiAmount.toNumber();
                 const hwmIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm; // should be 50
                 const totalDailyDistribution = hwmIncrease * multiplier;
-                const totalUbiDistribution = Math.floor(totalDailyDistribution / 2);
+                const liquidityPoolAmount = roundTiesEven(totalDailyDistribution * LIQUIDITY_POOL_PERCENT);
+                const remainingDistribution = totalDailyDistribution - liquidityPoolAmount;
+                const totalUbiDistribution = Math.floor(remainingDistribution / 2);
                 const earlyAdopterShareApprox = (afterPerCapita - beforePerCapita) * remainingEarlyAdopterCount;
                 return earlyAdopterShareApprox / totalUbiDistribution;
             }
@@ -725,6 +789,7 @@ describe("daily_distribution", () => {
                     }),
                     createStakedMintAddedAccount({ supply: stakedSupply }),
                     createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                    createComptokenLiquidityTokenAccountAddedAccount(),
                 ]);
 
                 const { program } = await prepareTest(accounts);
@@ -734,7 +799,9 @@ describe("daily_distribution", () => {
                 const after = await fetchGlobalData(program);
                 const increase = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
                 const totalDailyDistribution = increase * Number(program.constants.comptokenDistributionMultiplier);
-                const totalUbiDistribution = Math.floor(totalDailyDistribution / 2);
+                const liquidityPoolAmount = roundTiesEven(totalDailyDistribution * LIQUIDITY_POOL_PERCENT);
+                const remainingDistribution = totalDailyDistribution - liquidityPoolAmount;
+                const totalUbiDistribution = Math.floor(remainingDistribution / 2);
                 const ratio =
                     (Number(baseProgram.constants.earlyAdopterCount) - verifiedAccountsCount) /
                     (Number(baseProgram.constants.earlyAdopterCount) + verifiedAccountsCount);
@@ -771,6 +838,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
             const { program } = await prepareTest(accounts);
 
@@ -787,6 +855,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: stakedSupply }),
                 createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
 
             const { program: program2 } = await prepareTest(accounts2);
@@ -828,6 +897,7 @@ describe("daily_distribution", () => {
                     lastUpdate: normalizeTime(subtractDays(new Date(), 1)),
                 }),
                 createUnstakedMintAddedAccount({ supply: 5_000 }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
             const { program } = await prepareTest(accounts);
             let threw = false;
@@ -848,6 +918,7 @@ describe("daily_distribution", () => {
                     lastUpdate: normalizeTime(subtractDays(new Date(), 1)),
                 }),
                 createStakedMintAddedAccount({ supply: 10_000 }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
             const { program } = await prepareTest(accounts);
             let threw = false;
@@ -864,6 +935,7 @@ describe("daily_distribution", () => {
             // Create valid mint accounts, but supply a wrong global_data address via .accounts override
             const staked = await createStakedMintAddedAccount({ supply: 10_000 });
             const unstaked = await createUnstakedMintAddedAccount({ supply: 5_000 });
+            const liquidityPool = await createComptokenLiquidityTokenAccountAddedAccount();
             const globalData = await createGlobalDataAddedAccount({
                 totalMinedToday: 1_000,
                 highWaterMark: 900,
@@ -873,7 +945,7 @@ describe("daily_distribution", () => {
             const wrongSeed = Buffer.from("global_data_wrong");
             const [wrongGlobalDataPda] = PublicKey.findProgramAddressSync([wrongSeed], baseProgram.programId);
 
-            const { program } = await prepareTest([staked, unstaked, globalData]);
+            const { program } = await prepareTest([staked, unstaked, liquidityPool, globalData]);
             let threw = false;
             try {
                 await program.methods
@@ -902,6 +974,7 @@ describe("daily_distribution", () => {
                 }),
                 createStakedMintAddedAccount({ supply: 5_000 }),
                 createUnstakedMintAddedAccount({ supply: 2_500 }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
             ]);
             const { program } = await prepareTest(accounts);
             const before = await fetchGlobalData(program);
@@ -918,6 +991,172 @@ describe("daily_distribution", () => {
             expectHistoryAdvancedBy(afterFirst, afterSecond, program, 0);
             // High water mark should be non-decreasing
             expect(afterSecond.dailyDistribution.highWaterMark.toNumber()).to.be.at.least(startingHwm);
+        });
+    });
+
+    describe("Liquidity pool minting", () => {
+        it("mints LIQUIDITY_POOL_PERCENT of the total daily distribution to the liquidity pool token account", async () => {
+            const startingHwm = 4_000;
+            const minedToday = 5_500; // increase = 1_500
+            const stakedSupply = 40_000;
+            const unstakedSupply = 20_000; // below limiter threshold, keeps math simple
+            const beforeTs = normalizeTime(subtractDays(new Date(), 1));
+
+            const accounts = await Promise.all([
+                createGlobalDataAddedAccount({
+                    totalMinedToday: minedToday,
+                    highWaterMark: startingHwm,
+                    lastUpdate: beforeTs,
+                }),
+                createStakedMintAddedAccount({ supply: stakedSupply }),
+                createUnstakedMintAddedAccount({ supply: unstakedSupply }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
+            ]);
+
+            const { program, provider } = await prepareTest(accounts);
+            const beforeLiquidityPool = await getAccount(
+                provider.connection,
+                getComptokenLiquidityTokenAccountAddress(),
+            );
+            const beforeUnstakedMint = await getMint(provider.connection, getUnstakedMintAddress(program));
+
+            await dailyDistribution({ program });
+
+            const after = await fetchGlobalData(program);
+            const hwmIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
+            expect(hwmIncrease).to.equal(minedToday - startingHwm, "Expected uncapped high water mark increase");
+
+            const multiplier = Number(program.constants.comptokenDistributionMultiplier);
+            const totalDailyDistribution = hwmIncrease * multiplier;
+            const expectedLiquidityPoolAmount = roundTiesEven(totalDailyDistribution * LIQUIDITY_POOL_PERCENT);
+
+            const afterLiquidityPool = await getAccount(
+                provider.connection,
+                getComptokenLiquidityTokenAccountAddress(),
+            );
+            const afterUnstakedMint = await getMint(provider.connection, getUnstakedMintAddress(program));
+
+            expect(Number(afterLiquidityPool.amount - beforeLiquidityPool.amount)).to.equal(
+                expectedLiquidityPoolAmount,
+                "Liquidity pool token account balance should increase by LIQUIDITY_POOL_PERCENT of the total daily distribution",
+            );
+            expect(Number(afterUnstakedMint.supply - beforeUnstakedMint.supply)).to.equal(
+                expectedLiquidityPoolAmount,
+                "Unstaked mint supply should increase by the amount minted to the liquidity pool",
+            );
+        });
+
+        it("does not mint to the liquidity pool when there is no distribution (total_mined_today = 0)", async () => {
+            const startingHwm = 1_000;
+            const beforeTs = normalizeTime(subtractDays(new Date(), 1));
+
+            const accounts = await Promise.all([
+                createGlobalDataAddedAccount({
+                    totalMinedToday: 0,
+                    highWaterMark: startingHwm,
+                    lastUpdate: beforeTs,
+                }),
+                createStakedMintAddedAccount({ supply: 10_000 }),
+                createUnstakedMintAddedAccount({ supply: 5_000 }),
+                createComptokenLiquidityTokenAccountAddedAccount(),
+            ]);
+
+            const { program, provider } = await prepareTest(accounts);
+            const beforeLiquidityPool = await getAccount(
+                provider.connection,
+                getComptokenLiquidityTokenAccountAddress(),
+            );
+
+            await dailyDistribution({ program });
+
+            const afterLiquidityPool = await getAccount(
+                provider.connection,
+                getComptokenLiquidityTokenAccountAddress(),
+            );
+            expect(afterLiquidityPool.amount).to.equal(
+                beforeLiquidityPool.amount,
+                "Liquidity pool token account balance should be unchanged when there is no daily distribution",
+            );
+        });
+
+        it("accumulates onto an existing comptoken liquidity balance (deposit is deferred to add_liquidity)", async () => {
+            const startingHwm = 4_000;
+            const minedToday = 5_500;
+            const existingBalance = 123_456;
+
+            const accounts = await Promise.all([
+                createGlobalDataAddedAccount({
+                    totalMinedToday: minedToday,
+                    highWaterMark: startingHwm,
+                    lastUpdate: normalizeTime(subtractDays(new Date(), 1)),
+                }),
+                createStakedMintAddedAccount({ supply: 40_000 }),
+                createUnstakedMintAddedAccount({ supply: 20_000 }),
+                createComptokenLiquidityTokenAccountAddedAccount({ amount: existingBalance }),
+            ]);
+
+            const { program, provider } = await prepareTest(accounts);
+
+            await dailyDistribution({ program });
+
+            const after = await fetchGlobalData(program);
+            const hwmIncrease = after.dailyDistribution.highWaterMark.toNumber() - startingHwm;
+            const totalDailyDistribution = hwmIncrease * Number(program.constants.comptokenDistributionMultiplier);
+            const expectedLiquidityPoolAmount = roundTiesEven(totalDailyDistribution * LIQUIDITY_POOL_PERCENT);
+
+            const afterLiquidityPool = await getAccount(
+                provider.connection,
+                getComptokenLiquidityTokenAccountAddress(),
+            );
+            expect(Number(afterLiquidityPool.amount)).to.equal(existingBalance + expectedLiquidityPoolAmount);
+        });
+
+        it("fails when the comptoken liquidity token account does not exist", async () => {
+            const accounts = await Promise.all([
+                createGlobalDataAddedAccount({
+                    totalMinedToday: 1_000,
+                    highWaterMark: 900,
+                    lastUpdate: normalizeTime(subtractDays(new Date(), 1)),
+                }),
+                createStakedMintAddedAccount({ supply: 10_000 }),
+                createUnstakedMintAddedAccount({ supply: 5_000 }),
+            ]);
+            const { program } = await prepareTest(accounts);
+
+            let threw = false;
+            try {
+                await dailyDistribution({ program });
+            } catch (e: any) {
+                threw = true;
+                expect(String(e.message || e)).to.match(/comptoken_liquidity_token_account|AccountNotInitialized/i);
+            }
+            expect(threw, "Expected invocation to fail without the comptoken liquidity token account").to.be.true;
+        });
+
+        it("fails when the comptoken liquidity token account is not owned by global_data", async () => {
+            const accounts = await Promise.all([
+                createGlobalDataAddedAccount({
+                    totalMinedToday: 1_000,
+                    highWaterMark: 900,
+                    lastUpdate: normalizeTime(subtractDays(new Date(), 1)),
+                }),
+                createStakedMintAddedAccount({ supply: 10_000 }),
+                createUnstakedMintAddedAccount({ supply: 5_000 }),
+                createUnstakedTokenAccountAddedAccount({
+                    address: getComptokenLiquidityTokenAccountAddress(),
+                    owner: Keypair.generate().publicKey,
+                }),
+            ]);
+            const { program } = await prepareTest(accounts);
+
+            let threw = false;
+            try {
+                await dailyDistribution({ program });
+            } catch (e: any) {
+                threw = true;
+                expect(String(e.message || e)).to.match(/ConstraintTokenOwner|token owner constraint/i);
+            }
+            expect(threw, "Expected token::authority constraint failure").to.be.true;
         });
     });
 });

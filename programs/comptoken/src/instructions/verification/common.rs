@@ -6,8 +6,8 @@ use anchor_spl::{
 
 use crate::{
     constants::{GLOBAL_DATA_SEED, MINT_DECIMALS},
+    error::ComptokenError,
     state::{
-        error::ComptokenError,
         global_data::GlobalData,
         nullifier::Nullifier,
         session::WorldIdV4Session,
@@ -21,7 +21,7 @@ use crate::{
 /// Must be called after the identity proof has already been verified and `user_data` updated.
 pub fn record_verification<'info>(
     global_data_loader: &AccountLoader<'info, GlobalData>, global_data_bump: u8, ubi_eligible: bool,
-    token_program: &Program<'info, Token2022>, unstaked_mint: &InterfaceAccount<'info, Mint>,
+    token_2022_program: &Program<'info, Token2022>, unstaked_mint: &InterfaceAccount<'info, Mint>,
     user_unstaked_token_account: &InterfaceAccount<'info, TokenAccount>,
 ) -> Result<()> {
     let mut global_data = global_data_loader.load_mut()?;
@@ -38,7 +38,7 @@ pub fn record_verification<'info>(
 
         anchor_spl::token_2022::mint_to_checked(
             CpiContext::new(
-                token_program.to_account_info(),
+                token_2022_program.to_account_info(),
                 anchor_spl::token_2022::MintToChecked {
                     mint: unstaked_mint.to_account_info(),
                     to: user_unstaked_token_account.to_account_info(),
@@ -80,7 +80,7 @@ impl IdentityWallet for Account<'_, WorldIdV4Session> {
     }
 
     fn set_identity_wallet(&mut self, user_wallet: Pubkey) -> Result<()> {
-        require!(self.user_wallet == Pubkey::default(), ComptokenError::SessionAlreadyInUse);
+        require_keys_eq!(self.user_wallet, Pubkey::default(), ComptokenError::SessionAlreadyInUse);
         self.user_wallet = user_wallet;
         Ok(())
     }
@@ -96,7 +96,7 @@ impl IdentityWallet for Account<'_, Nullifier> {
     }
 
     fn set_identity_wallet(&mut self, user_wallet: Pubkey) -> Result<()> {
-        require!(self.user_wallet == Pubkey::default(), ComptokenError::NullifierAlreadyUsed);
+        require_keys_eq!(self.user_wallet, Pubkey::default(), ComptokenError::NullifierAlreadyUsed);
         self.user_wallet = user_wallet;
         Ok(())
     }
@@ -106,7 +106,7 @@ pub fn unverify_common<'info>(
     user_data: &mut Account<'info, UserData>, global_data_loader: &AccountLoader<'info, GlobalData>,
     clear_identity_wallet: &mut impl IdentityWallet, verification: Verification,
 ) -> Result<()> {
-    require!(user_data.verification == verification, ComptokenError::InvalidVerification);
+    require_eq!(user_data.verification, verification, ComptokenError::InvalidVerification);
 
     user_data.clear_verification();
     clear_identity_wallet.clear_identity_wallet();
@@ -117,14 +117,13 @@ pub fn reverify_common<'info>(
     user_data: &mut Account<'info, UserData>, identity_account: &mut impl IdentityWallet, identity: Pubkey,
     verification: Verification,
 ) -> Result<()> {
-    require!(user_data.verification == verification, ComptokenError::InvalidVerification);
-
-    if identity_account.get_user_wallet() == Pubkey::default() {
-        // binding a previously verified but unbound identity to a new user wallet
+    if let Verification::Unverified = user_data.verification {
+        require_keys_eq!(identity_account.get_user_wallet(), Pubkey::default(), ComptokenError::InvalidVerification);
         require!(user_data.is_current(), ComptokenError::UserDataNotCurrent);
         identity_account.set_identity_wallet(identity)?;
     } else {
-        require!(identity_account.get_user_wallet() == identity, ComptokenError::InvalidNullifierOwner);
+        require_eq!(user_data.verification, verification, ComptokenError::InvalidVerification);
+        require_keys_eq!(identity_account.get_user_wallet(), identity, ComptokenError::InvalidNullifierOwner);
     }
 
     user_data.update_last_verified_timestamp();
@@ -143,7 +142,7 @@ pub fn reverify_common<'info>(
 pub fn verify_common<'info>(
     user_data: &mut Account<'info, UserData>, user_wallet: Pubkey, identity_account: &mut impl IdentityWallet,
     verification: Verification, global_data_loader: &AccountLoader<'info, GlobalData>, global_data_bump: u8,
-    token_program: &Program<'info, Token2022>, unstaked_mint: &InterfaceAccount<'info, Mint>,
+    token_2022_program: &Program<'info, Token2022>, unstaked_mint: &InterfaceAccount<'info, Mint>,
     user_unstaked_token_account: &InterfaceAccount<'info, TokenAccount>,
 ) -> Result<()> {
     require!(user_data.is_current(), ComptokenError::UserDataNotCurrent);
@@ -180,7 +179,7 @@ pub fn verify_common<'info>(
         global_data_loader,
         global_data_bump,
         ubi_eligible,
-        token_program,
+        token_2022_program,
         unstaked_mint,
         user_unstaked_token_account,
     )?;

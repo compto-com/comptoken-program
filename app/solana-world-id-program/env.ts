@@ -1,4 +1,4 @@
-import { AnchorProvider, Program, Wallet, setProvider, web3 } from "@coral-xyz/anchor";
+import { AnchorProvider, Program, Wallet, setProvider, web3 } from "@anchor-lang/core";
 import "dotenv/config";
 import fs from "fs";
 import path from "path";

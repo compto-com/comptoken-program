@@ -2,9 +2,9 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::slot_hashes::SlotHashes;
 
 use crate::{
+    error::ComptokenError,
     hash::Hash,
     helpers::{get_current_time, normalize_time},
-    state::error::ComptokenError,
     ANNOUNCEMENT_INTERVAL, SECONDS_IN_A_DAY,
 };
 

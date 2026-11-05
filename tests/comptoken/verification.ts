@@ -352,6 +352,7 @@ describe("verification", () => {
                         proofs: [],
                     }),
                     // world id PDAs + pre-created nullifier owned by program with correct owner set
+                    await createGlobalDataAddedAccount({ verifiedAccountsCount: 7 }),
                     ...(await buildWorldIdAccountsWithNullifier({
                         userWallet: user.publicKey,
                         rootHash: worldIdFixture.rootHash,
@@ -379,6 +380,8 @@ describe("verification", () => {
                 expect(Uint8Array.from(userData.verification.nullifier!.hash[0])).to.deep.equal(
                     Uint8Array.from(worldIdFixture.nullifierHash),
                 );
+                const globalData = await fetchGlobalData(program);
+                expect(globalData.dailyDistribution.verifiedAccountsCount).to.equal(7);
             });
 
             it("binds a previously-verified but unbound nullifier to a new user wallet", async () => {
@@ -390,6 +393,7 @@ describe("verification", () => {
                         verification: { Unverified: {} },
                         proofs: [],
                     }),
+                    await createGlobalDataAddedAccount({ verifiedAccountsCount: 7 }),
                     ...(await buildWorldIdAccountsWithNullifier({
                         userWallet: PublicKey.default,
                         rootHash: worldIdFixture.rootHash,
@@ -418,6 +422,14 @@ describe("verification", () => {
                 const ownerPk = new PublicKey(decoded.user_wallet);
 
                 expect(ownerPk.toBase58()).to.equal(user.publicKey.toBase58());
+
+                // the wallet must be verified again, and counted as an active verification
+                const userData = await fetchUserData(program, user.publicKey);
+                expect(Uint8Array.from(userData.verification.nullifier!.hash[0])).to.deep.equal(
+                    Uint8Array.from(worldIdFixture.nullifierHash),
+                );
+                const globalData = await fetchGlobalData(program);
+                expect(globalData.dailyDistribution.verifiedAccountsCount).to.equal(8);
             });
 
             it("fails with InvalidNullifierOwner when reverifying a bound identity with a different wallet", async () => {
@@ -431,6 +443,7 @@ describe("verification", () => {
                         verification: { Nullifier: { hash: { [0]: Array.from(worldIdFixture.nullifierHash) } } },
                         proofs: [],
                     }),
+                    await createGlobalDataAddedAccount({ verifiedAccountsCount: 7 }),
                     ...(await buildWorldIdAccountsWithNullifier({
                         userWallet: otherWallet.publicKey,
                         rootHash: worldIdFixture.rootHash,
@@ -476,6 +489,7 @@ describe("verification", () => {
                         verification: { Nullifier: { hash: { [0]: Array.from(worldIdFixture.nullifierHash) } } },
                         proofs: [],
                     }),
+                    await createGlobalDataAddedAccount({ verifiedAccountsCount: 7 }),
                     ...(await buildWorldIdAccountsWithNullifier({
                         userWallet: user.publicKey,
                         rootHash: worldIdFixture.rootHash,

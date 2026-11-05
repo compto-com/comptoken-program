@@ -13,7 +13,7 @@
     },
     "dependencies": {
         "@anchor-lang/core": "^1.2.2",
-        "@compto/comptoken.js": "github:compto-com/comptoken.js#4925cb5",
+        "@compto/comptoken.js": "github:compto-com/comptoken.js#2f987c9",
         "@ethersproject/keccak256": "^5.8.0",
         "@solana/spl-token": "^0.4.14",
         "@solana/web3.js": "^1.98.4",

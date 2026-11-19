@@ -1,5 +1,5 @@
 // modified from https://github.com/wormhole-foundation/wormhole/blob/main/sdk/js/src/solana/wormhole/accounts/config.ts
-import * as anchor from "@coral-xyz/anchor";
+import * as anchor from "@anchor-lang/core";
 import { getAccountData } from "./utils/account.ts";
 
 export function deriveConfigKey(worldIdProgramId: anchor.web3.PublicKey): anchor.web3.PublicKey {

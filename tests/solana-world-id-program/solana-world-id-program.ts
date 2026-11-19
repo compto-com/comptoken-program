@@ -1,5 +1,4 @@
-import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
+import * as anchor from "@anchor-lang/core";
 import {
     EthCallQueryRequest,
     EthCallQueryResponse,
@@ -43,9 +42,9 @@ describe("solana-world-id-program", () => {
     // Configure the client to use the local cluster.
     anchor.setProvider(anchor.AnchorProvider.env());
 
-    const program = anchor.workspace.SolanaWorldIdProgram as Program<SolanaWorldIdProgram>;
+    const program = anchor.workspace.SolanaWorldIdProgram as anchor.Program<SolanaWorldIdProgram>;
 
-    const programPaidBy = (payer: anchor.web3.Keypair): Program<SolanaWorldIdProgram> => {
+    const programPaidBy = (payer: anchor.web3.Keypair): anchor.Program<SolanaWorldIdProgram> => {
         const newProvider = new anchor.AnchorProvider(anchor.getProvider().connection, new anchor.Wallet(payer), {});
         return new anchor.Program<SolanaWorldIdProgram>(program.idl, newProvider);
     };
@@ -86,7 +85,7 @@ describe("solana-world-id-program", () => {
         querySignatures: string[],
         signatureKeypair: anchor.web3.Keypair,
         totalSignatures: number = 0,
-        p: Program<SolanaWorldIdProgram> = program,
+        p: anchor.Program<SolanaWorldIdProgram> = program,
     ) {
         const signatureData = signaturesToSolanaArray(querySignatures);
         await p.methods

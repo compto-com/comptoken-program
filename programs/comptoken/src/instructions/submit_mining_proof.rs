@@ -10,8 +10,8 @@ use crate::{
         GLOBAL_DATA_SEED, MINING_REWARD_AMOUNT, MINT_DECIMALS, PROOF_DIFFICULTY_NBITS, PROOF_DIFFICULTY_NBITS_DEVNET,
         UNSTAKED_MINT_SEED, USER_DATA_SEED,
     },
+    error::ComptokenError,
     state::{
-        error::ComptokenError,
         global_data::{GlobalData, ValidBlockhashes},
         hash::Hash,
         user_data::UserData,
@@ -34,7 +34,7 @@ pub struct SubmitMiningProof<'info> {
         mut,
         token::mint = unstaked_mint,
         token::authority = user_wallet,
-        token::token_program = token_program,
+        token::token_program = token_2022_program,
     )]
     pub user_unstaked_token_account: InterfaceAccount<'info, TokenAccount>,
 
@@ -52,7 +52,7 @@ pub struct SubmitMiningProof<'info> {
     )]
     pub global_data: AccountLoader<'info, GlobalData>,
 
-    pub token_program: Program<'info, Token2022>,
+    pub token_2022_program: Program<'info, Token2022>,
 }
 
 /// Raw proof bytes submitted by the client for Bitcoin-style proof-of-work validation.
@@ -169,7 +169,7 @@ pub fn submit_mining_proof(ctx: Context<SubmitMiningProof>, args: SubmitMiningPr
 
     mint_to_checked(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_2022_program.to_account_info(),
             anchor_spl::token_2022::MintToChecked {
                 mint: ctx.accounts.unstaked_mint.to_account_info(),
                 to: ctx.accounts.user_unstaked_token_account.to_account_info(),

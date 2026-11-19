@@ -1,6 +1,6 @@
 // NETWORK=testnet WALLET=~/.config/solana/your-key.json npx tsx app/claimOwnership.ts
 
-import { web3 } from "@coral-xyz/anchor";
+import { web3 } from "@anchor-lang/core";
 import { getEnv } from "./env";
 
 const { program } = getEnv();

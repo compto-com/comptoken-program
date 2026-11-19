@@ -1,6 +1,6 @@
 // NETWORK=testnet WALLET=~/.config/solana/your-key.json npx tsx app/init.ts
 
-import { web3 } from "@coral-xyz/anchor";
+import { web3 } from "@anchor-lang/core";
 import BN from "bn.js";
 import { getEnv } from "./env";
 

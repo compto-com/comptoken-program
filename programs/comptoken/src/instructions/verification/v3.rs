@@ -11,9 +11,9 @@ use crate::{
         GLOBAL_DATA_SEED, NULLIFIER_SEED, REVERIFY_SIGNAL_ACTION, UNSTAKED_MINT_SEED, UNVERIFY_SIGNAL_ACTION,
         USER_DATA_SEED, VERIFICATION_TYPE, VERIFY_SIGNAL_ACTION, WORLD_ACTION, WORLD_APP_ID, WORLD_ID_PROOF_SIZE,
     },
+    error::ComptokenError,
     instructions::verification::common::{reverify_common, unverify_common, verify_common},
     state::{
-        error::ComptokenError,
         ext::world_id_program::{self, WorldIdConfig, WorldIdLatestRoot, WorldIdProgram, WorldIdRoot},
         global_data::GlobalData,
         hash::Hash,
@@ -97,11 +97,11 @@ pub struct Verify<'info> {
         mut,
         seeds = [UNSTAKED_MINT_SEED],
         bump,
-        mint::token_program = token_program,
+        mint::token_program = token_2022_program,
     )]
     pub unstaked_mint: InterfaceAccount<'info, Mint>,
 
-    pub token_program: Program<'info, Token2022>,
+    pub token_2022_program: Program<'info, Token2022>,
     pub system_program: Program<'info, System>,
 }
 
@@ -131,7 +131,7 @@ pub fn verify(ctx: Context<Verify>, args: WorldIdVerificationData) -> Result<()>
         Verification::Nullifier { hash: args.nullifier_hash },
         &ctx.accounts.global_data,
         ctx.bumps.global_data,
-        &ctx.accounts.token_program,
+        &ctx.accounts.token_2022_program,
         &ctx.accounts.unstaked_mint,
         &ctx.accounts.user_unstaked_token_account,
     )
@@ -178,6 +178,14 @@ pub struct Reverify<'info> {
         bump,
     )]
     pub world_id_nullifier: Account<'info, Nullifier>,
+
+    /// only needed if rebinding a world id that was previously unverified
+    #[account(
+        mut,
+        seeds = [GLOBAL_DATA_SEED],
+        bump,
+    )]
+    pub global_data: Option<AccountLoader<'info, GlobalData>>,
 }
 
 /// Refreshes a user's World ID verification by checking a proof and updating their verification timestamp.
@@ -205,6 +213,7 @@ pub fn reverify(ctx: Context<Reverify>, args: WorldIdVerificationData) -> Result
 
     reverify_common(
         &mut ctx.accounts.user_data,
+        &ctx.accounts.global_data,
         &mut ctx.accounts.world_id_nullifier,
         ctx.accounts.user_wallet.key(),
         Verification::Nullifier { hash: args.nullifier_hash },

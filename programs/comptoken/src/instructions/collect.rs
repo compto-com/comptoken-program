@@ -24,7 +24,7 @@ pub struct Collect<'info> {
     #[account(
         token::authority = user_wallet,
         token::mint = staked_mint,
-        token::token_program = token_program,
+        token::token_program = token_2022_program,
     )]
     pub user_staked_token_account: InterfaceAccount<'info, TokenAccount>,
 
@@ -32,14 +32,14 @@ pub struct Collect<'info> {
         mut,
         token::authority = user_wallet,
         token::mint = unstaked_mint,
-        token::token_program = token_program,
+        token::token_program = token_2022_program,
     )]
     pub user_unstaked_token_account: InterfaceAccount<'info, TokenAccount>,
 
     #[account(
         seeds = [STAKED_MINT_SEED],
         bump,
-        mint::token_program = token_program,
+        mint::token_program = token_2022_program,
     )]
     pub staked_mint: InterfaceAccount<'info, Mint>,
 
@@ -47,7 +47,7 @@ pub struct Collect<'info> {
         mut,
         seeds = [UNSTAKED_MINT_SEED],
         bump,
-        mint::token_program = token_program,
+        mint::token_program = token_2022_program,
     )]
     pub unstaked_mint: InterfaceAccount<'info, Mint>,
 
@@ -57,7 +57,7 @@ pub struct Collect<'info> {
     )]
     pub global_data: AccountLoader<'info, GlobalData>,
 
-    pub token_program: Program<'info, Token2022>,
+    pub token_2022_program: Program<'info, Token2022>,
 }
 
 /// Mints the caller's pending rewards into their unstaked token account and updates claim state.
@@ -98,7 +98,7 @@ pub fn collect(ctx: Context<Collect>) -> Result<()> {
 
         anchor_spl::token_2022::mint_to_checked(
             CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_2022_program.to_account_info(),
                 MintToChecked {
                     mint: ctx.accounts.unstaked_mint.to_account_info(),
                     to: ctx.accounts.user_unstaked_token_account.to_account_info(),

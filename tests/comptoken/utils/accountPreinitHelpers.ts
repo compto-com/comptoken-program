@@ -1,3 +1,4 @@
+import { BorshCoder, type IdlAccounts, type IdlTypes, default as anchor } from "@anchor-lang/core";
 import {
     type ComptokenProgram,
     addresses,
@@ -8,7 +9,6 @@ import {
     getComptokenIdl,
     getSolanaWorldIdIdl,
 } from "@compto/comptoken.js";
-import { BorshCoder, type IdlAccounts, type IdlTypes, default as anchor } from "@coral-xyz/anchor";
 import {
     ACCOUNT_SIZE,
     type Account,
@@ -18,13 +18,14 @@ import {
     ExtensionType,
     MintLayout,
     TOKEN_2022_PROGRAM_ID,
+    TOKEN_PROGRAM_ID,
     getAccountLen,
     getAssociatedTokenAddressSync,
     getMintLen,
     getAccount as splGetAccount,
     getMint as splGetMint,
 } from "@solana/spl-token";
-import { PublicKey, SystemProgram } from "@solana/web3.js";
+import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { expect } from "chai";
 import type { AddedAccount } from "solana-bankrun";
 import type { Comptoken as ComptokenIdl } from "../../../target/types/comptoken.ts";
@@ -50,7 +51,37 @@ export const solanaWorldIdIdl = getSolanaWorldIdIdl(`${projectRoot}/target/idl/s
 export const solanaWorldIdProgram = createSolanaWorldIdProgram(solanaWorldIdIdl, createDummyProvider());
 export const solanaWorldIdCoder = new BorshCoder(solanaWorldIdIdl);
 
-export type UserDataAccountData = IdlAccounts<ComptokenIdl>["userData"];
+// not sure why the type is wrong, but this should fix it
+type VerificationFixed =
+    | {
+          Unverified: {};
+      }
+    | {
+          Nullifier: {
+              hash: { [0]: number[] };
+          };
+      }
+    | {
+          Session: {
+              id: { [0]: number[] };
+          };
+      };
+
+export type UserDataAccountData = Omit<IdlAccounts<ComptokenIdl>["userData"], "verification"> & {
+    verification: VerificationFixed;
+};
+
+export type HistoricDistribution = IdlTypes<ComptokenIdl>["historicDistribution"];
+export type GlobalDataAccountData = Omit<IdlAccounts<ComptokenIdl>["globalData"], "dailyDistribution"> & {
+    dailyDistribution: Omit<IdlAccounts<ComptokenIdl>["globalData"]["dailyDistribution"], "historicDistributions"> & {
+        historicDistributions: Omit<
+            IdlAccounts<ComptokenIdl>["globalData"]["dailyDistribution"]["historicDistributions"],
+            "buffer"
+        > & {
+            buffer: HistoricDistribution[];
+        };
+    };
+};
 
 export async function createWalletAddedAccount(
     address: PublicKey,
@@ -147,18 +178,6 @@ export async function createUserDataAddedAccount({
         },
     };
 }
-
-export type HistoricDistribution = IdlTypes<ComptokenIdl>["historicDistribution"];
-export type GlobalDataAccountData = Omit<IdlAccounts<ComptokenIdl>["globalData"], "dailyDistribution"> & {
-    dailyDistribution: Omit<IdlAccounts<ComptokenIdl>["globalData"]["dailyDistribution"], "historicDistributions"> & {
-        historicDistributions: Omit<
-            IdlAccounts<ComptokenIdl>["globalData"]["dailyDistribution"]["historicDistributions"],
-            "buffer"
-        > & {
-            buffer: HistoricDistribution[];
-        };
-    };
-};
 
 export async function createGlobalDataAddedAccount({
     totalMinedToday = 0,
@@ -398,6 +417,145 @@ export async function createUnstakedTokenAccountAddedAccount({
             lamports: 1_000_000_000, // arbitrary lamport amount
         },
     };
+}
+
+export function createTokenAccountAddedAccount({
+    address,
+    mint,
+    owner,
+    amount = 0,
+    tokenProgram,
+}: {
+    address: PublicKey;
+    mint: PublicKey;
+    owner: PublicKey;
+    amount?: bigint | number;
+    tokenProgram: PublicKey;
+}): AddedAccount {
+    const data = Buffer.alloc(ACCOUNT_SIZE);
+
+    AccountLayout.encode(
+        {
+            mint,
+            owner,
+            amount: BigInt(amount),
+            delegateOption: 0,
+            delegate: PublicKey.default,
+            state: AccountState.Initialized,
+            isNativeOption: 0,
+            isNative: BigInt(0),
+            delegatedAmount: BigInt(0),
+            closeAuthorityOption: 0,
+            closeAuthority: PublicKey.default,
+        },
+        data,
+    );
+
+    return {
+        address,
+        info: {
+            owner: tokenProgram,
+            data,
+            executable: false,
+            lamports: 1_000_000_000, // arbitrary lamport amount
+        },
+    };
+}
+
+export function createMintAddedAccount({
+    address,
+    mintAuthority,
+    supply = 0,
+    decimals,
+    tokenProgram,
+}: {
+    address: PublicKey;
+    mintAuthority: PublicKey;
+    supply?: bigint | number;
+    decimals: number;
+    tokenProgram: PublicKey;
+}): AddedAccount {
+    const data = Buffer.alloc(MintLayout.span);
+    MintLayout.encode(
+        {
+            mintAuthorityOption: 1,
+            mintAuthority,
+            supply: BigInt(supply),
+            decimals,
+            isInitialized: true,
+            freezeAuthorityOption: 0,
+            freezeAuthority: PublicKey.default,
+        },
+        data,
+    );
+
+    return {
+        address,
+        info: {
+            owner: tokenProgram,
+            data,
+            executable: false,
+            lamports: 1_000_000_000, // arbitrary lamport amount
+        },
+    };
+}
+
+export function getComptokenLiquidityTokenAccountAddress(): PublicKey {
+    return PublicKey.findProgramAddressSync(
+        [baseProgram.constants.comptokenLiquidityTokenAccountSeed],
+        baseProgram.programId,
+    )[0];
+}
+
+export function getUsdcLiquidityTokenAccountAddress(): PublicKey {
+    return PublicKey.findProgramAddressSync(
+        [baseProgram.constants.usdcLiquidityTokenAccountSeed],
+        baseProgram.programId,
+    )[0];
+}
+
+export async function createComptokenLiquidityTokenAccountAddedAccount({
+    amount = 0,
+}: {
+    amount?: bigint | number;
+} = {}): Promise<AddedAccount> {
+    return createTokenAccountAddedAccount({
+        address: getComptokenLiquidityTokenAccountAddress(),
+        mint: getUnstakedMintAddress(baseProgram),
+        owner: getGlobalDataAddress(baseProgram),
+        amount,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+    });
+}
+
+export async function createUsdcLiquidityTokenAccountAddedAccount({
+    amount = 0,
+}: {
+    amount?: bigint | number;
+} = {}): Promise<AddedAccount> {
+    return createTokenAccountAddedAccount({
+        address: getUsdcLiquidityTokenAccountAddress(),
+        mint: baseProgram.constants.usdcMintAddress,
+        owner: getGlobalDataAddress(baseProgram),
+        amount,
+        tokenProgram: TOKEN_PROGRAM_ID,
+    });
+}
+
+export const USDC_DECIMALS = 6;
+
+export async function createUsdcMintAddedAccount({
+    supply = 1_000_000_000_000,
+}: {
+    supply?: bigint | number;
+} = {}): Promise<AddedAccount> {
+    return createMintAddedAccount({
+        address: baseProgram.constants.usdcMintAddress,
+        mintAuthority: Keypair.generate().publicKey,
+        supply,
+        decimals: USDC_DECIMALS,
+        tokenProgram: TOKEN_PROGRAM_ID,
+    });
 }
 
 export async function createStakedTokenAccountAddedAccount({
@@ -659,15 +817,20 @@ export async function buildWorldIdAccountsWithNullifier({
     ];
 }
 
-export function getAccount(connection: anchor.web3.Connection, address: anchor.web3.PublicKey): Promise<Account> {
-    return splGetAccount(connection, address, "confirmed", TOKEN_2022_PROGRAM_ID);
+export function getAccount(
+    connection: anchor.web3.Connection,
+    address: anchor.web3.PublicKey,
+    tokenProgram: anchor.web3.PublicKey = TOKEN_2022_PROGRAM_ID,
+): Promise<Account> {
+    return splGetAccount(connection, address, "confirmed", tokenProgram);
 }
 
 export function getMint(
     connection: anchor.web3.Connection,
     address: anchor.web3.PublicKey,
+    tokenProgram: anchor.web3.PublicKey = TOKEN_2022_PROGRAM_ID,
 ): Promise<import("@solana/spl-token").Mint> {
-    return splGetMint(connection, address, "confirmed", TOKEN_2022_PROGRAM_ID);
+    return splGetMint(connection, address, "confirmed", tokenProgram);
 }
 
 function BNtoBigIntRecursive(obj: any): any {
@@ -692,6 +855,8 @@ function BNtoBigIntRecursive(obj: any): any {
 function snakeToCamelRecursive(obj: any): any {
     if (Array.isArray(obj)) {
         return obj.map((item) => snakeToCamelRecursive(item));
+    } else if (obj instanceof PublicKey || obj instanceof BN) {
+        return obj;
     } else if (obj !== null && typeof obj === "object") {
         const newObj: any = {};
         for (const key of Object.keys(obj)) {

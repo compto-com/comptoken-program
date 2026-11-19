@@ -7,7 +7,8 @@ use anchor_spl::{
 
 use crate::{
     constants::{GLOBAL_DATA_SEED, MINT_DECIMALS, STAKED_MINT_SEED, UNSTAKED_MINT_SEED, USER_DATA_SEED},
-    state::{error::ComptokenError, global_data::GlobalData, user_data::UserData},
+    error::ComptokenError,
+    state::{global_data::GlobalData, user_data::UserData},
 };
 
 #[derive(Accounts)]
@@ -23,7 +24,7 @@ pub struct Stake<'info> {
         mut,
         seeds = [STAKED_MINT_SEED],
         bump,
-        mint::token_program = token_program,
+        mint::token_program = token_2022_program,
     )]
     pub staked_mint: InterfaceAccount<'info, Mint>,
 
@@ -31,7 +32,7 @@ pub struct Stake<'info> {
         mut,
         seeds = [UNSTAKED_MINT_SEED],
         bump,
-        mint::token_program = token_program,
+        mint::token_program = token_2022_program,
     )]
     pub unstaked_mint: InterfaceAccount<'info, Mint>,
     pub user_wallet: Signer<'info>,
@@ -46,7 +47,7 @@ pub struct Stake<'info> {
         mut,
         associated_token::mint = staked_mint,
         associated_token::authority = user_wallet,
-        associated_token::token_program = token_program,
+        associated_token::token_program = token_2022_program,
     )]
     pub user_staked_token_account: InterfaceAccount<'info, TokenAccount>,
 
@@ -54,12 +55,12 @@ pub struct Stake<'info> {
         mut,
         token::mint = unstaked_mint,
         token::authority = user_wallet,
-        token::token_program = token_program,
+        token::token_program = token_2022_program,
     )]
     pub user_unstaked_token_account: InterfaceAccount<'info, TokenAccount>,
 
     pub associated_token_program: Program<'info, AssociatedToken>,
-    pub token_program: Program<'info, Token2022>,
+    pub token_2022_program: Program<'info, Token2022>,
     pub system_program: Program<'info, System>,
 }
 
@@ -79,7 +80,7 @@ pub fn stake(ctx: Context<Stake>, args: StakeArgs) -> Result<()> {
 
     burn(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_2022_program.to_account_info(),
             Burn {
                 mint: ctx.accounts.unstaked_mint.to_account_info(),
                 from: user_unstaked_token_account.to_account_info(),
@@ -92,7 +93,7 @@ pub fn stake(ctx: Context<Stake>, args: StakeArgs) -> Result<()> {
 
     mint_to_checked(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_2022_program.to_account_info(),
             MintToChecked {
                 mint: ctx.accounts.staked_mint.to_account_info(),
                 to: user_staked_token_account.to_account_info(),

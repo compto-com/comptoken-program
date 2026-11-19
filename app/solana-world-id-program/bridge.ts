@@ -1,4 +1,4 @@
-import * as anchor from "@coral-xyz/anchor";
+import * as anchor from "@anchor-lang/core";
 import {
     EthCallQueryRequest,
     EthCallQueryResponse,
@@ -144,7 +144,10 @@ async function syncRoot(logger: Logger) {
             const guardianSetIndex = await getGuardianSetIndex();
             const guardianSignaturesAddress = getGuardianSignatureAddress(wallet.payer);
 
-            if ((await program.account.guardianSignatures.fetchNullable(guardianSignaturesAddress.publicKey)) != null) {
+            if (
+                (await program.account.guardianSignaturesBuffer.fetchNullable(guardianSignaturesAddress.publicKey)) !=
+                null
+            ) {
                 logger.debug(
                     `Guardian signatures account ${guardianSignaturesAddress.publicKey.toString()} already exists, deleting...`,
                 );
@@ -152,7 +155,7 @@ async function syncRoot(logger: Logger) {
                 const tx = await program.methods
                     .closeSignatures()
                     .accounts({
-                        guardianSignatures: guardianSignaturesAddress.publicKey,
+                        guardianSignaturesBuffer: guardianSignaturesAddress.publicKey,
                     })
                     .rpc();
                 logger.info(
@@ -163,7 +166,7 @@ async function syncRoot(logger: Logger) {
             const signatureData = signaturesToSolanaArray(queryResponse.signatures);
             await program.methods
                 .postSignatures(signatureData, signatureData.length)
-                .accounts({ guardianSignatures: guardianSignaturesAddress.publicKey })
+                .accounts({ guardianSignaturesBuffer: guardianSignaturesAddress.publicKey })
                 .signers([wallet.payer, guardianSignaturesAddress])
                 .rpc();
 
@@ -175,7 +178,7 @@ async function syncRoot(logger: Logger) {
                 )
                 .accounts({
                     guardianSet: deriveGuardianSetKey(coreBridgeAddress, guardianSetIndex),
-                    guardianSignatures: guardianSignaturesAddress.publicKey,
+                    guardianSignaturesBuffer: guardianSignaturesAddress.publicKey,
                 })
                 .preInstructions(
                     NETWORK === "mainnet"

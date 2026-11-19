@@ -2,7 +2,8 @@ use anchor_lang::prelude::*;
 
 use crate::{
     constants::{SECONDS_IN_A_DAY, VERIFICATION_DURATION},
-    state::{error::ComptokenError, hash::Hash},
+    error::ComptokenError,
+    state::hash::Hash,
     utils::helpers::{get_current_time, normalize_time},
 };
 
@@ -22,6 +23,12 @@ pub enum Verification {
     Unverified,
     Nullifier { hash: Hash },
     Session { id: Hash },
+}
+
+impl std::fmt::Display for Verification {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 // UserData has a limit on the number of proofs it can store (just over 300)

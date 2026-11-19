@@ -178,6 +178,14 @@ pub struct Reverify<'info> {
         bump,
     )]
     pub world_id_nullifier: Account<'info, Nullifier>,
+
+    /// only needed if rebinding a world id that was previously unverified
+    #[account(
+        mut,
+        seeds = [GLOBAL_DATA_SEED],
+        bump,
+    )]
+    pub global_data: Option<AccountLoader<'info, GlobalData>>,
 }
 
 /// Refreshes a user's World ID verification by checking a proof and updating their verification timestamp.
@@ -205,6 +213,7 @@ pub fn reverify(ctx: Context<Reverify>, args: WorldIdVerificationData) -> Result
 
     reverify_common(
         &mut ctx.accounts.user_data,
+        &ctx.accounts.global_data,
         &mut ctx.accounts.world_id_nullifier,
         ctx.accounts.user_wallet.key(),
         Verification::Nullifier { hash: args.nullifier_hash },

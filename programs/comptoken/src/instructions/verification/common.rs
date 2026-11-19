@@ -114,13 +114,20 @@ pub fn unverify_common<'info>(
 }
 
 pub fn reverify_common<'info>(
-    user_data: &mut Account<'info, UserData>, identity_account: &mut impl IdentityWallet, identity: Pubkey,
-    verification: Verification,
+    user_data: &mut Account<'info, UserData>, global_data_loader_opt: &Option<AccountLoader<'info, GlobalData>>,
+    identity_account: &mut impl IdentityWallet, identity: Pubkey, verification: Verification,
 ) -> Result<()> {
     if let Verification::Unverified = user_data.verification {
         require_keys_eq!(identity_account.get_user_wallet(), Pubkey::default(), ComptokenError::InvalidVerification);
         require!(user_data.is_current(), ComptokenError::UserDataNotCurrent);
         identity_account.set_identity_wallet(identity)?;
+        user_data.set_verification(verification);
+        if let Some(global_data_loader) = global_data_loader_opt {
+            global_data_loader.load_mut()?.daily_distribution.verified_accounts_count += 1;
+        } else {
+            msg!("Global data account is required to transfer a verification to a new wallet");
+            return err!(ErrorCode::AccountNotEnoughKeys);
+        }
     } else {
         require_eq!(user_data.verification, verification, ComptokenError::InvalidVerification);
         require_keys_eq!(identity_account.get_user_wallet(), identity, ComptokenError::InvalidNullifierOwner);

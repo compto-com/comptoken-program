@@ -184,6 +184,14 @@ pub struct Reverify<'info> {
         bump,
     )]
     pub world_id_session: Account<'info, WorldIdV4Session>,
+
+    /// only needed if rebinding a session that was previously unverified
+    #[account(
+        mut,
+        seeds = [GLOBAL_DATA_SEED],
+        bump,
+    )]
+    pub global_data: Option<AccountLoader<'info, GlobalData>>,
 }
 
 /// Refreshes a user's World ID verification by checking a session proof and updating their
@@ -199,6 +207,7 @@ pub fn reverify(ctx: Context<Reverify>, args: ReverifyArgs) -> Result<()> {
 
     reverify_common(
         &mut ctx.accounts.user_data,
+        &ctx.accounts.global_data,
         &mut ctx.accounts.world_id_session,
         ctx.accounts.user_wallet.key(),
         Verification::Session { id: args.session_proof.session_id },

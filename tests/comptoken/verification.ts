@@ -1,8 +1,13 @@
 import { addresses, transactions } from "@compto/comptoken.js";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
-const { getUnstakedMintAddress, getUserUnstakedAssociatedTokenAddress } = addresses;
-const { reverify, unverifyWithProofRecovery, unverifyWithWalletSignature, verify } = transactions;
+const {
+    getUnstakedMintAddress,
+    getUserUnstakedAssociatedTokenAddress,
+    getWorldIdLatestRootAddress,
+    getWorldIdRootAddress,
+} = addresses;
+const { reverify, reverifyTransfer, unverifyWithProofRecovery, unverifyWithWalletSignature, verify } = transactions;
 
 import type { AddedAccount } from "solana-bankrun";
 import {
@@ -430,6 +435,131 @@ describe("verification", () => {
                 );
                 const globalData = await fetchGlobalData(program);
                 expect(globalData.dailyDistribution.verifiedAccountsCount).to.equal(8);
+            });
+
+            it("does not double count when reverifying again after a successful rebind", async () => {
+                const accounts = [
+                    await createUserDataAddedAccount({
+                        userPubkey: user.publicKey,
+                        lastClaimed: new Date(),
+                        lastVerified: new Date(),
+                        verification: { Unverified: {} },
+                        proofs: [],
+                    }),
+                    await createGlobalDataAddedAccount({ verifiedAccountsCount: 7 }),
+                    ...(await buildWorldIdAccountsWithNullifier({
+                        userWallet: PublicKey.default,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        program: baseProgram,
+                    })),
+                ];
+
+                const { context, program, solanaWorldIdProgram } = await prepareTest(accounts);
+
+                const reverifyArgs = {
+                    program,
+                    solanaWorldIdProgram,
+                    rootHash: worldIdFixture.rootHash,
+                    nullifierHash: worldIdFixture.nullifierHash,
+                    proof: worldIdFixture.proof,
+                    accounts: { userWallet: user },
+                };
+
+                // first reverify rebinds the identity and counts it once
+                await reverify(reverifyArgs);
+                expect((await fetchGlobalData(program)).dailyDistribution.verifiedAccountsCount).to.equal(8);
+
+                // repeat via the auto-routing helper (now routes to the same-account path)
+                await reverify(reverifyArgs);
+                expect((await fetchGlobalData(program)).dailyDistribution.verifiedAccountsCount).to.equal(8);
+
+                // repeat again while explicitly passing globalData, so the program could increment if it
+                // mistakenly treated the already-bound identity as a new binding.
+                // advance the slot so this transaction is not deduplicated against the first one
+                const slot = await context.banksClient.getSlot();
+                context.warpToSlot(slot + 1n);
+                await reverifyTransfer(reverifyArgs);
+                expect((await fetchGlobalData(program)).dailyDistribution.verifiedAccountsCount).to.equal(8);
+
+                const userData = await fetchUserData(program, user.publicKey);
+                expect(Uint8Array.from(userData.verification.nullifier!.hash[0])).to.deep.equal(
+                    Uint8Array.from(worldIdFixture.nullifierHash),
+                );
+                const info = await program.provider.connection.getAccountInfo(
+                    getWorldIdNullifierPda(worldIdFixture.nullifierHash),
+                    "confirmed",
+                );
+                const decoded = coder.accounts.decode("Nullifier", info!.data);
+                expect(new PublicKey(decoded.user_wallet).toBase58()).to.equal(user.publicKey.toBase58());
+            });
+
+            it("fails with AccountNotEnoughKeys when rebinding an unbound identity without globalData", async () => {
+                const accounts = [
+                    await createUserDataAddedAccount({
+                        userPubkey: user.publicKey,
+                        lastClaimed: new Date(),
+                        lastVerified: new Date(),
+                        verification: { Unverified: {} },
+                        proofs: [],
+                    }),
+                    await createGlobalDataAddedAccount({ verifiedAccountsCount: 7 }),
+                    ...(await buildWorldIdAccountsWithNullifier({
+                        userWallet: PublicKey.default,
+                        rootHash: worldIdFixture.rootHash,
+                        nullifierHash: worldIdFixture.nullifierHash,
+                        program: baseProgram,
+                    })),
+                ];
+
+                const { program, solanaWorldIdProgram } = await prepareTest(accounts);
+
+                let threw = false;
+                try {
+                    // build directly so globalData can be omitted on the rebind path
+                    await program.methods
+                        .reverify({
+                            rootHash: { 0: [...worldIdFixture.rootHash] },
+                            nullifierHash: { 0: [...worldIdFixture.nullifierHash] },
+                            proof: [...worldIdFixture.proof],
+                        })
+                        .accountsPartial({
+                            userWallet: user.publicKey,
+                            worldIdRoot: getWorldIdRootAddress(solanaWorldIdProgram, worldIdFixture.rootHash),
+                            worldIdLatestRoot: getWorldIdLatestRootAddress(solanaWorldIdProgram),
+                            worldIdNullifier: getWorldIdNullifierPda(worldIdFixture.nullifierHash),
+                            globalData: null,
+                        })
+                        .signers([user])
+                        .rpc();
+                } catch (err: any) {
+                    threw = true;
+                    const code = err?.error?.errorCode?.code ?? "";
+                    const msg = (err?.error?.errorMessage ?? err?.toString() ?? "").toLowerCase();
+                    expect(
+                        code === "AccountNotEnoughKeys" ||
+                            msg.includes("accountnotenoughkeys") ||
+                            msg.includes("not enough account keys"),
+                        `Expected AccountNotEnoughKeys error, got: ${code} ${msg}`,
+                    ).to.be.true;
+                }
+                expect(threw, "Rebinding without globalData should be rejected").to.be.true;
+
+                // identity remains unbound
+                const info = await program.provider.connection.getAccountInfo(
+                    getWorldIdNullifierPda(worldIdFixture.nullifierHash),
+                    "confirmed",
+                );
+                const decoded = coder.accounts.decode("Nullifier", info!.data);
+                expect(new PublicKey(decoded.user_wallet).toBase58()).to.equal(PublicKey.default.toBase58());
+
+                // wallet remains unverified
+                const userData = await fetchUserData(program, user.publicKey);
+                expect(userData.verification).to.have.property("unverified");
+
+                // verified count unchanged
+                const globalData = await fetchGlobalData(program);
+                expect(globalData.dailyDistribution.verifiedAccountsCount).to.equal(7);
             });
 
             it("fails with InvalidNullifierOwner when reverifying a bound identity with a different wallet", async () => {
